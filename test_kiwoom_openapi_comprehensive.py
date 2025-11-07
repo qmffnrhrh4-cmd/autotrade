@@ -236,14 +236,34 @@ class KiwoomOpenAPI:
                 return False
 
         except pywintypes.com_error as e:
-            error_code = e.args[0] & 0xFFFFFFFF
-            print(f"❌ COM 오류: {e.args[1]}")
+            print(f"❌ COM 오류 발생:")
 
-            if error_code == 0x8001011F:  # RPC_E_CALL_REJECTED
-                print("\n💡 RPC_E_CALL_REJECTED 오류:")
-                print("   1. 모든 Kiwoom 프로세스 종료")
-                print("   2. Python 스크립트 재실행")
-                print("   3. PC 재부팅 (권장)")
+            # 오류 정보 상세 출력
+            try:
+                if len(e.args) >= 2:
+                    error_code = e.args[0] & 0xFFFFFFFF if isinstance(e.args[0], int) else 0
+                    error_msg = e.args[1] if len(e.args) > 1 else str(e)
+
+                    print(f"   오류 코드: 0x{error_code:08X} ({error_code})")
+                    print(f"   오류 메시지: {error_msg}")
+
+                    if error_code == 0x8001011F:  # RPC_E_CALL_REJECTED
+                        print("\n💡 RPC_E_CALL_REJECTED 오류:")
+                        print("   1. 모든 Kiwoom 프로세스 종료")
+                        print("   2. Python 스크립트 재실행")
+                        print("   3. PC 재부팅 (권장)")
+                    elif error_code == 0x8000FFFF:  # E_UNEXPECTED
+                        print("\n💡 E_UNEXPECTED 오류:")
+                        print("   1. 다른 키움 프로그램 종료 (영웅문 HTS 등)")
+                        print("   2. 작업 관리자에서 KH로 시작하는 프로세스 모두 종료")
+                        print("   3. Python 스크립트 재실행")
+                else:
+                    print(f"   오류: {e}")
+            except:
+                print(f"   오류: {e}")
+
+            import traceback
+            traceback.print_exc()
 
             return False
 
