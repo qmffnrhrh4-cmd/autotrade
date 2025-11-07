@@ -8,7 +8,11 @@ koapy 라이브러리를 사용한 고급 예제
     - koapy 공식: https://github.com/elbakramer/koapy
 """
 import sys
+import os
 from pathlib import Path
+
+# CRITICAL: Set QT_API before any Qt imports
+os.environ['QT_API'] = 'pyqt5'
 
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
