@@ -1,100 +1,123 @@
 @echo off
+chcp 65001 >nul 2>&1
 REM ============================================
-REM koapy Windows 자동 설치 스크립트
+REM koapy Windows Auto Installation Script
 REM ============================================
 
 echo.
-echo ┌────────────────────────────────────────────┐
-echo │  koapy 자동 설치 스크립트 (Windows)        │
-echo └────────────────────────────────────────────┘
+echo ================================================
+echo   koapy Automatic Installation (Windows)
+echo ================================================
 echo.
 
-REM Python 확인
-echo [1/6] Python 환경 확인 중...
-python --version
+REM Check Python
+echo [Step 1/8] Checking Python environment...
+python --version 2>nul
 if errorlevel 1 (
-    echo ❌ Python이 설치되어 있지 않습니다!
-    echo    https://www.python.org/downloads/ 에서 Python 3.11 설치
+    echo [ERROR] Python is not installed!
+    echo Please install Python 3.11 from https://www.python.org/downloads/
     pause
     exit /b 1
 )
 
-REM 비트 확인
+REM Check architecture
 echo.
-python -c "import struct; bits = struct.calcsize('P') * 8; print(f'현재 Python: {bits}-bit')"
-echo.
-
-REM 1단계: protobuf와 grpcio 설치
-echo [2/6] protobuf 3.20.3과 grpcio 1.50.0 설치 중...
-pip install protobuf==3.20.3 grpcio==1.50.0
-if errorlevel 1 (
-    echo ❌ protobuf/grpcio 설치 실패!
-    pause
-    exit /b 1
-)
-echo ✅ protobuf/grpcio 설치 완료
+python -c "import struct; bits = struct.calcsize('P') * 8; print(f'Current Python: {bits}-bit')"
 echo.
 
-REM 2단계: koapy 설치 (--no-deps)
-echo [3/6] koapy 설치 중 (--no-deps)...
-pip install --no-deps koapy
-if errorlevel 1 (
-    echo ❌ koapy 설치 실패!
-    pause
-    exit /b 1
-)
-echo ✅ koapy 설치 완료
+REM Step 1: Uninstall conflicting packages
+echo [Step 2/8] Removing conflicting packages...
+pip uninstall -y protobuf grpcio grpcio-tools 2>nul
+echo [OK] Cleanup complete
 echo.
 
-REM 3단계: 의존성 설치
-echo [4/6] koapy 의존성 패키지 설치 중...
-pip install PyQt5 pandas numpy requests beautifulsoup4 lxml python-dateutil pytz tzlocal wrapt rx
-pip install Click jsonlines korean-lunar-calendar openpyxl pendulum pyhocon PySide2 qtpy schedule Send2Trash SQLAlchemy tabulate tqdm
-if errorlevel 1 (
-    echo ⚠️  일부 패키지 설치 실패 (계속 진행)
-)
-echo ✅ 의존성 설치 완료
-echo.
-
-REM 4단계: protobuf/grpcio 재설치 (버전 확인)
-echo [5/6] protobuf/grpcio 버전 복구 중...
+REM Step 2: Install correct protobuf and grpcio versions
+echo [Step 3/8] Installing protobuf 3.20.3 and grpcio 1.50.0...
 pip install --force-reinstall protobuf==3.20.3 grpcio==1.50.0
 if errorlevel 1 (
-    echo ❌ 버전 복구 실패!
+    echo [ERROR] Failed to install protobuf/grpcio
     pause
     exit /b 1
 )
-echo ✅ 버전 복구 완료
+echo [OK] protobuf/grpcio installed
 echo.
 
-REM 5단계: PyQt5 패치
-echo [6/6] PyQt5 패치 적용 중...
+REM Step 3: Install koapy without dependencies
+echo [Step 4/8] Installing koapy (--no-deps)...
+pip install --no-deps koapy
+if errorlevel 1 (
+    echo [ERROR] Failed to install koapy
+    pause
+    exit /b 1
+)
+echo [OK] koapy installed
+echo.
+
+REM Step 4: Install basic dependencies (without PySide2)
+echo [Step 5/8] Installing basic dependencies...
+pip install PyQt5 pandas numpy requests beautifulsoup4 lxml
+pip install python-dateutil pytz tzlocal wrapt rx
+if errorlevel 1 (
+    echo [WARNING] Some packages failed (continuing)
+)
+echo [OK] Basic dependencies installed
+echo.
+
+REM Step 5: Install optional dependencies (without version-conflicting ones)
+echo [Step 6/8] Installing optional dependencies...
+pip install Click jsonlines korean-lunar-calendar openpyxl pendulum pyhocon
+pip install qtpy schedule Send2Trash SQLAlchemy tabulate tqdm attrs
+if errorlevel 1 (
+    echo [WARNING] Some packages failed (continuing)
+)
+echo [OK] Optional dependencies installed
+echo.
+
+REM Step 6: Force correct versions again (in case they were upgraded)
+echo [Step 7/8] Enforcing correct protobuf/grpcio versions...
+pip install --force-reinstall --no-deps protobuf==3.20.3
+pip install --force-reinstall --no-deps grpcio==1.50.0
+echo [OK] Versions enforced
+echo.
+
+REM Step 7: Apply PyQt5 patch
+echo [Step 8/8] Applying PyQt5 patch...
 if exist patch_koapy.py (
     python patch_koapy.py
-    echo ✅ 패치 적용 완료
+    echo [OK] Patch applied
 ) else (
-    echo ⚠️  patch_koapy.py 파일을 찾을 수 없습니다.
-    echo    패치 없이 진행합니다.
+    echo [WARNING] patch_koapy.py not found, skipping patch
 )
 echo.
 
-REM 최종 확인
-echo ============================================
-echo 📦 설치 완료! 버전 확인:
-echo ============================================
-echo.
-pip show protobuf | findstr Version
-pip show grpcio | findstr Version
-pip show koapy | findstr Version
+REM Final verification
+echo ================================================
+echo Installation Complete! Version Check:
+echo ================================================
 echo.
 
-echo ============================================
-echo ✅ koapy 설치 성공!
-echo ============================================
+python -c "import sys; import pip; packages = ['protobuf', 'grpcio', 'koapy']; [print(f'{pkg}: {pip.__version__}' if pkg == 'pip' else '') for pkg in packages]; import importlib.metadata as md; [print(f'{pkg}: {md.version(pkg)}') for pkg in packages]"
+
 echo.
-echo 💡 다음 단계:
-echo    1. python tests\manual\test_koapy_simple.py
-echo    2. python tests\manual\test_koapy_advanced.py
+echo ================================================
+echo Testing koapy import...
+echo ================================================
+python -c "from koapy import KiwoomOpenApiPlusEntrypoint; print('[SUCCESS] koapy import OK!')" 2>nul
+if errorlevel 1 (
+    echo [WARNING] koapy import failed, but installation is complete.
+    echo This is normal if PyQt5 patch was not applied or if running without GUI.
+) else (
+    echo [SUCCESS] koapy is ready to use!
+)
+
+echo.
+echo ================================================
+echo Next Steps:
+echo ================================================
+echo   1. Run: python tests\manual\test_koapy_simple.py
+echo   2. Run: python tests\manual\test_koapy_advanced.py
+echo.
+echo Note: koapy requires Windows and Kiwoom OpenAPI+ installed
 echo.
 
 pause

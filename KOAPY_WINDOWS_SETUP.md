@@ -18,26 +18,47 @@ python --version
 python -c "import struct; print(f'{struct.calcsize(\"P\") * 8}-bit')"
 ```
 
-### 2단계: 올바른 버전의 패키지 설치
+### 2단계: 자동 설치 스크립트 실행 (권장)
+
+**가장 쉬운 방법**:
+
+```cmd
+# 자동 설치 스크립트 실행
+setup_koapy_windows.bat
+```
+
+이 스크립트는 자동으로:
+- 충돌하는 패키지 제거
+- 올바른 버전의 protobuf/grpcio 설치
+- koapy 및 의존성 설치
+- 버전 자동 관리 및 다운그레이드
+- PyQt5 패치 적용
+
+### 또는 수동 설치
 
 **중요**: 반드시 이 순서대로 설치해야 합니다!
 
 ```cmd
-# 1. protobuf와 grpcio 먼저 설치
-pip install protobuf==3.20.3 grpcio==1.50.0
+# 1. 충돌 패키지 제거
+pip uninstall -y protobuf grpcio grpcio-tools
 
-# 2. koapy를 --no-deps로 설치 (버전 업그레이드 방지)
+# 2. protobuf와 grpcio 먼저 설치
+pip install --force-reinstall protobuf==3.20.3 grpcio==1.50.0
+
+# 3. koapy를 --no-deps로 설치 (버전 업그레이드 방지)
 pip install --no-deps koapy
 
-# 3. 필요한 의존성 수동 설치
+# 4. 필요한 의존성 수동 설치 (PySide2 제외!)
 pip install PyQt5 pandas numpy requests beautifulsoup4 lxml
 pip install python-dateutil pytz tzlocal wrapt rx
 pip install Click jsonlines korean-lunar-calendar openpyxl pendulum
-pip install pyhocon PySide2 qtpy schedule Send2Trash SQLAlchemy tabulate tqdm
+pip install pyhocon qtpy schedule Send2Trash SQLAlchemy tabulate tqdm attrs
 
-# 4. protobuf와 grpcio가 업그레이드되었는지 확인 후 다시 설치
-pip install --force-reinstall protobuf==3.20.3 grpcio==1.50.0
+# 5. protobuf와 grpcio 버전 강제 (다시 한번)
+pip install --force-reinstall --no-deps protobuf==3.20.3 grpcio==1.50.0
 ```
+
+**⚠️ 주의**: PySide2는 Windows에서 설치가 어렵습니다. PyQt5만 사용하면 됩니다!
 
 ### 3단계: PyQt5 패치 적용
 
