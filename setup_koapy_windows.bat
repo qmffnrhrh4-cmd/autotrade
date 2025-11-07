@@ -67,6 +67,7 @@ REM Step 5: Install optional dependencies (without version-conflicting ones)
 echo [Step 6/8] Installing optional dependencies...
 pip install Click jsonlines korean-lunar-calendar openpyxl pendulum pyhocon
 pip install qtpy schedule Send2Trash SQLAlchemy tabulate tqdm attrs
+pip install discord.py aiohttp exchange-calendars
 if errorlevel 1 (
     echo [WARNING] Some packages failed (continuing)
 )
