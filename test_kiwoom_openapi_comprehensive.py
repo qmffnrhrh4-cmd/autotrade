@@ -240,27 +240,41 @@ class KiwoomOpenAPI:
 
             # 오류 정보 상세 출력
             try:
-                if len(e.args) >= 2:
-                    error_code = e.args[0] & 0xFFFFFFFF if isinstance(e.args[0], int) else 0
+                if len(e.args) >= 1:
+                    # 음수 오류 코드를 양수로 변환하여 16진수 표시
+                    raw_error_code = e.args[0]
+                    error_code_unsigned = raw_error_code & 0xFFFFFFFF if isinstance(raw_error_code, int) else 0
                     error_msg = e.args[1] if len(e.args) > 1 else str(e)
 
-                    print(f"   오류 코드: 0x{error_code:08X} ({error_code})")
+                    print(f"   오류 코드: {raw_error_code} (0x{error_code_unsigned:08X})")
                     print(f"   오류 메시지: {error_msg}")
 
-                    if error_code == 0x8001011F:  # RPC_E_CALL_REJECTED
-                        print("\n💡 RPC_E_CALL_REJECTED 오류:")
-                        print("   1. 모든 Kiwoom 프로세스 종료")
-                        print("   2. Python 스크립트 재실행")
-                        print("   3. PC 재부팅 (권장)")
-                    elif error_code == 0x8000FFFF:  # E_UNEXPECTED
-                        print("\n💡 E_UNEXPECTED 오류:")
+                    # RPC_E_CALL_REJECTED: -2147418113 (0x8001011F)
+                    if raw_error_code == -2147418113 or error_code_unsigned == 0x8001011F:
+                        print("\n💡 RPC_E_CALL_REJECTED 오류 (0x8001011F):")
+                        print("   COM 호출이 거부되었습니다.")
+                        print("\n   해결 방법 (순서대로 시도):")
+                        print("   1. ⭐ 관리자 권한으로 실행:")
+                        print("      - 명령 프롬프트 우클릭 → '관리자 권한으로 실행'")
+                        print("      - cd C:\\Users\\USER\\Desktop\\autotrade")
+                        print("      - python test_kiwoom_openapi_comprehensive.py")
+                        print("   2. ⭐⭐⭐ PC 재부팅 (가장 확실)")
+                        print("      - 재부팅 후 다른 프로그램 실행하지 말고 바로 테스트")
+                        print("   3. 64bit-kiwoom-openapi 재설치")
+                        print("   4. Windows 방화벽에서 KHOpenAPI 허용")
+                        print("   5. 백신 프로그램 일시 중지")
+                    # E_UNEXPECTED: -2147418111 (0x8000FFFF)
+                    elif raw_error_code == -2147418111 or error_code_unsigned == 0x8000FFFF:
+                        print("\n💡 E_UNEXPECTED 오류 (0x8000FFFF):")
                         print("   1. 다른 키움 프로그램 종료 (영웅문 HTS 등)")
                         print("   2. 작업 관리자에서 KH로 시작하는 프로세스 모두 종료")
                         print("   3. Python 스크립트 재실행")
+                        print("   4. PC 재부팅")
                 else:
                     print(f"   오류: {e}")
-            except:
-                print(f"   오류: {e}")
+            except Exception as parse_error:
+                print(f"   오류 파싱 실패: {parse_error}")
+                print(f"   원본 오류: {e}")
 
             import traceback
             traceback.print_exc()
