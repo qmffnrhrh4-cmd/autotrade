@@ -150,12 +150,38 @@ echo [OK] Versions enforced
 echo.
 
 REM ============================================
-REM Step 9: Apply Patch and Test Import
+REM Step 9: Fix Qt Bindings Issue
 REM ============================================
 echo.
 echo ================================================================
-echo [STEP 9/10] Testing koapy Import
+echo [STEP 9/11] Fixing Qt Bindings (Setting QT_API)
 echo ================================================================
+
+REM Set QT_API environment variable to force qtpy to use PyQt5
+echo Setting QT_API=pyqt5...
+set QT_API=pyqt5
+echo [OK] QT_API set to pyqt5
+echo.
+
+REM Verify PyQt5 import
+echo Verifying PyQt5 import...
+python -c "from PyQt5 import QtCore; print('[OK] PyQt5 works')" 2>nul
+if errorlevel 1 (
+    echo [WARNING] PyQt5 import failed, reinstalling...
+    pip uninstall -y PyQt5 PyQt5-Qt5 PyQt5-sip
+    pip install --no-cache-dir PyQt5
+    echo [OK] PyQt5 reinstalled
+) else (
+    echo [OK] PyQt5 verified
+)
+echo.
+
+REM Reinstall qtpy to ensure it picks up PyQt5
+echo Reinstalling qtpy with QT_API set...
+pip uninstall -y qtpy
+pip install --no-cache-dir qtpy
+echo [OK] qtpy reinstalled
+echo.
 
 REM Apply patch if exists
 if exist patch_koapy.py (
@@ -164,6 +190,14 @@ if exist patch_koapy.py (
     echo [OK] Patch applied
     echo.
 )
+
+REM ============================================
+REM Step 10: Test Import
+REM ============================================
+echo.
+echo ================================================================
+echo [STEP 10/11] Testing koapy Import
+echo ================================================================
 
 REM Test import - Round 1
 echo [Test 1/3] Testing koapy import...
@@ -221,11 +255,11 @@ echo ================================================================
 echo.
 
 REM ============================================
-REM Step 10: Run Final Tests
+REM Step 11: Run Final Tests
 REM ============================================
 echo.
 echo ================================================================
-echo [STEP 10/10] Running Final Tests
+echo [STEP 11/11] Running Final Tests
 echo ================================================================
 echo.
 
