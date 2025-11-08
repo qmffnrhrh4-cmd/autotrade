@@ -152,8 +152,17 @@ class AutoTradingBot:
                     if accounts:
                         logger.info(f"Accounts: {accounts}")
                 else:
-                    logger.warning("OpenAPI server not running - using REST API only")
-                    self.openapi_client = None
+                    logger.warning("OpenAPI server not running - attempting to start...")
+                    if self._start_openapi_server():
+                        time.sleep(3)
+                        if self.openapi_client.connect():
+                            logger.info("OpenAPI client initialized after server start")
+                        else:
+                            logger.warning("Using REST API only")
+                            self.openapi_client = None
+                    else:
+                        logger.warning("OpenAPI server start failed - using REST API only")
+                        self.openapi_client = None
             except Exception as e:
                 logger.warning(f"OpenAPI client not available: {e}")
                 self.openapi_client = None
@@ -324,6 +333,69 @@ class AutoTradingBot:
         except Exception as e:
             logger.warning(f"State restoration failed: {e}")
 
+    def _start_openapi_server(self):
+        """OpenAPI 서버 자동 시작 (Windows 32비트 Python 환경)"""
+        try:
+            import subprocess
+            import platform
+            import os
+
+            if platform.system() != 'Windows':
+                logger.warning("OpenAPI server auto-start only supported on Windows")
+                return False
+
+            logger.info("Attempting to start OpenAPI server...")
+
+            server_script = os.path.join(os.path.dirname(__file__), 'openapi_server.py')
+            if not os.path.exists(server_script):
+                logger.error(f"OpenAPI server script not found: {server_script}")
+                return False
+
+            conda_paths = [
+                r"C:\Users\USER\anaconda3\envs\kiwoom32\python.exe",
+                r"C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe",
+                r"C:\Anaconda3\envs\kiwoom32\python.exe",
+            ]
+
+            python_exe = None
+            for path in conda_paths:
+                if os.path.exists(path):
+                    python_exe = path
+                    break
+
+            if not python_exe:
+                logger.warning("32-bit Python (kiwoom32) not found. Please start openapi_server.py manually.")
+                logger.info("Run: conda activate kiwoom32 && python openapi_server.py")
+                return False
+
+            logger.info(f"Starting OpenAPI server with: {python_exe}")
+
+            if platform.system() == 'Windows':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+
+                subprocess.Popen(
+                    [python_exe, server_script],
+                    cwd=os.path.dirname(__file__),
+                    startupinfo=startupinfo,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+                )
+            else:
+                subprocess.Popen(
+                    [python_exe, server_script],
+                    cwd=os.path.dirname(__file__),
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL
+                )
+
+            logger.info("OpenAPI server process started (background)")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to start OpenAPI server: {e}")
+            return False
+
     def start(self):
         if not self.is_initialized:
             logger.error("Bot not initialized")
@@ -340,6 +412,18 @@ class AutoTradingBot:
         self.is_running = True
 
         try:
+            logger.info("Starting dashboard server...")
+            from dashboard.app import run_dashboard
+            import threading
+
+            dashboard_thread = threading.Thread(
+                target=lambda: run_dashboard(bot=self, host='0.0.0.0', port=5000, debug=False),
+                daemon=True
+            )
+            dashboard_thread.start()
+            logger.info("Dashboard server started on http://0.0.0.0:5000")
+            print("📊 Dashboard: http://localhost:5000")
+
             self._main_loop()
         except KeyboardInterrupt:
             logger.info("Interrupted by user")
