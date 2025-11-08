@@ -1666,6 +1666,85 @@ def find_anaconda_path():
     return None
 
 
+def check_and_install_32bit_packages(conda_path):
+    """
+    32비트 환경에 필수 패키지가 설치되어 있는지 확인하고 없으면 설치 (최초 1회만)
+
+    Returns:
+        True if packages are ready, False otherwise
+    """
+    # 설치 완료 마커 파일
+    marker_file = Path(__file__).parent / ".openapi_packages_installed"
+
+    # 이미 설치 완료했으면 스킵
+    if marker_file.exists():
+        return True
+
+    print("📦 OpenAPI 서버 패키지 확인 중...")
+
+    # 패키지 체크
+    check_cmd = f'"{conda_path / "Scripts" / "activate.bat"}" autotrade_32 && python -c "import flask; from koapy import KiwoomOpenApiPlusEntrypoint"'
+
+    try:
+        result = subprocess.run(
+            check_cmd,
+            shell=True,
+            capture_output=True,
+            timeout=10
+        )
+
+        if result.returncode == 0:
+            # 패키지 있음 - 마커 생성
+            marker_file.touch()
+            print("✅ 패키지 확인 완료")
+            return True
+
+    except:
+        pass
+
+    # 패키지 없음 - 자동 설치
+    print("⚠️  필수 패키지가 설치되지 않았습니다")
+    print("📦 자동 설치 중... (최초 1회만, 1-2분 소요)")
+    print()
+
+    requirements_file = Path(__file__).parent / "requirements_32bit.txt"
+    if not requirements_file.exists():
+        print("❌ requirements_32bit.txt 파일을 찾을 수 없습니다")
+        print("   수동 설치: install_32bit.bat 실행")
+        return False
+
+    install_cmd = f'"{conda_path / "Scripts" / "activate.bat"}" autotrade_32 && pip install -q -r "{requirements_file}"'
+
+    try:
+        print("   Installing: Flask, koapy, PyQt5...")
+        result = subprocess.run(
+            install_cmd,
+            shell=True,
+            capture_output=True,
+            timeout=300  # 5분 타임아웃
+        )
+
+        if result.returncode == 0:
+            marker_file.touch()
+            print("✅ 패키지 설치 완료!")
+            print()
+            return True
+        else:
+            error_msg = result.stderr.decode('utf-8', errors='ignore')
+            print(f"❌ 설치 실패")
+            print(f"   수동 설치: install_32bit.bat 실행")
+            return False
+
+    except subprocess.TimeoutExpired:
+        print("❌ 설치 시간 초과 (5분)")
+        print("   수동 설치: install_32bit.bat 실행")
+        return False
+    except Exception as e:
+        print(f"❌ 설치 실패: {e}")
+        print("   수동 설치: install_32bit.bat 실행")
+        return False
+
+
 def start_openapi_server():
     """
     OpenAPI 서버를 백그라운드로 시작
@@ -1687,6 +1766,12 @@ def start_openapi_server():
     if not env_path.exists():
         print("⚠️  autotrade_32 환경을 찾을 수 없습니다 - OpenAPI 기능 비활성화")
         print("   환경 생성: INSTALL_ANACONDA_PROMPT.bat 실행")
+        print("   REST API 기능은 정상 작동합니다")
+        return None
+
+    # 패키지 확인 및 설치 (최초 1회)
+    if not check_and_install_32bit_packages(conda_path):
+        print("⚠️  패키지 설치 실패 - OpenAPI 기능 비활성화")
         print("   REST API 기능은 정상 작동합니다")
         return None
 
