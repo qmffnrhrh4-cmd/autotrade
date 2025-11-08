@@ -120,11 +120,28 @@ def health():
 
 @app.route('/connect', methods=['POST'])
 def connect():
-    """Connect to OpenAPI"""
-    success = initialize_openapi()
+    """Connect to OpenAPI (async)"""
+    global connection_status
+
+    # If already connecting or connected, return status
+    if connection_status in ['connecting', 'connected']:
+        return jsonify({
+            'status': connection_status,
+            'success': connection_status == 'connected',
+            'accounts': account_list
+        })
+
+    # Start connection in background thread
+    connection_status = 'connecting'
+    thread = threading.Thread(target=initialize_openapi, daemon=True)
+    thread.start()
+
+    # Return immediately (don't wait)
     return jsonify({
-        'success': success,
-        'accounts': account_list
+        'status': 'connecting',
+        'success': False,
+        'message': 'Connection started in background. Poll /health to check status.',
+        'accounts': []
     })
 
 
