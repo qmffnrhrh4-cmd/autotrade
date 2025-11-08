@@ -4,16 +4,39 @@ echo  AutoTrade 32-bit Environment Setup
 echo ================================================================
 echo.
 
+REM Initialize Conda (try common paths)
+set "CONDA_EXE="
+if exist "%USERPROFILE%\Anaconda3\Scripts\conda.exe" set "CONDA_EXE=%USERPROFILE%\Anaconda3\Scripts\conda.exe"
+if exist "%USERPROFILE%\anaconda3\Scripts\conda.exe" set "CONDA_EXE=%USERPROFILE%\anaconda3\Scripts\conda.exe"
+if exist "C:\ProgramData\Anaconda3\Scripts\conda.exe" set "CONDA_EXE=C:\ProgramData\Anaconda3\Scripts\conda.exe"
+if exist "%LOCALAPPDATA%\Continuum\anaconda3\Scripts\conda.exe" set "CONDA_EXE=%LOCALAPPDATA%\Continuum\anaconda3\Scripts\conda.exe"
+
 REM Step 1: Check Conda
 echo [Step 1/5] Checking Anaconda...
-where conda >nul 2>&1
-if errorlevel 1 (
-    echo ERROR: Anaconda not found!
-    echo Please install from: https://www.anaconda.com/download
-    pause
-    exit /b 1
+if "%CONDA_EXE%"=="" (
+    where conda >nul 2>&1
+    if errorlevel 1 (
+        echo.
+        echo ERROR: Anaconda not found in common locations!
+        echo.
+        echo Please use Anaconda Prompt instead:
+        echo   1. Press Windows key
+        echo   2. Type "Anaconda Prompt"
+        echo   3. Click it
+        echo   4. Run: cd C:\Users\USER\Desktop\autotrade
+        echo   5. Run: INSTALL_ANACONDA_PROMPT.bat
+        echo.
+        echo Or install Anaconda from:
+        echo   https://www.anaconda.com/download
+        pause
+        exit /b 1
+    )
+    echo OK: conda found in PATH
+) else (
+    echo OK: conda found at: %CONDA_EXE%
+    REM Initialize conda for this session
+    call "%CONDA_EXE%" init cmd.exe >nul 2>&1
 )
-echo OK: Anaconda found
 echo.
 
 REM Step 2: Create 32-bit environment
