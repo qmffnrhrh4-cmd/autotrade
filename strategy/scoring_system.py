@@ -245,7 +245,7 @@ class ScoringSystem:
         # v5.9: 캐시 저장
         if self.enable_cache and self.cache_manager:
             cache_key = self._generate_cache_key(stock_data, scan_type)
-            self.cache_manager.set(cache_key, result, ttl=self.cache_ttl)
+            self.cache_manager.set(cache_key, result, ttl_seconds=self.cache_ttl)
 
         # v5.7.5: 스캔 타입 로깅
         scan_type_display = {

@@ -526,7 +526,6 @@ class GeminiAnalyzer(BaseAnalyzer):
             # TTL 체크
             if (time.time() - cached_time) < self._cache_ttl:
                 logger.info(f"AI 분석 캐시 히트: {stock_code} (캐시 유효시간: {int(self._cache_ttl - (time.time() - cached_time))}초)")
-                print(f"   💾 AI 분석 캐시 사용 (캐시 유효: {int(self._cache_ttl - (time.time() - cached_time))}초)")
                 return cached_result
             else:
                 # TTL 만료 - 캐시 삭제
@@ -539,7 +538,6 @@ class GeminiAnalyzer(BaseAnalyzer):
         # ========== 크로스 체크 모드 ==========
         if self.enable_cross_check and self.model_2_0 and self.model_2_5:
             logger.info(f"🔀 크로스체크 분석 시작: {stock_code}")
-            print(f"   🔀 AI 크로스체크 분석 (2.0 vs 2.5)")
 
             # 프롬프트 준비
             if score_info:
@@ -602,13 +600,13 @@ class GeminiAnalyzer(BaseAnalyzer):
             elapsed_time = time.time() - start_time
             self.update_statistics(True, elapsed_time)
 
-            # 크로스 체크 정보 출력
+            # 크로스 체크 정보 로깅
             if 'cross_check' in result:
                 cc = result['cross_check']
                 if cc.get('agreement'):
-                    print(f"   ✅ 크로스체크 일치: {result['signal']} (신뢰도: {result['confidence']})")
+                    logger.info(f"크로스체크 일치: {result['signal']} (신뢰도: {result['confidence']})")
                 else:
-                    print(f"   ⚠️ 크로스체크 불일치 → 보수적 선택: {result['signal']}")
+                    logger.info(f"크로스체크 불일치 → 보수적 선택: {result['signal']}")
 
             logger.info(
                 f"크로스체크 분석 완료: {stock_code} "
@@ -722,16 +720,14 @@ class GeminiAnalyzer(BaseAnalyzer):
             except Exception as e:
                 error_msg = str(e)
 
-                # 재시도 로그 (모든 시도 표시)
+                # 재시도 로직
                 if attempt < max_retries - 1:
                     logger.warning(f"AI 분석 실패 (시도 {attempt+1}/{max_retries}), {retry_delay}초 후 재시도: {error_msg}")
-                    print(f"   ⚠️ AI 응답 지연 또는 에러 (시도 {attempt+1}/{max_retries}), {retry_delay}초 후 재시도...")
                     time.sleep(retry_delay)
                     retry_delay *= 2  # 지수 백오프
                 else:
                     # 모든 시도 실패 - 최종 에러
                     logger.error(f"AI 분석 최종 실패 ({max_retries}회 시도): {error_msg}")
-                    print(f"   ❌ AI 분석 최종 실패: {error_msg}")
                     self.update_statistics(False)
                     return self._get_error_result(f"AI 분석 실패: {error_msg}")
     
