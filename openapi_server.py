@@ -90,12 +90,12 @@ def initialize_openapi():
     future = executor.submit(initialize_openapi_worker)
 
     try:
-        # Wait up to 30 seconds for connection
-        result = future.result(timeout=30)
+        # Wait up to 60 seconds for connection (login may take time)
+        result = future.result(timeout=60)
         return result
     except FuturesTimeoutError:
-        logger.error("❌ OpenAPI connection timeout (30 seconds)")
-        logger.error("   키움증권에 먼저 로그인해주세요")
+        logger.error("❌ OpenAPI connection timeout (60 seconds)")
+        logger.error("   로그인 창에서 로그인을 완료해주세요")
         connection_status = "timeout"
         return False
     except Exception as e:
