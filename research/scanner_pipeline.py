@@ -111,15 +111,29 @@ class ScannerPipeline:
         self.config = get_config()
         self.scan_config = self.config.scanning
 
+        # Pydantic 모델과 dictionary 모두 지원하는 헬퍼 함수
+        def get_scan_value(scan_type, key, default):
+            try:
+                if isinstance(self.scan_config, dict):
+                    scan_settings = self.scan_config.get(scan_type, {})
+                    return scan_settings.get(key, default) if isinstance(scan_settings, dict) else getattr(scan_settings, key, default)
+                else:
+                    scan_settings = getattr(self.scan_config, scan_type, None)
+                    if scan_settings is None:
+                        return default
+                    return getattr(scan_settings, key, default)
+            except:
+                return default
+
         # 스캔 간격
-        self.fast_scan_interval = self.scan_config.get('fast_scan', {}).get('interval', 10)
-        self.deep_scan_interval = self.scan_config.get('deep_scan', {}).get('interval', 60)
-        self.ai_scan_interval = self.scan_config.get('ai_scan', {}).get('interval', 300)
+        self.fast_scan_interval = get_scan_value('fast_scan', 'interval', 10)
+        self.deep_scan_interval = get_scan_value('deep_scan', 'interval', 60)
+        self.ai_scan_interval = get_scan_value('ai_scan', 'interval', 300)
 
         # 최대 후보 수
-        self.fast_max_candidates = self.scan_config.get('fast_scan', {}).get('max_candidates', 50)
-        self.deep_max_candidates = self.scan_config.get('deep_scan', {}).get('max_candidates', 20)
-        self.ai_max_candidates = self.scan_config.get('ai_scan', {}).get('max_candidates', 5)
+        self.fast_max_candidates = get_scan_value('fast_scan', 'max_candidates', 50)
+        self.deep_max_candidates = get_scan_value('deep_scan', 'max_candidates', 20)
+        self.ai_max_candidates = get_scan_value('ai_scan', 'max_candidates', 5)
 
         # 스캔 상태
         self.last_fast_scan = 0

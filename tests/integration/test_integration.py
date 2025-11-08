@@ -64,23 +64,46 @@ def test_config():
 
         config = get_config()
 
+        # Pydantic 모델과 dictionary 모두 지원하는 헬퍼 함수
+        def safe_get(obj, key, default=None):
+            try:
+                if isinstance(obj, dict):
+                    return obj.get(key, default)
+                else:
+                    return getattr(obj, key, default)
+            except:
+                return default
+
+        def safe_nested_get(obj, parent_key, child_key, default=None):
+            try:
+                if isinstance(obj, dict):
+                    parent = obj.get(parent_key, {})
+                    return parent.get(child_key, default) if isinstance(parent, dict) else getattr(parent, child_key, default)
+                else:
+                    parent = getattr(obj, parent_key, None)
+                    if parent is None:
+                        return default
+                    return getattr(parent, child_key, default)
+            except:
+                return default
+
         # 설정 확인
-        print(f"  - 시스템 이름: {config.system.get('name')}")
-        print(f"  - 버전: {config.system.get('version')}")
-        print(f"  - 로그 레벨: {config.logging.get('level')}")
-        print(f"  - DB 타입: {config.database.get('type')}")
-        print(f"  - 최대 포지션: {config.position.get('max_open_positions')}")
+        print(f"  - 시스템 이름: {safe_get(config.system, 'name')}")
+        print(f"  - 버전: {safe_get(config.system, 'version')}")
+        print(f"  - 로그 레벨: {safe_get(config.logging, 'level')}")
+        print(f"  - DB 타입: {safe_get(config.database, 'type')}")
+        print(f"  - 최대 포지션: {safe_get(config.position, 'max_open_positions')}")
 
         # 스캐닝 설정
         scan_config = config.scanning
-        print(f"  - Fast Scan 간격: {scan_config.get('fast_scan', {}).get('interval')}초")
-        print(f"  - Deep Scan 간격: {scan_config.get('deep_scan', {}).get('interval')}초")
-        print(f"  - AI Scan 간격: {scan_config.get('ai_scan', {}).get('interval')}초")
+        print(f"  - Fast Scan 간격: {safe_nested_get(scan_config, 'fast_scan', 'interval')}초")
+        print(f"  - Deep Scan 간격: {safe_nested_get(scan_config, 'deep_scan', 'interval')}초")
+        print(f"  - AI Scan 간격: {safe_nested_get(scan_config, 'ai_scan', 'interval')}초")
 
         # 리스크 모드
         risk = config.risk_management
-        print(f"  - Aggressive 최대 포지션: {risk.get('aggressive', {}).get('max_open_positions')}")
-        print(f"  - Normal 최대 포지션: {risk.get('normal', {}).get('max_open_positions')}")
+        print(f"  - Aggressive 최대 포지션: {safe_nested_get(risk, 'aggressive', 'max_open_positions')}")
+        print(f"  - Normal 최대 포지션: {safe_nested_get(risk, 'normal', 'max_open_positions')}")
 
         print("\n✅ 설정 시스템 정상!")
         return True
