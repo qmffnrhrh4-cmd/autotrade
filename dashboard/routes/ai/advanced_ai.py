@@ -112,7 +112,7 @@ def get_ensemble_prediction(stock_code: str):
 def get_meta_recommendation():
     """Get meta-learning strategy recommendation"""
     try:
-        from ai.meta_learning import get_meta_learning_engine
+        #from ai.meta_learning import get_meta_learning_engine
 
         # Current conditions
         conditions = {

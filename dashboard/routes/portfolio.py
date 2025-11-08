@@ -148,7 +148,7 @@ def get_portfolio_optimization():
 def get_risk_analysis():
     """Get portfolio risk analysis with correlation heatmap"""
     try:
-        from features.risk_analyzer import RiskAnalyzer
+        from strategy.advanced_risk_analytics import AdvancedRiskAnalytics as RiskAnalyzer
 
         if _bot_instance and hasattr(_bot_instance, 'account_api'):
             holdings = _bot_instance.account_api.get_holdings()

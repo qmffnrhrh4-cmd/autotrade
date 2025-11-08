@@ -445,7 +445,7 @@ def price_option():
 def get_hft_status():
     """Get HFT system status"""
     try:
-        from ai.options_hft import get_hft_trader
+        #from ai.options_hft import get_hft_trader
 
         hft = get_hft_trader()
         metrics = hft.get_performance_metrics()
