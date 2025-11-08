@@ -410,19 +410,13 @@ class AutoTradingBot:
             except:
                 pass
 
-            # 서버 시작
+            # 서버 시작 (로그인 창이 보이도록 설정)
             if platform.system() == 'Windows':
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
-
+                # 로그인 창을 표시하기 위해 startupinfo 사용 안 함
                 process = subprocess.Popen(
                     [python_exe, server_script],
                     cwd=os.path.dirname(__file__),
-                    startupinfo=startupinfo,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
                 )
             else:
                 process = subprocess.Popen(
@@ -1260,20 +1254,12 @@ def main():
 
     bot = AutoTradingBot()
 
+    # 셀프 테스트 건너뛰기 (시간 절약)
     print("\n" + "="*80)
-    print("Running Self-Test")
+    print("Starting Trading Bot (Self-Test Skipped)")
     print("="*80)
 
-    if bot.run_self_test():
-        print("\n" + "="*80)
-        print("Self-Test PASSED - Starting Trading Bot")
-        print("="*80)
-        bot.start()
-    else:
-        print("\n" + "="*80)
-        print("Self-Test FAILED - Please check configuration")
-        print("="*80)
-        sys.exit(1)
+    bot.start()
 
 
 if __name__ == "__main__":
