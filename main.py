@@ -156,11 +156,11 @@ class AutoTradingBot:
                     if self._start_openapi_server():
                         logger.info("")
                         logger.info("="*80)
-                        logger.info("⚠️  중요: 키움증권 로그인이 필요합니다!")
+                        logger.info("⚠️  키움증권 로그인이 필요합니다!")
                         logger.info("="*80)
-                        logger.info("1. 로그인 창이 나타났는지 확인하세요 (작업 표시줄 확인)")
-                        logger.info("2. 키움증권 계정 정보를 입력하고 로그인하세요")
-                        logger.info("3. 인증서 비밀번호를 입력하세요")
+                        logger.info("1. 새 콘솔 창이 열렸습니다 (OpenAPI 서버)")
+                        logger.info("2. 해당 창에서 키움증권 로그인 창이 나타납니다")
+                        logger.info("3. 로그인 정보와 인증서 비밀번호를 입력하세요")
                         logger.info("4. 로그인 완료까지 최대 60초 대기합니다...")
                         logger.info("="*80)
                         logger.info("")
@@ -438,13 +438,13 @@ class AutoTradingBot:
             except:
                 pass
 
-            # 서버 시작 (로그인 창이 보이도록 설정)
+            # 서버 시작 (로그인 창이 보이도록 새 콘솔 창에서 실행)
             if platform.system() == 'Windows':
-                # 로그인 창을 표시하기 위해 startupinfo 사용 안 함
+                # CREATE_NEW_CONSOLE: 새 콘솔 창에서 실행하여 로그인 창이 확실히 표시됨
                 process = subprocess.Popen(
                     [python_exe, server_script],
                     cwd=os.path.dirname(__file__),
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+                    creationflags=subprocess.CREATE_NEW_CONSOLE
                 )
             else:
                 process = subprocess.Popen(
@@ -457,10 +457,10 @@ class AutoTradingBot:
             logger.info(f"✅ OpenAPI server process started (PID: {process.pid})")
             logger.info("")
             logger.info("⚠️  중요 안내:")
-            logger.info("   - OpenAPI 서버가 백그라운드에서 실행 중입니다")
-            logger.info("   - 로그인 창이 나타나면 키움증권 계정으로 로그인하세요")
+            logger.info("   - 새로운 콘솔 창이 열렸습니다 (OpenAPI 서버)")
+            logger.info("   - 해당 창에서 키움증권 로그인 창이 나타납니다")
+            logger.info("   - 키움증권 계정으로 로그인하세요")
             logger.info("   - 로그인 완료까지 약 10-30초 소요됩니다")
-            logger.info("   - 로그인 창이 안 보이면 작업 표시줄을 확인하세요")
             logger.info("")
             logger.info("="*80)
 
