@@ -154,11 +154,29 @@ class AutoTradingBot:
                 else:
                     logger.warning("OpenAPI server not running - attempting to start...")
                     if self._start_openapi_server():
-                        time.sleep(3)
-                        if self.openapi_client.connect():
-                            logger.info("OpenAPI client initialized after server start")
-                        else:
-                            logger.warning("Using REST API only")
+                        logger.info("OpenAPI server starting... waiting for initialization")
+
+                        # 서버 시작 대기 및 재시도 (최대 30초)
+                        max_retries = 10
+                        retry_delay = 3
+                        connected = False
+
+                        for retry in range(max_retries):
+                            logger.info(f"Connection attempt {retry + 1}/{max_retries}...")
+                            time.sleep(retry_delay)
+
+                            if self.openapi_client.connect():
+                                logger.info("✅ OpenAPI client initialized after server start")
+                                accounts = self.openapi_client.get_account_list()
+                                if accounts:
+                                    logger.info(f"Accounts: {accounts}")
+                                connected = True
+                                break
+                            else:
+                                logger.info(f"Not ready yet, waiting {retry_delay} more seconds...")
+
+                        if not connected:
+                            logger.warning("OpenAPI server did not respond after 30 seconds - using REST API only")
                             self.openapi_client = None
                     else:
                         logger.warning("OpenAPI server start failed - using REST API only")
@@ -342,15 +360,19 @@ class AutoTradingBot:
 
             if platform.system() != 'Windows':
                 logger.warning("OpenAPI server auto-start only supported on Windows")
+                logger.info("Please start manually: conda activate kiwoom32 && python openapi_server.py")
                 return False
 
-            logger.info("Attempting to start OpenAPI server...")
+            logger.info("="*80)
+            logger.info("OpenAPI 서버 시작 시도")
+            logger.info("="*80)
 
             server_script = os.path.join(os.path.dirname(__file__), 'openapi_server.py')
             if not os.path.exists(server_script):
                 logger.error(f"OpenAPI server script not found: {server_script}")
                 return False
 
+            # 32비트 Python 환경 검색
             conda_paths = [
                 r"C:\Users\USER\anaconda3\envs\kiwoom32\python.exe",
                 r"C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe",
@@ -361,39 +383,71 @@ class AutoTradingBot:
             for path in conda_paths:
                 if os.path.exists(path):
                     python_exe = path
+                    logger.info(f"✅ Found 32-bit Python: {path}")
                     break
 
             if not python_exe:
-                logger.warning("32-bit Python (kiwoom32) not found. Please start openapi_server.py manually.")
-                logger.info("Run: conda activate kiwoom32 && python openapi_server.py")
+                logger.warning("❌ 32-bit Python (kiwoom32) not found")
+                logger.info("")
+                logger.info("수동으로 실행하세요:")
+                logger.info("  1. 새 터미널을 엽니다")
+                logger.info("  2. conda activate kiwoom32")
+                logger.info("  3. python openapi_server.py")
+                logger.info("")
                 return False
 
-            logger.info(f"Starting OpenAPI server with: {python_exe}")
+            logger.info(f"🚀 Starting OpenAPI server...")
+            logger.info(f"   Python: {python_exe}")
+            logger.info(f"   Script: {server_script}")
 
+            # 서버가 이미 실행 중인지 확인
+            try:
+                import requests
+                response = requests.get('http://127.0.0.1:5001/health', timeout=1)
+                if response.status_code == 200:
+                    logger.info("✅ OpenAPI server already running!")
+                    return True
+            except:
+                pass
+
+            # 서버 시작
             if platform.system() == 'Windows':
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
 
-                subprocess.Popen(
+                process = subprocess.Popen(
                     [python_exe, server_script],
                     cwd=os.path.dirname(__file__),
                     startupinfo=startupinfo,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE
                 )
             else:
-                subprocess.Popen(
+                process = subprocess.Popen(
                     [python_exe, server_script],
                     cwd=os.path.dirname(__file__),
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL
                 )
 
-            logger.info("OpenAPI server process started (background)")
+            logger.info(f"✅ OpenAPI server process started (PID: {process.pid})")
+            logger.info("")
+            logger.info("⚠️  중요 안내:")
+            logger.info("   - OpenAPI 서버가 백그라운드에서 실행 중입니다")
+            logger.info("   - 로그인 창이 나타나면 키움증권 계정으로 로그인하세요")
+            logger.info("   - 로그인 완료까지 약 10-30초 소요됩니다")
+            logger.info("   - 로그인 창이 안 보이면 작업 표시줄을 확인하세요")
+            logger.info("")
+            logger.info("="*80)
+
             return True
 
         except Exception as e:
             logger.error(f"Failed to start OpenAPI server: {e}")
+            import traceback
+            traceback.print_exc()
             return False
 
     def start(self):
