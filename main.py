@@ -91,7 +91,8 @@ class TradingBotV2:
         self.state_file = Path('data/strategy_state.json')
 
         # 컴포넌트
-        self.client = None
+        self.client = None  # REST API 클라이언트 (시세 조회용)
+        self.openapi_client = None  # OpenAPI 클라이언트 (자동매매용)
         self.websocket_client = None  # 구 WebSocket 클라이언트 (비활성화)
         self.websocket_manager = None  # 신 WebSocketManager (ka10045 검증 완료)
         self.account_api = None
@@ -195,10 +196,30 @@ class TradingBotV2:
             self.db_session = get_db_session()
             logger.info("✓ 데이터베이스 초기화 완료")
 
-            # 2. REST 클라이언트
+            # 2. REST 클라이언트 (시세 조회용 - 64비트)
             logger.info("🌐 REST API 클라이언트 초기화 중...")
             self.client = KiwoomRESTClient()
             logger.info("✓ REST API 클라이언트 초기화 완료")
+
+            # 2-0. OpenAPI 클라이언트 (자동매매용 - 32비트)
+            logger.info("🔧 OpenAPI 클라이언트 초기화 중...")
+            try:
+                from core import get_openapi_client
+
+                self.openapi_client = get_openapi_client(auto_login=True)
+
+                if self.openapi_client and self.openapi_client.is_connected:
+                    logger.info("✅ OpenAPI 클라이언트 초기화 완료")
+                    logger.info(f"   계좌 목록: {self.openapi_client.get_account_list()}")
+                else:
+                    logger.warning("⚠️  OpenAPI 연결 실패 - 자동매매 기능 비활성화")
+                    logger.warning("   REST API로 시세 조회는 계속 가능합니다")
+                    self.openapi_client = None
+            except Exception as e:
+                logger.warning(f"⚠️  OpenAPI 초기화 실패: {e}")
+                logger.warning("   koapy가 설치되지 않았거나 32비트 환경이 아닐 수 있습니다")
+                logger.warning("   REST API로 시세 조회는 계속 가능합니다")
+                self.openapi_client = None
 
             # 2-1. WebSocket 클라이언트 (실시간 데이터 수신)
             # NOTE: 구 WebSocket은 현재 비활성화 (서버가 주기적으로 연결 종료하여 불필요한 재연결 부하 발생)
