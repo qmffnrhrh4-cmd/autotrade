@@ -62,12 +62,12 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001" ^| findstr "LISTENING
     taskkill /F /PID %%a >nul 2>&1
 )
 
-echo Server will run in background (minimized)
+echo OpenAPI Server window will open - DO NOT CLOSE IT
 echo Please LOGIN when the Kiwoom login window appears
 echo.
 
-REM Start OpenAPI server MINIMIZED (창 최소화)
-start "Kiwoom OpenAPI Server" /MIN "%PYTHON32%" openapi_server.py
+REM Start OpenAPI server in VISIBLE window (창을 보이게)
+start "Kiwoom OpenAPI Server" "%PYTHON32%" openapi_server.py
 
 echo Waiting 3 seconds for server to initialize...
 timeout /t 3 /nobreak >nul
@@ -79,9 +79,9 @@ echo ===========================================================================
 echo This may take up to 60 seconds
 echo.
 echo 👀 IMPORTANT: Look for the Kiwoom login window!
-echo    - It may be minimized in the taskbar
-echo    - Or press Alt+Tab to find it
-echo    - Login with your Kiwoom account
+echo    - Check the "Kiwoom OpenAPI Server" console window
+echo    - The login window should appear soon
+echo    - Login with your Kiwoom account and certificate
 echo ================================================================================
 echo.
 
@@ -93,7 +93,7 @@ set /a MAX_RETRIES=60
 set /a RETRY_COUNT+=1
 if %RETRY_COUNT% gtr %MAX_RETRIES% (
     echo ERROR: OpenAPI server failed to start after %MAX_RETRIES% seconds
-    echo Please check the minimized console window and login manually
+    echo Please check the "Kiwoom OpenAPI Server" console window and login manually
     goto START_MAIN
 )
 
