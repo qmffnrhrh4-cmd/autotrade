@@ -17,6 +17,8 @@ import requests
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
+from config.constants import URLS
+
 logger = logging.getLogger(__name__)
 
 
@@ -34,14 +36,16 @@ class KiwoomOpenAPIClient:
     - 실시간 시세
     """
 
-    def __init__(self, server_url: str = "http://127.0.0.1:5001", auto_connect: bool = True):
+    def __init__(self, server_url: str = None, auto_connect: bool = True):
         """
         OpenAPI 클라이언트 초기화
 
         Args:
-            server_url: OpenAPI 서버 URL (기본값: http://127.0.0.1:5001)
+            server_url: OpenAPI 서버 URL
             auto_connect: 자동 연결 확인 (기본값: True)
         """
+        if server_url is None:
+            server_url = URLS['openapi_server']
         self.server_url = server_url.rstrip('/')
         self.is_connected = False
         self.account_list = []
