@@ -1701,33 +1701,55 @@ def start_openapi_server():
     cmd = f'"{activate_script}" autotrade_32 && python "{server_script}"'
 
     try:
+        # 로그 파일 경로
+        log_file = Path(__file__).parent / "openapi_server.log"
+
         # Windows에서 백그라운드로 실행 (창 안 보이게)
         if sys.platform == 'win32':
             CREATE_NO_WINDOW = 0x08000000
-            process = subprocess.Popen(
-                cmd,
-                shell=True,
-                creationflags=CREATE_NO_WINDOW,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
+            with open(log_file, 'w') as log:
+                process = subprocess.Popen(
+                    cmd,
+                    shell=True,
+                    creationflags=CREATE_NO_WINDOW,
+                    stdout=log,
+                    stderr=subprocess.STDOUT
+                )
         else:
             # Linux/Mac
-            process = subprocess.Popen(
-                cmd,
-                shell=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
-            )
+            with open(log_file, 'w') as log:
+                process = subprocess.Popen(
+                    cmd,
+                    shell=True,
+                    stdout=log,
+                    stderr=subprocess.STDOUT
+                )
 
-        print("✅ OpenAPI 서버 시작됨 (백그라운드)")
+        print("✅ OpenAPI 서버 프로세스 시작됨 (백그라운드)")
         print("   - 서버 URL: http://localhost:5001")
         print("   - 환경: autotrade_32 (32-bit Python 3.10)")
 
-        # 서버 초기화 대기
+        # 서버 초기화 대기 및 헬스체크
         print("   - 서버 초기화 중...", end='', flush=True)
-        time.sleep(3)
-        print(" 완료")
+
+        import requests
+        max_retries = 15  # 15초 대기
+        for i in range(max_retries):
+            time.sleep(1)
+            try:
+                response = requests.get('http://127.0.0.1:5001/health', timeout=1)
+                if response.status_code == 200:
+                    print(f" 완료 ({i+1}초)")
+                    print("   - 서버 상태: ✅ 정상")
+                    return process
+            except:
+                pass
+
+        print(" ⚠️ 타임아웃")
+        print("   - 서버가 응답하지 않습니다 (15초 초과)")
+        print("   - 프로세스는 실행 중이나 초기화 실패 가능성")
+        print(f"   - 로그 확인: {Path(__file__).parent / 'openapi_server.log'}")
+        print("   - REST API 기능은 정상 작동합니다")
 
         return process
 
