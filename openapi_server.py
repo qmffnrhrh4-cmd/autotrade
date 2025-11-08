@@ -6,13 +6,13 @@ This server runs in 32-bit Python environment and provides OpenAPI functionality
 Main application (64-bit) communicates with this server via HTTP requests.
 
 Architecture:
-- 32-bit Python 3.10 (Anaconda autotrade_32)
-- koapy for OpenAPI connection
+- 32-bit Python 3.9/3.10 (Anaconda kiwoom32)
+- breadum/kiwoom for OpenAPI connection
 - Flask for HTTP API
 - Port: 5001
 
 Usage:
-    conda activate autotrade_32
+    conda activate kiwoom32
     python openapi_server.py
 """
 
@@ -62,9 +62,10 @@ def initialize_openapi_in_main_thread():
         else:
             logger.info("✅ Qt Application already exists")
 
-        from koapy import KiwoomOpenApiPlusEntrypoint
+        # breadum/kiwoom 라이브러리 사용
+        from kiwoom import Kiwoom
 
-        logger.info("🔧 Initializing OpenAPI connection...")
+        logger.info("🔧 Initializing Kiwoom OpenAPI connection...")
         logger.info("")
         logger.info("=" * 60)
         logger.info("⚠️  로그인 창 안내")
@@ -78,10 +79,10 @@ def initialize_openapi_in_main_thread():
 
         connection_status = "connecting"
 
-        # IMPORTANT: Qt GUI must run in main thread
-        logger.info("🔧 Creating OpenAPI Entrypoint...")
-        openapi_context = KiwoomOpenApiPlusEntrypoint().__enter__()
-        logger.info("✅ Entrypoint created")
+        # Kiwoom API 생성
+        logger.info("🔧 Creating Kiwoom API instance...")
+        openapi_context = Kiwoom()
+        logger.info("✅ Kiwoom API instance created")
 
         # Process Qt events to show any pending windows
         logger.info("🔧 Processing Qt events...")
@@ -91,22 +92,20 @@ def initialize_openapi_in_main_thread():
             time.sleep(0.1)
 
         # Auto-login (will show login window)
-        logger.info("🔐 Calling EnsureConnected()...")
+        logger.info("🔐 Calling login()...")
         logger.info("   👀 로그인 창을 찾아보세요!")
         logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
         logger.info("   - Alt+Tab으로 창 전환해보세요")
         logger.info("")
 
-        # Call EnsureConnected (this should show login window)
-        openapi_context.EnsureConnected()
+        # Call login (this will show login window and block until login completes)
+        openapi_context.login()
 
-        # Check connection
-        logger.info("🔍 Checking connection state...")
-        state = openapi_context.GetConnectState()
-        logger.info(f"   Connection state: {state}")
+        # Get account list
+        logger.info("🔍 Getting account list...")
+        account_list = openapi_context.get_account_list()
 
-        if state == 1:
-            account_list = openapi_context.GetAccountList()
+        if account_list and len(account_list) > 0:
             connection_status = "connected"
             logger.info("")
             logger.info("=" * 60)
@@ -119,7 +118,6 @@ def initialize_openapi_in_main_thread():
             logger.error("")
             logger.error("=" * 60)
             logger.error("❌ 로그인 실패")
-            logger.error(f"   연결 상태 코드: {state}")
             logger.error("   예상 원인:")
             logger.error("   1. 로그인 정보 오류")
             logger.error("   2. 인증서 비밀번호 오류")
