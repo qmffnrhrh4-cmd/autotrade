@@ -20,13 +20,33 @@ print("="*80)
 
 VENV_NAME = "autotrade_32"
 TARGET_PYTHON_VERSION = "3.9"
-REQUIRED_PACKAGES = {
-    'koapy': '0.8.3',
-    'PyQt5': '5.15.9',
-    'requests': None,
-    'pandas': None,
-    'numpy': None,
-}
+
+def get_required_packages():
+    """Python 버전에 맞는 패키지 버전 반환"""
+    if sys.version_info >= (3, 10):
+        return {
+            'koapy': '0.9.0',
+            'PyQt5': '5.15.10',
+            'requests': None,
+            'pandas': None,
+            'numpy': None,
+        }
+    elif sys.version_info >= (3, 8):
+        return {
+            'koapy': '0.8.3',
+            'PyQt5': '5.15.9',
+            'requests': None,
+            'pandas': None,
+            'numpy': None,
+        }
+    else:
+        return {
+            'koapy': '0.6.2',
+            'PyQt5': '5.15.9',
+            'requests': None,
+            'pandas': None,
+            'numpy': None,
+        }
 
 def print_step(step_num, message):
     print(f"\n{'='*80}")
@@ -108,8 +128,13 @@ def check_current_environment():
         print(f"   conda activate {VENV_NAME}")
         return False
 
-    if sys.version_info.major != 3 or sys.version_info.minor != 9:
-        print(f"\n⚠️  Python 버전이 3.9가 아닙니다. 다운그레이드가 필요합니다.")
+    # Python 3.8-3.11 모두 허용 (koapy 호환)
+    if sys.version_info.major == 3 and 8 <= sys.version_info.minor <= 11:
+        print(f"\n✅ Python {python_version} - koapy 호환 버전입니다!")
+        return True
+    elif sys.version_info.major != 3 or sys.version_info.minor != 9:
+        print(f"\n⚠️  Python 버전이 권장 버전(3.8-3.11)이 아닙니다.")
+        print(f"   Python 3.9 다운그레이드를 시도합니다.")
         return False
 
     print(f"\n✅ 올바른 환경입니다!")
@@ -122,17 +147,37 @@ def downgrade_python():
     print(f"\n⚠️  주의: Python 다운그레이드 시 기존 패키지가 제거될 수 있습니다.")
     print(f"   약 5-10분 소요될 수 있습니다...\n")
 
-    # Python 3.9 설치
+    # 방법 1: conda-forge 채널 사용
+    print(f"📦 방법 1: conda-forge 채널로 시도...")
     success, stdout, stderr = run_command(
-        f"conda install python={TARGET_PYTHON_VERSION} -y",
-        f"Python {TARGET_PYTHON_VERSION} 설치",
-        timeout=600
+        f"conda install python={TARGET_PYTHON_VERSION} -c conda-forge -y",
+        f"Python {TARGET_PYTHON_VERSION} 설치 (conda-forge)",
+        timeout=600,
+        check=False
     )
 
     if not success:
+        # 방법 2: 기본 채널 사용
+        print(f"\n📦 방법 2: 기본 채널로 재시도...")
+        success, stdout, stderr = run_command(
+            f"conda install python={TARGET_PYTHON_VERSION} -y",
+            f"Python {TARGET_PYTHON_VERSION} 설치 (기본)",
+            timeout=600,
+            check=False
+        )
+
+    if not success:
         print(f"\n❌ Python 다운그레이드 실패")
-        print(f"   수동으로 시도하세요:")
-        print(f"   conda install python={TARGET_PYTHON_VERSION} -y")
+        print(f"\n💡 해결 방법:")
+        print(f"   1. 환경 재생성:")
+        print(f"      conda deactivate")
+        print(f"      conda remove -n {VENV_NAME} --all -y")
+        print(f"      conda create -n {VENV_NAME} python={TARGET_PYTHON_VERSION} -y")
+        print(f"      conda activate {VENV_NAME}")
+        print(f"")
+        print(f"   2. 또는 현재 Python 버전 유지:")
+        print(f"      Python 3.10도 koapy를 지원합니다.")
+        print(f"      다운그레이드를 건너뛰고 계속 진행하시겠습니까?")
         return False
 
     # 설치 확인
@@ -153,9 +198,19 @@ def install_packages():
     """필요한 패키지 설치"""
     print_step(4, "필수 패키지 설치")
 
+    required_packages = get_required_packages()
+    python_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+
+    print(f"\n📦 Python {python_ver}에 맞는 패키지 버전:")
+    for pkg, ver in required_packages.items():
+        if ver:
+            print(f"   - {pkg}: v{ver}")
+        else:
+            print(f"   - {pkg}: 최신 버전")
+
     failed_packages = []
 
-    for package_name, version in REQUIRED_PACKAGES.items():
+    for package_name, version in required_packages.items():
         print(f"\n📦 {package_name} 설치 중...")
 
         if version:
@@ -466,18 +521,29 @@ def main():
             print(f"   2. python setup_openapi_32bit.py")
             return False
 
-        if not downgrade_python():
-            print(f"\n❌ Python 다운그레이드 실패")
-            print(f"   환경을 다시 활성화한 후 재시도하세요:")
-            print(f"   conda deactivate")
-            print(f"   conda activate {VENV_NAME}")
-            return False
+        # Python 3.10일 때는 그냥 진행
+        if sys.version_info.minor == 10:
+            print(f"\n✅ Python 3.10은 koapy 0.9.0을 지원합니다.")
+            print(f"   다운그레이드 없이 계속 진행합니다.")
+        else:
+            if not downgrade_python():
+                print(f"\n❌ Python 다운그레이드 실패")
 
-        print(f"\n✅ Python 다운그레이드 완료. 환경을 다시 활성화하세요:")
-        print(f"   conda deactivate")
-        print(f"   conda activate {VENV_NAME}")
-        print(f"   python setup_openapi_32bit.py")
-        return True
+                # Python 3.10이면 그냥 진행
+                if sys.version_info.minor == 10:
+                    print(f"\n💡 현재 Python 3.10이므로 다운그레이드 없이 진행합니다.")
+                else:
+                    print(f"   환경을 다시 활성화한 후 재시도하세요:")
+                    print(f"   conda deactivate")
+                    print(f"   conda activate {VENV_NAME}")
+                    return False
+
+            else:
+                print(f"\n✅ Python 다운그레이드 완료. 환경을 다시 활성화하세요:")
+                print(f"   conda deactivate")
+                print(f"   conda activate {VENV_NAME}")
+                print(f"   python setup_openapi_32bit.py")
+                return True
 
     # STEP 4: 패키지 설치
     if not install_packages():
