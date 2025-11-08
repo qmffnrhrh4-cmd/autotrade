@@ -1747,12 +1747,12 @@ def check_and_install_32bit_packages(conda_path):
 
 def start_openapi_server():
     """
-    OpenAPI 서버를 백그라운드로 시작
+    OpenAPI 서버를 최소화 상태로 시작 (로그인 창은 보임)
 
     Returns:
         subprocess.Popen object or None
     """
-    print("🔧 OpenAPI 서버 시작 중 (32-bit, 백그라운드)...")
+    print("🔧 OpenAPI 서버 시작 중 (32-bit, 최소화)...")
 
     # Anaconda 경로 찾기
     conda_path = find_anaconda_path()
@@ -1789,14 +1789,17 @@ def start_openapi_server():
         # 로그 파일 경로
         log_file = Path(__file__).parent / "openapi_server.log"
 
-        # Windows에서 백그라운드로 실행 (창 안 보이게)
+        # Windows에서 최소화 상태로 실행 (로그인 창은 보임)
         if sys.platform == 'win32':
-            CREATE_NO_WINDOW = 0x08000000
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            startupinfo.wShowWindow = 7  # SW_SHOWMINNOACTIVE (최소화, 비활성)
+
             with open(log_file, 'w') as log:
                 process = subprocess.Popen(
                     cmd,
                     shell=True,
-                    creationflags=CREATE_NO_WINDOW,
+                    startupinfo=startupinfo,
                     stdout=log,
                     stderr=subprocess.STDOUT
                 )
@@ -1810,9 +1813,10 @@ def start_openapi_server():
                     stderr=subprocess.STDOUT
                 )
 
-        print("✅ OpenAPI 서버 프로세스 시작됨 (백그라운드)")
+        print("✅ OpenAPI 서버 프로세스 시작됨 (최소화)")
         print("   - 서버 URL: http://localhost:5001")
         print("   - 환경: autotrade_32 (32-bit Python 3.10)")
+        print("   - OpenAPI 로그인 창이 나타나면 로그인하세요")
 
         # 서버 초기화 대기 및 헬스체크
         print("   - 서버 초기화 중...", end='', flush=True)
