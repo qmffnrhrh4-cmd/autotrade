@@ -43,17 +43,46 @@ echo.
 echo ================================================================================
 echo Step 1: Starting OpenAPI Server (32-bit)
 echo ================================================================================
+echo Checking for existing OpenAPI server...
+echo.
+
+REM Check if OpenAPI server is already running
+curl -s http://127.0.0.1:5001/health >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo Found existing OpenAPI server - shutting it down...
+    curl -s -X POST http://127.0.0.1:5001/shutdown >nul 2>&1
+    timeout /t 3 /nobreak >nul
+    echo Old server stopped.
+    echo.
+)
+
+REM Kill any remaining python processes on port 5001
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001" ^| findstr "LISTENING"') do (
+    echo Killing process on port 5001 (PID: %%a^)
+    taskkill /F /PID %%a >nul 2>&1
+)
+
 echo Server will run in background (minimized)
 echo Please LOGIN when the Kiwoom login window appears
-echo ================================================================================
 echo.
 
 REM Start OpenAPI server MINIMIZED (창 최소화)
 start "Kiwoom OpenAPI Server" /MIN "%PYTHON32%" openapi_server.py
 
-echo Waiting for OpenAPI server to be ready...
-echo This may take up to 60 seconds (login required)
-echo Please login when the Kiwoom login window appears!
+echo Waiting 3 seconds for server to initialize...
+timeout /t 3 /nobreak >nul
+
+echo.
+echo ================================================================================
+echo Waiting for OpenAPI Login
+echo ================================================================================
+echo This may take up to 60 seconds
+echo.
+echo 👀 IMPORTANT: Look for the Kiwoom login window!
+echo    - It may be minimized in the taskbar
+echo    - Or press Alt+Tab to find it
+echo    - Login with your Kiwoom account
+echo ================================================================================
 echo.
 
 REM Wait for server health check with timeout
