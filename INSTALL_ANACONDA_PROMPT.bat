@@ -31,9 +31,10 @@ echo.
 REM Step 2: Create 32-bit environment
 echo [Step 1/4] Creating 32-bit Python environment...
 echo Name: autotrade_32
+echo Python: 3.10 (32-bit compatible)
 echo.
 set CONDA_FORCE_32BIT=1
-call conda create -n autotrade_32 python=3.11 -y
+call conda create -n autotrade_32 python=3.10 -y
 if errorlevel 1 (
     echo ERROR: Failed to create environment
     pause
