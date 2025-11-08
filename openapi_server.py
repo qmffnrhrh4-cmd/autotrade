@@ -340,33 +340,26 @@ def main():
             logger.error(f"❌ 로그인 실패: err_code={err_code}")
             logger.error("=" * 60)
 
-    # 로그인 시작 함수
-    def start_login():
-        logger.info("")
-        logger.info("🔐 Starting async login...")
-        logger.info("   👀 로그인 창을 찾아보세요!")
-        logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
-        logger.info("   - Alt+Tab으로 창 전환해보세요")
-        logger.info("")
+    # 이벤트 핸들러 연결
+    logger.info("")
+    logger.info("🔐 Connecting event handler and starting login...")
+    logger.info("   👀 로그인 창을 찾아보세요!")
+    logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
+    logger.info("   - Alt+Tab으로 창 전환해보세요")
+    logger.info("")
 
-        # 이벤트 핸들러 연결
-        openapi_context.OnEventConnect.connect(on_login)
+    openapi_context.OnEventConnect.connect(on_login)
 
-        # CommConnect() 호출 (Qt 이벤트 루프가 실행 중이어야 함)
-        openapi_context.CommConnect()
+    # CommConnect() 먼저 호출 (비동기로 로그인 창 띄움)
+    openapi_context.CommConnect()
 
     # Keep main thread alive with Qt event loop
     try:
         from PyQt5.QtWidgets import QApplication
-        from PyQt5.QtCore import QTimer
 
         app = QApplication.instance()
         if app is not None:
             logger.info("🔄 Starting Qt event loop in main thread...")
-
-            # Qt 이벤트 루프가 시작된 후 로그인 시작 (1초 후)
-            QTimer.singleShot(1000, start_login)
-
             # Qt 이벤트 루프 실행 (GUI 표시에 필요)
             sys.exit(app.exec_())
         else:
