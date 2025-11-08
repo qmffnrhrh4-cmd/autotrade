@@ -203,8 +203,9 @@ class TradingBotV2:
             self.client = KiwoomRESTClient()
             logger.info("✓ REST API 클라이언트 초기화 완료")
 
-            # 2-0. OpenAPI 클라이언트 (자동매매용 - 32비트)
-            logger.info("🔧 OpenAPI 클라이언트 초기화 중...")
+            # 2-0. OpenAPI 클라이언트 (자동매매용 - 32비트) - 선택적 사용
+            logger.info("🔧 OpenAPI 클라이언트 초기화 시도 중...")
+            logger.info("   (OpenAPI 서버 미사용 시 이 단계는 실패할 수 있습니다)")
             try:
                 from core import get_openapi_client
 
@@ -214,13 +215,13 @@ class TradingBotV2:
                     logger.info("✅ OpenAPI 클라이언트 초기화 완료")
                     logger.info(f"   계좌 목록: {self.openapi_client.get_account_list()}")
                 else:
-                    logger.warning("⚠️  OpenAPI 연결 실패 - 자동매매 기능 비활성화")
-                    logger.warning("   REST API로 시세 조회는 계속 가능합니다")
+                    logger.info("ℹ️  OpenAPI 연결 안됨 - REST API만 사용합니다")
+                    logger.info("   시세 조회와 분석은 정상 작동합니다")
                     self.openapi_client = None
             except Exception as e:
-                logger.warning(f"⚠️  OpenAPI 초기화 실패: {e}")
-                logger.warning("   koapy가 설치되지 않았거나 32비트 환경이 아닐 수 있습니다")
-                logger.warning("   REST API로 시세 조회는 계속 가능합니다")
+                logger.info("ℹ️  OpenAPI 클라이언트 미사용")
+                logger.info("   REST API로 모든 기능을 사용할 수 있습니다")
+                logger.debug(f"   상세: {e}")
                 self.openapi_client = None
 
             # 2-1. WebSocket 클라이언트 (실시간 데이터 수신)
@@ -1857,8 +1858,20 @@ def main():
     print("AutoTrade Pro v2.0".center(60))
     print("="*60 + "\n")
 
-    # OpenAPI 서버 자동 시작 (백그라운드)
-    openapi_process = start_openapi_server()
+    # OpenAPI 서버 자동 시작 (백그라운드) - 선택적 사용
+    # OpenAPI 서버는 32비트 환경과 koapy가 필요하므로 실패 시 REST API만 사용
+    openapi_process = None
+    try:
+        logger.info("🔧 OpenAPI 서버 시작 시도 중... (실패 시 REST API만 사용)")
+        openapi_process = start_openapi_server()
+        if openapi_process:
+            logger.info("✅ OpenAPI 서버 시작 성공")
+        else:
+            logger.warning("⚠️  OpenAPI 서버 시작 실패 - REST API만 사용합니다")
+    except Exception as e:
+        logger.warning(f"⚠️  OpenAPI 서버 시작 실패: {e}")
+        logger.warning("   REST API로 계속 진행합니다")
+        openapi_process = None
     print()  # 빈 줄
 
     bot = None
