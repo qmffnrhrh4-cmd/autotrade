@@ -1,15 +1,15 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >nul 2>&1
 REM ====================================
-REM  AutoTrade - 32비트 환경 활성화
+REM  AutoTrade - Activate 32-bit Env
 REM ====================================
 
 call conda activate autotrade_32
 
 if %errorLevel% neq 0 (
-    echo ❌ autotrade_32 환경이 존재하지 않습니다!
+    echo [ERROR] autotrade_32 environment not found!
     echo.
-    echo 💡 먼저 환경을 생성하세요:
+    echo Please create the environment first:
     echo    setup_32bit.bat
     echo.
     pause
@@ -17,21 +17,21 @@ if %errorLevel% neq 0 (
 )
 
 echo.
-echo ╔════════════════════════════════════════════════════════════╗
-echo ║                                                            ║
-echo ║     ✅ 32비트 AutoTrade 환경 활성화됨                     ║
-echo ║                                                            ║
-echo ╚════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo.
+echo        32-bit AutoTrade Environment Activated
+echo.
+echo ================================================================
 echo.
 
-REM 비트 확인
-python -c "import struct; bits = struct.calcsize('P') * 8; print(f'🐍 Python: {bits}-bit')"
-echo 📁 환경: autotrade_32
+REM Show Python info
+python -c "import struct; bits = struct.calcsize('P') * 8; print('Python:', bits, 'bit')"
+echo Environment: autotrade_32
 echo.
 
-REM 사용 가능한 명령어 표시
-echo 💡 사용 가능한 명령어:
-echo    python test_login.py       - 로그인 테스트
-echo    python main.py             - 메인 프로그램 실행
-echo    python -m pytest tests/    - 테스트 실행
+REM Show available commands
+echo Available commands:
+echo    python test_login.py       - Run login test
+echo    python main.py             - Run main program
+echo    python -m pytest tests/    - Run tests
 echo.
