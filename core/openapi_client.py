@@ -105,11 +105,15 @@ class KiwoomOpenAPIClient:
         # Health check
         result = self._request('GET', '/health')
 
+        # DEBUG: 전체 응답 출력
+        logger.info(f"🔍 Health check response: {result}")
+
         if result and result.get('status') == 'ok' and result.get('server_ready'):
             logger.info("✅ OpenAPI 서버 응답 확인!")
 
             # Check if already connected to kiwoom
             connection_status = result.get('connection_status')
+            logger.info(f"🔍 Connection status: {connection_status}")
 
             if connection_status == 'connected':
                 self.is_connected = True
