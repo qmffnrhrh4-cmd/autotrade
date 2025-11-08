@@ -1,42 +1,62 @@
-# AutoTrade Pro v5.6.0 🚀
+# AutoTrade Pro v2.0 🚀
 
 **Kiwoom API + Gemini AI 기반 자동매매 봇**
 
-[![Version](https://img.shields.io/badge/version-5.6.0-blue.svg)](CHANGELOG.md)
-[![Python](https://img.shields.io/badge/python-3.8+-green.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](CHANGELOG.md)
+[![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 
 ---
 
-## 🎯 **처음 사용하시나요? → [`START_HERE.md`](START_HERE.md) 먼저 보세요!**
+## 🎯 빠른 시작
 
-## ⚡ 원클릭 설치 및 실행
+### ⚡ 원클릭 설치 (권장)
 
-### 단 하나의 파일로 모든 것을 해결!
-
-```cmd
-autotrade_setup.bat
+```bash
+python setup_kiwoom32.py
 ```
 
-이 스크립트 하나로:
-- ✅ **32비트 Python 환경 자동 생성**
-- ✅ **모든 패키지 자동 설치** (PyQt5, koapy, pydantic 등)
-- ✅ **로그인 테스트 실행**
-- ✅ **메인 프로그램 실행**
-- ✅ **환경 관리** (확인, 제거, 재설치)
+이 스크립트가 자동으로:
+- ✅ **32비트 Python 환경 생성** (kiwoom32)
+- ✅ **필수 패키지 설치** (breadum/kiwoom, PyQt5, pandas<2.0, flask 등)
+- ✅ **OpenAPI+ 설치 확인**
+- ✅ **환경 검증**
 
-**더 이상 복잡한 설정은 필요 없습니다!**
+### 📦 OpenAPI+ 설치 (최초 1회)
 
-### 빠른 시작 (3단계)
+OpenAPI+ 모듈을 설치하지 않았다면:
 
-1. **스크립트 실행**
-   ```cmd
-   autotrade_setup.bat
-   ```
+```bash
+python install_kiwoom_openapi.py
+```
 
-2. **메뉴에서 [1] 선택** (전체 설치)
+이 스크립트가:
+- OpenAPI+ 모듈 다운로드 및 설치
+- KOA Studio 설치
+- COM 등록 자동 처리
 
-3. **완료!** 🎉
+---
+
+## 🚀 실행 방법
+
+### 1. 메인 봇 실행 (64비트 Python)
+
+```bash
+python main.py
+```
+
+**자동으로 수행되는 작업:**
+- kiwoom32 환경 자동 탐지
+- OpenAPI 서버 자동 시작 (32비트)
+- 로그인 창 표시
+- 로그인 완료 후 자동매매 시작
+
+### 2. OpenAPI 서버만 실행 (32비트 Python)
+
+```bash
+conda activate kiwoom32
+python openapi_server.py
+```
 
 ---
 
@@ -46,20 +66,17 @@ autotrade_setup.bat
 
 **⚠️ 중요: 키움 OpenAPI는 32비트 전용입니다!**
 
-```cmd
-# Anaconda로 32비트 환경 생성
-set CONDA_FORCE_32BIT=1
-conda create -n autotrade_32 python=3.11 -y
-conda activate autotrade_32
-
-# 비트 확인 (32-bit 출력되어야 함)
-python -c "import struct; print(f'{struct.calcsize(\"P\")*8}-bit')"
+```bash
+conda create -n kiwoom32 -y
+conda activate kiwoom32
+conda config --env --set subdir win-32
+conda install python=3.9 -y
 ```
 
 ### 2. Python 패키지 설치
 
-```cmd
-pip install -r requirements.txt
+```bash
+pip install "PyQt5==5.15.10" "pandas<2.0" numpy requests flask flask-cors kiwoom
 ```
 
 ### 2. API 키 설정
