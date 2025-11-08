@@ -75,7 +75,8 @@ def health():
     """Health check"""
     return jsonify({
         'status': 'ok',
-        'connected': openapi_context is not None,
+        'server_ready': True,
+        'openapi_connected': openapi_context is not None,
         'accounts': account_list
     })
 
@@ -210,10 +211,8 @@ def main():
         logger.error("   Please use: conda activate autotrade_32")
         sys.exit(1)
 
-    # Initialize OpenAPI
-    initialize_openapi()
-
-    # Start Flask server
+    # Start Flask server FIRST (without OpenAPI connection)
+    # OpenAPI will be connected later via /connect endpoint
     logger.info("🚀 Starting OpenAPI server on http://localhost:5001")
     logger.info("   Available endpoints:")
     logger.info("   - GET  /health")
