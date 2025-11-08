@@ -91,6 +91,10 @@ class MarketAPI:
         """일봉 차트 데이터 조회"""
         return self.chart_data.get_daily_chart(stock_code, period, date)
 
+    def get_daily_price(self, stock_code: str, days: int = 20, date: str = None):
+        """일봉 가격 데이터 조회 (get_daily_chart 별칭)"""
+        return self.chart_data.get_daily_chart(stock_code, period=days, date=date)
+
     def get_minute_chart(self, stock_code: str, interval: int = 1, count: int = 100,
                         adjusted: bool = True, base_date: str = None, use_nxt_fallback: bool = True):
         """분봉 차트 데이터 조회 (v6.0 NXT 지원)"""
