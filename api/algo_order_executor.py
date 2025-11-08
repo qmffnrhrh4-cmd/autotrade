@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 import math
 
+from ..config.constants import DELAYS
 from ..utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -279,8 +280,7 @@ class AlgoOrderExecutor:
                         f"({self.active_algos[algo_id]['executed_quantity']:,}/{total_quantity:,})"
                     )
 
-                # Wait before next check
-                time.sleep(30)  # Check every 30 seconds
+                time.sleep(DELAYS['order_check'])
 
             except Exception as e:
                 logger.error(f"[{algo_id}] VWAP execution error: {e}")

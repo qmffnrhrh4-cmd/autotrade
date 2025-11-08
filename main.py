@@ -15,6 +15,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.manager import get_config
+from config.constants import DELAYS, URLS
 try:
     from utils.logger_new import get_logger
 except ImportError:
@@ -1817,11 +1818,11 @@ def start_openapi_server():
         print("   - 서버 초기화 중...", end='', flush=True)
 
         import requests
-        max_retries = 15  # 15초 대기
+        max_retries = 15
         for i in range(max_retries):
-            time.sleep(1)
+            time.sleep(DELAYS['server_init'])
             try:
-                response = requests.get('http://127.0.0.1:5001/health', timeout=1)
+                response = requests.get(URLS['openapi_health'], timeout=1)
                 if response.status_code == 200:
                     print(f" 완료 ({i+1}초)")
                     print("   - 서버 상태: ✅ 정상")
