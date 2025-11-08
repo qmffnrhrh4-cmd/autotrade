@@ -94,7 +94,23 @@ else:
     print("✅ Qt Application 이미 존재")
 print()
 
-# 4. OpenAPI COM 객체 생성
+# 4. COM 초기화
+print("=" * 80)
+print("  COM 초기화")
+print("=" * 80)
+print()
+
+try:
+    import pythoncom
+    pythoncom.CoInitialize()
+    print("✅ COM 초기화 성공 (STA 모드)")
+    print()
+except Exception as e:
+    print(f"⚠️  COM 초기화 경고: {e}")
+    print("   계속 진행합니다...")
+    print()
+
+# 5. OpenAPI COM 객체 생성
 print("=" * 80)
 print("  OpenAPI COM 객체 생성")
 print("=" * 80)
@@ -121,7 +137,7 @@ except Exception as e:
     input("\n종료하려면 Enter를 누르세요...")
     sys.exit(1)
 
-# 5. 이벤트 핸들러 설정
+# 6. 이벤트 핸들러 설정
 print("=" * 80)
 print("  이벤트 핸들러 설정")
 print("=" * 80)
@@ -176,7 +192,7 @@ except Exception as e:
     input("\n종료하려면 Enter를 누르세요...")
     sys.exit(1)
 
-# 6. 로그인 시도
+# 7. 로그인 시도
 print("=" * 80)
 print("  로그인 시도")
 print("=" * 80)
@@ -189,10 +205,12 @@ print("CommConnect() 호출 중...")
 print()
 
 try:
-    # Qt 이벤트 처리
+    # Qt 이벤트 처리 먼저 시작
+    print("Qt 이벤트 처리 시작...")
     app.processEvents()
 
     # CommConnect 호출
+    print()
     ret = ocx.CommConnect()
 
     print(f"CommConnect() 반환값: {ret}")
@@ -208,9 +226,12 @@ try:
         import time
         timeout = 60  # 60초 타임아웃
 
+        print("이벤트 처리 중...")
         for i in range(timeout):
-            app.processEvents()  # Qt 이벤트 처리
-            time.sleep(1)
+            # 더 자주 이벤트 처리 (10ms마다)
+            for _ in range(100):
+                app.processEvents()
+                time.sleep(0.01)  # 10ms
 
             if login_event_received:
                 break
@@ -226,13 +247,36 @@ try:
 
     else:
         print(f"❌ CommConnect() 실패: {ret}")
+        print()
+        print("오류 코드 설명:")
+        print("  0: 성공")
+        print("  음수: 실패")
 
 except Exception as e:
     print(f"❌ 로그인 오류: {e}")
+    print()
+
+    # 오류 코드 분석
+    if hasattr(e, 'args') and len(e.args) > 0:
+        error_code = e.args[0]
+        print(f"오류 코드: {error_code} (0x{error_code & 0xFFFFFFFF:08X})")
+
+        if error_code == -2147418113:  # 0x8000FFFF
+            print()
+            print("이 오류는 일반적으로 다음 이유로 발생합니다:")
+            print("  1. 키움증권 OpenAPI+가 제대로 설치되지 않음")
+            print("  2. 다른 프로그램이 OpenAPI를 사용 중")
+            print("  3. 관리자 권한이 필요함")
+            print()
+            print("해결 방법:")
+            print("  1. 키움증권 OpenAPI+ 재설치")
+            print("  2. 관리자 권한으로 실행")
+            print("  3. PC 재부팅 후 재시도")
+
     import traceback
     traceback.print_exc()
 
-# 7. 결과 확인
+# 8. 결과 확인
 print()
 print("=" * 80)
 print("  결과 확인")
