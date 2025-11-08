@@ -62,12 +62,12 @@ for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001" ^| findstr "LISTENING
     taskkill /F /PID %%a >nul 2>&1
 )
 
-echo Server will run in background (minimized)
+echo Server will run in separate window
 echo Please LOGIN when the Kiwoom login window appears
 echo.
 
-REM Start OpenAPI server MINIMIZED (창 최소화)
-start "Kiwoom OpenAPI Server" /MIN "%PYTHON32%" openapi_server.py
+REM Start OpenAPI server in separate window (NOT minimized so you can see login window)
+start "Kiwoom OpenAPI Server" "%PYTHON32%" openapi_server.py
 
 echo Waiting 3 seconds for server to initialize...
 timeout /t 3 /nobreak >nul
