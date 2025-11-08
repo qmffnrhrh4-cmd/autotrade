@@ -64,12 +64,18 @@ class OpenAPITester:
         """모든 테스트 실행"""
         print("\n🚀 테스트 시작...")
 
-        # 계좌 확인
+        # 계좌 확인 (breadum/kiwoom 메서드 사용)
         try:
-            accounts = self.api.account_list
+            accounts = self.api.get_account_list()
             if isinstance(accounts, str):
+                # 세미콜론으로 구분된 경우
+                accounts = [acc.strip() for acc in accounts.split(';') if acc.strip()]
+            elif not isinstance(accounts, list):
                 accounts = [accounts]
-        except:
+        except Exception as e:
+            print(f"❌ 계좌 목록 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
             accounts = []
 
         if not accounts:
@@ -140,7 +146,7 @@ class OpenAPITester:
 
         try:
             # 계좌 목록
-            accounts = self.api.account_list
+            accounts = self.api.get_account_list()
             print(f"✅ 계좌 목록: {accounts}")
             results['accounts'] = accounts if isinstance(accounts, list) else [accounts]
 
