@@ -73,54 +73,64 @@ class DynamicRiskManager:
         """모드별 설정 로드"""
         self.mode_configs = {}
 
+        # Pydantic 모델과 dictionary 모두 지원하는 헬퍼 함수
+        def get_risk_value(mode_name, key, default):
+            try:
+                if isinstance(self.risk_config, dict):
+                    mode_config = self.risk_config.get(mode_name, {})
+                    return mode_config.get(key, default) if isinstance(mode_config, dict) else getattr(mode_config, key, default)
+                else:
+                    mode_config = getattr(self.risk_config, mode_name, None)
+                    if mode_config is None:
+                        return default
+                    return getattr(mode_config, key, default)
+            except:
+                return default
+
         # Aggressive 모드
-        aggressive_cfg = self.risk_config.get('aggressive', {})
         self.mode_configs[RiskMode.AGGRESSIVE] = RiskModeConfig(
             mode=RiskMode.AGGRESSIVE,
-            max_open_positions=aggressive_cfg.get('max_open_positions', 12),
-            risk_per_trade_ratio=aggressive_cfg.get('risk_per_trade_ratio', 0.25),
-            take_profit_ratio=aggressive_cfg.get('take_profit_ratio', 0.15),
-            stop_loss_ratio=aggressive_cfg.get('stop_loss_ratio', -0.07),
-            ai_min_score=aggressive_cfg.get('ai_min_score', 6.5),
-            trigger_return_min=aggressive_cfg.get('trigger_return', 0.05),
+            max_open_positions=get_risk_value('aggressive', 'max_open_positions', 12),
+            risk_per_trade_ratio=get_risk_value('aggressive', 'risk_per_trade_ratio', 0.25),
+            take_profit_ratio=get_risk_value('aggressive', 'take_profit_ratio', 0.15),
+            stop_loss_ratio=get_risk_value('aggressive', 'stop_loss_ratio', -0.07),
+            ai_min_score=get_risk_value('aggressive', 'ai_min_score', 6.5),
+            trigger_return_min=get_risk_value('aggressive', 'trigger_return', 0.05),
         )
 
         # Normal 모드
-        normal_cfg = self.risk_config.get('normal', {})
         self.mode_configs[RiskMode.NORMAL] = RiskModeConfig(
             mode=RiskMode.NORMAL,
-            max_open_positions=normal_cfg.get('max_open_positions', 10),
-            risk_per_trade_ratio=normal_cfg.get('risk_per_trade_ratio', 0.20),
-            take_profit_ratio=normal_cfg.get('take_profit_ratio', 0.10),
-            stop_loss_ratio=normal_cfg.get('stop_loss_ratio', -0.05),
-            ai_min_score=normal_cfg.get('ai_min_score', 7.0),
-            trigger_return_min=normal_cfg.get('trigger_return_min', -0.05),
-            trigger_return_max=normal_cfg.get('trigger_return_max', 0.05),
+            max_open_positions=get_risk_value('normal', 'max_open_positions', 10),
+            risk_per_trade_ratio=get_risk_value('normal', 'risk_per_trade_ratio', 0.20),
+            take_profit_ratio=get_risk_value('normal', 'take_profit_ratio', 0.10),
+            stop_loss_ratio=get_risk_value('normal', 'stop_loss_ratio', -0.05),
+            ai_min_score=get_risk_value('normal', 'ai_min_score', 7.0),
+            trigger_return_min=get_risk_value('normal', 'trigger_return_min', -0.05),
+            trigger_return_max=get_risk_value('normal', 'trigger_return_max', 0.05),
         )
 
         # Conservative 모드
-        conservative_cfg = self.risk_config.get('conservative', {})
         self.mode_configs[RiskMode.CONSERVATIVE] = RiskModeConfig(
             mode=RiskMode.CONSERVATIVE,
-            max_open_positions=conservative_cfg.get('max_open_positions', 7),
-            risk_per_trade_ratio=conservative_cfg.get('risk_per_trade_ratio', 0.15),
-            take_profit_ratio=conservative_cfg.get('take_profit_ratio', 0.08),
-            stop_loss_ratio=conservative_cfg.get('stop_loss_ratio', -0.04),
-            ai_min_score=conservative_cfg.get('ai_min_score', 7.5),
-            trigger_return_min=conservative_cfg.get('trigger_return_min', -0.10),
-            trigger_return_max=conservative_cfg.get('trigger_return_max', -0.05),
+            max_open_positions=get_risk_value('conservative', 'max_open_positions', 7),
+            risk_per_trade_ratio=get_risk_value('conservative', 'risk_per_trade_ratio', 0.15),
+            take_profit_ratio=get_risk_value('conservative', 'take_profit_ratio', 0.08),
+            stop_loss_ratio=get_risk_value('conservative', 'stop_loss_ratio', -0.04),
+            ai_min_score=get_risk_value('conservative', 'ai_min_score', 7.5),
+            trigger_return_min=get_risk_value('conservative', 'trigger_return_min', -0.10),
+            trigger_return_max=get_risk_value('conservative', 'trigger_return_max', -0.05),
         )
 
         # Very Conservative 모드
-        very_conservative_cfg = self.risk_config.get('very_conservative', {})
         self.mode_configs[RiskMode.VERY_CONSERVATIVE] = RiskModeConfig(
             mode=RiskMode.VERY_CONSERVATIVE,
-            max_open_positions=very_conservative_cfg.get('max_open_positions', 5),
-            risk_per_trade_ratio=very_conservative_cfg.get('risk_per_trade_ratio', 0.10),
-            take_profit_ratio=very_conservative_cfg.get('take_profit_ratio', 0.05),
-            stop_loss_ratio=very_conservative_cfg.get('stop_loss_ratio', -0.03),
-            ai_min_score=very_conservative_cfg.get('ai_min_score', 8.0),
-            trigger_return_max=very_conservative_cfg.get('trigger_return', -0.10),
+            max_open_positions=get_risk_value('very_conservative', 'max_open_positions', 5),
+            risk_per_trade_ratio=get_risk_value('very_conservative', 'risk_per_trade_ratio', 0.10),
+            take_profit_ratio=get_risk_value('very_conservative', 'take_profit_ratio', 0.05),
+            stop_loss_ratio=get_risk_value('very_conservative', 'stop_loss_ratio', -0.03),
+            ai_min_score=get_risk_value('very_conservative', 'ai_min_score', 8.0),
+            trigger_return_max=get_risk_value('very_conservative', 'trigger_return', -0.10),
         )
 
     def update_capital(self, current_capital: float):
