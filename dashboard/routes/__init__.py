@@ -11,7 +11,8 @@ from .market import market_bp
 from .portfolio import portfolio_bp
 from .system import system_bp
 from .pages import pages_bp
-from .alerts import alerts_bp  # v5.7.5: 알림 시스템
+from .alerts import alerts_bp
+from .backtest import backtest_bp
 
 __all__ = [
     'account_bp',
@@ -21,7 +22,8 @@ __all__ = [
     'portfolio_bp',
     'system_bp',
     'pages_bp',
-    'alerts_bp'  # v5.7.5
+    'alerts_bp',
+    'backtest_bp'
 ]
 
 

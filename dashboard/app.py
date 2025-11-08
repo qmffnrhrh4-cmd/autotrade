@@ -66,7 +66,7 @@ realtime_chart_manager = None
 # Import all route blueprints
 from .routes import (
     account_bp, trading_bp, market_bp,
-    portfolio_bp, system_bp, pages_bp, alerts_bp  # v5.7.5: 알림 시스템
+    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp
 )
 
 # Import AI routes registration function (v5.7.5: modularized AI routes)
@@ -82,6 +82,7 @@ from .routes.system import (
     set_config_manager as system_set_config_manager,
     set_unified_settings as system_set_unified_settings
 )
+from .routes.backtest import set_bot_instance as backtest_set_bot
 
 # Register all blueprints
 app.register_blueprint(account_bp)
@@ -92,6 +93,7 @@ app.register_blueprint(portfolio_bp)
 app.register_blueprint(system_bp)
 app.register_blueprint(pages_bp)
 app.register_blueprint(alerts_bp)  # v5.7.5: 알림 시스템
+app.register_blueprint(backtest_bp)  # 백테스팅 시스템
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
@@ -162,6 +164,7 @@ def run_dashboard(bot=None, host: str = '0.0.0.0', port: int = 5000, debug: bool
         market_set_bot(bot_instance)
         portfolio_set_bot(bot_instance)
         system_set_bot(bot_instance)
+        backtest_set_bot(bot_instance)
 
         # Set config manager and unified settings for system routes
         if config_manager:
