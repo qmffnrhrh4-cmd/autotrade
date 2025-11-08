@@ -1,11 +1,19 @@
 """
-OpenAPI Client using koapy
-키움증권 OpenAPI+ 클라이언트 (32비트 자동매매용)
+OpenAPI Client (HTTP-based)
+===========================
+HTTP 클라이언트로 32비트 OpenAPI 서버와 통신합니다.
 
-koapy를 사용하여 키움 OpenAPI+ 연결 및 자동매매를 수행합니다.
+Architecture:
+- This client runs in 64-bit Python (main.py)
+- Communicates with openapi_server.py (32-bit) via HTTP
+- openapi_server.py handles actual koapy/OpenAPI calls
+
+Usage:
+    client = KiwoomOpenAPIClient(auto_connect=True)
+    accounts = client.get_account_list()
 """
-import os
 import logging
+import requests
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -14,96 +22,126 @@ logger = logging.getLogger(__name__)
 
 class KiwoomOpenAPIClient:
     """
-    키움 OpenAPI+ 클라이언트
+    키움 OpenAPI+ HTTP 클라이언트
 
-    koapy를 사용하여 32비트 OpenAPI+ 서버와 통신합니다.
+    32비트 OpenAPI 서버(openapi_server.py)와 HTTP로 통신합니다.
 
     주요 기능:
-    - 자동 로그인
+    - 자동 연결 확인
     - 계좌 조회
     - 주문 실행 (매수/매도)
     - 잔고 조회
-    - 체결 내역 조회
+    - 실시간 시세
     """
 
-    def __init__(self, auto_login: bool = True):
+    def __init__(self, server_url: str = "http://127.0.0.1:5001", auto_connect: bool = True):
         """
         OpenAPI 클라이언트 초기화
 
         Args:
-            auto_login: 자동 로그인 여부 (기본값: True)
+            server_url: OpenAPI 서버 URL (기본값: http://127.0.0.1:5001)
+            auto_connect: 자동 연결 확인 (기본값: True)
         """
-        self.context = None
+        self.server_url = server_url.rstrip('/')
         self.is_connected = False
         self.account_list = []
-        self.auto_login = auto_login
+        self.timeout = 30  # HTTP timeout in seconds
 
-        # QT_API 설정 (koapy에 필요)
-        os.environ['QT_API'] = 'pyqt5'
+        logger.info("🔧 OpenAPI HTTP 클라이언트 초기화...")
+        logger.info(f"   서버 URL: {self.server_url}")
 
-        logger.info("🔧 OpenAPI 클라이언트 초기화 중...")
+        if auto_connect:
+            self.connect()
+
+    def _request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict]:
+        """
+        HTTP 요청 헬퍼
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            endpoint: API endpoint (e.g., '/health')
+            **kwargs: requests 라이브러리 인자
+
+        Returns:
+            응답 JSON 딕셔너리 또는 None
+        """
+        url = f"{self.server_url}{endpoint}"
+
+        try:
+            if 'timeout' not in kwargs:
+                kwargs['timeout'] = self.timeout
+
+            response = requests.request(method, url, **kwargs)
+            response.raise_for_status()
+            return response.json()
+
+        except requests.exceptions.ConnectionError:
+            logger.error(f"❌ OpenAPI 서버 연결 실패: {url}")
+            logger.error("   서버가 실행 중인지 확인하세요 (openapi_server.py)")
+            return None
+        except requests.exceptions.Timeout:
+            logger.error(f"❌ 요청 시간 초과: {url}")
+            return None
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"❌ HTTP 에러: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ 요청 실패: {e}")
+            return None
 
     def connect(self) -> bool:
         """
-        OpenAPI 서버 연결 및 로그인
+        OpenAPI 서버 연결 확인
 
         Returns:
             연결 성공 여부
         """
-        try:
-            from koapy import KiwoomOpenApiPlusEntrypoint
+        logger.info("📡 OpenAPI 서버 연결 확인 중...")
 
-            logger.info("📡 OpenAPI 서버 연결 중...")
-            logger.info("   (32비트 서버가 자동으로 시작됩니다)")
+        # Health check
+        result = self._request('GET', '/health')
 
-            # Context manager 패턴 사용
-            self.context = KiwoomOpenApiPlusEntrypoint().__enter__()
+        if result and result.get('status') == 'ok':
+            self.is_connected = result.get('connected', False)
+            self.account_list = result.get('accounts', [])
 
-            if self.auto_login:
-                # 자동 로그인 시도
-                logger.info("🔐 자동 로그인 시도 중...")
-                self.context.EnsureConnected()
+            if self.is_connected:
+                logger.info("✅ OpenAPI 서버 연결됨!")
+                logger.info(f"📋 계좌 목록: {self.account_list}")
+                return True
+            else:
+                logger.warning("⚠️  OpenAPI 서버는 실행 중이나 koapy 연결 안 됨")
+                logger.info("   /connect 엔드포인트로 재연결 시도...")
 
-                # 연결 상태 확인
-                state = self.context.GetConnectState()
-
-                if state == 1:
-                    logger.info("✅ OpenAPI 로그인 성공!")
+                # Try to connect
+                connect_result = self._request('POST', '/connect')
+                if connect_result and connect_result.get('success'):
                     self.is_connected = True
-
-                    # 계좌 목록 조회
-                    self.account_list = self.context.GetAccountList()
+                    self.account_list = connect_result.get('accounts', [])
+                    logger.info("✅ OpenAPI 연결 성공!")
                     logger.info(f"📋 계좌 목록: {self.account_list}")
-
                     return True
                 else:
-                    logger.error(f"❌ 로그인 실패 (상태: {state})")
+                    logger.error("❌ OpenAPI 연결 실패")
                     return False
-            else:
-                logger.info("⚠️  수동 로그인 모드 (auto_login=False)")
-                self.is_connected = True
-                return True
-
-        except ImportError as e:
-            logger.error("❌ koapy를 import할 수 없습니다!")
-            logger.error("   해결책: pip install koapy PyQt5 protobuf==3.20.3")
-            logger.error(f"   상세: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"❌ OpenAPI 연결 실패: {e}")
-            import traceback
-            traceback.print_exc()
+        else:
+            logger.error("❌ OpenAPI 서버 응답 없음")
+            logger.error("   start.bat를 실행하거나 openapi_server.py를 수동으로 시작하세요")
             return False
 
     def disconnect(self):
-        """OpenAPI 서버 연결 해제"""
-        try:
-            if self.context:
-                self.context.__exit__(None, None, None)
-                logger.info("🔌 OpenAPI 연결 해제됨")
-            self.is_connected = False
-        except Exception as e:
-            logger.error(f"연결 해제 실패: {e}")
+        """OpenAPI 서버 연결 해제 (서버는 계속 실행)"""
+        self.is_connected = False
+        logger.info("🔌 OpenAPI 클라이언트 연결 해제")
+
+    def shutdown_server(self):
+        """OpenAPI 서버 종료"""
+        logger.info("🛑 OpenAPI 서버 종료 요청...")
+        result = self._request('POST', '/shutdown')
+        if result:
+            logger.info("✅ OpenAPI 서버 종료됨")
+        else:
+            logger.warning("⚠️  서버 종료 실패 (이미 종료되었을 수 있음)")
 
     def get_account_list(self) -> List[str]:
         """
@@ -116,13 +154,10 @@ class KiwoomOpenAPIClient:
             logger.warning("OpenAPI 연결 안 됨")
             return []
 
-        try:
-            if not self.account_list:
-                self.account_list = self.context.GetAccountList()
-            return self.account_list
-        except Exception as e:
-            logger.error(f"계좌 조회 실패: {e}")
-            return []
+        result = self._request('GET', '/accounts')
+        if result:
+            return result.get('accounts', [])
+        return []
 
     def get_balance(self, account_no: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -138,22 +173,15 @@ class KiwoomOpenAPIClient:
             logger.warning("OpenAPI 연결 안 됨")
             return {}
 
-        try:
-            if account_no is None:
-                accounts = self.get_account_list()
-                if not accounts:
-                    logger.error("사용 가능한 계좌 없음")
-                    return {}
-                account_no = accounts[0]
+        if account_no is None:
+            accounts = self.get_account_list()
+            if not accounts:
+                logger.error("사용 가능한 계좌 없음")
+                return {}
+            account_no = accounts[0]
 
-            # opw00018: 예수금상세현황
-            # opw00004: 계좌평가잔고내역
-            balance_data = self.context.GetAccountEvaluationStatusAsSeriesDict(account_no)
-
-            return balance_data
-        except Exception as e:
-            logger.error(f"잔고 조회 실패: {e}")
-            return {}
+        result = self._request('GET', f'/balance/{account_no}')
+        return result if result else {}
 
     def get_holdings(self, account_no: Optional[str] = None) -> List[Dict[str, Any]]:
         """
@@ -165,26 +193,8 @@ class KiwoomOpenAPIClient:
         Returns:
             보유 종목 리스트
         """
-        if not self.is_connected:
-            logger.warning("OpenAPI 연결 안 됨")
-            return []
-
-        try:
-            if account_no is None:
-                accounts = self.get_account_list()
-                if not accounts:
-                    return []
-                account_no = accounts[0]
-
-            # 계좌평가잔고내역 조회
-            holdings = self.context.GetAccountStocksAsDataFrame(account_no)
-
-            if holdings is not None and not holdings.empty:
-                return holdings.to_dict('records')
-            return []
-        except Exception as e:
-            logger.error(f"보유 종목 조회 실패: {e}")
-            return []
+        balance = self.get_balance(account_no)
+        return balance.get('positions', [])
 
     def buy_market_order(
         self,
@@ -207,30 +217,28 @@ class KiwoomOpenAPIClient:
             logger.warning("OpenAPI 연결 안 됨")
             return None
 
-        try:
-            if account_no is None:
-                accounts = self.get_account_list()
-                if not accounts:
-                    return None
-                account_no = accounts[0]
+        if account_no is None:
+            accounts = self.get_account_list()
+            if not accounts:
+                return None
+            account_no = accounts[0]
 
-            logger.info(f"📈 시장가 매수 주문: {stock_code} x {quantity}주")
+        logger.info(f"📈 시장가 매수 주문: {stock_code} x {quantity}주")
 
-            # 시장가 매수
-            order_no = self.context.BuyStockAtMarketPrice(
-                account_no=account_no,
-                code=stock_code,
-                quantity=quantity
-            )
+        result = self._request('POST', '/order', json={
+            'account_no': account_no,
+            'code': stock_code,
+            'qty': quantity,
+            'order_type': 'market',
+            'side': 'buy'
+        })
 
-            if order_no:
-                logger.info(f"✅ 매수 주문 성공: 주문번호 {order_no}")
-            else:
-                logger.error("❌ 매수 주문 실패")
-
-            return order_no
-        except Exception as e:
-            logger.error(f"매수 주문 실패: {e}")
+        if result and result.get('success'):
+            order_id = result.get('order_id')
+            logger.info(f"✅ 매수 주문 성공: 주문번호 {order_id}")
+            return order_id
+        else:
+            logger.error("❌ 매수 주문 실패")
             return None
 
     def sell_market_order(
@@ -254,35 +262,33 @@ class KiwoomOpenAPIClient:
             logger.warning("OpenAPI 연결 안 됨")
             return None
 
-        try:
-            if account_no is None:
-                accounts = self.get_account_list()
-                if not accounts:
-                    return None
-                account_no = accounts[0]
+        if account_no is None:
+            accounts = self.get_account_list()
+            if not accounts:
+                return None
+            account_no = accounts[0]
 
-            logger.info(f"📉 시장가 매도 주문: {stock_code} x {quantity}주")
+        logger.info(f"📉 시장가 매도 주문: {stock_code} x {quantity}주")
 
-            # 시장가 매도
-            order_no = self.context.SellStockAtMarketPrice(
-                account_no=account_no,
-                code=stock_code,
-                quantity=quantity
-            )
+        result = self._request('POST', '/order', json={
+            'account_no': account_no,
+            'code': stock_code,
+            'qty': quantity,
+            'order_type': 'market',
+            'side': 'sell'
+        })
 
-            if order_no:
-                logger.info(f"✅ 매도 주문 성공: 주문번호 {order_no}")
-            else:
-                logger.error("❌ 매도 주문 실패")
-
-            return order_no
-        except Exception as e:
-            logger.error(f"매도 주문 실패: {e}")
+        if result and result.get('success'):
+            order_id = result.get('order_id')
+            logger.info(f"✅ 매도 주문 성공: 주문번호 {order_id}")
+            return order_id
+        else:
+            logger.error("❌ 매도 주문 실패")
             return None
 
     def get_stock_info(self, stock_code: str) -> Dict[str, Any]:
         """
-        종목 정보 조회
+        종목 정보 조회 (실시간 가격)
 
         Args:
             stock_code: 종목코드 (6자리)
@@ -294,16 +300,13 @@ class KiwoomOpenAPIClient:
             logger.warning("OpenAPI 연결 안 됨")
             return {}
 
-        try:
-            info = self.context.GetStockBasicInfoAsDict(stock_code)
-            return info if info else {}
-        except Exception as e:
-            logger.error(f"종목 정보 조회 실패: {e}")
-            return {}
+        result = self._request('GET', f'/realtime/price/{stock_code}')
+        return result if result else {}
 
     def __enter__(self):
         """Context manager 진입"""
-        self.connect()
+        if not self.is_connected:
+            self.connect()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -320,12 +323,12 @@ class KiwoomOpenAPIClient:
 _openapi_client_instance = None
 
 
-def get_openapi_client(auto_login: bool = True) -> Optional[KiwoomOpenAPIClient]:
+def get_openapi_client(auto_connect: bool = True) -> Optional[KiwoomOpenAPIClient]:
     """
     OpenAPI 클라이언트 싱글톤 인스턴스 반환
 
     Args:
-        auto_login: 자동 로그인 여부
+        auto_connect: 자동 연결 여부
 
     Returns:
         OpenAPI 클라이언트 인스턴스 (연결 실패 시 None)
@@ -333,9 +336,9 @@ def get_openapi_client(auto_login: bool = True) -> Optional[KiwoomOpenAPIClient]
     global _openapi_client_instance
 
     if _openapi_client_instance is None:
-        _openapi_client_instance = KiwoomOpenAPIClient(auto_login=auto_login)
-        if not _openapi_client_instance.connect():
-            _openapi_client_instance = None
-            return None
+        _openapi_client_instance = KiwoomOpenAPIClient(auto_connect=auto_connect)
+        if not _openapi_client_instance.is_connected:
+            logger.warning("⚠️  OpenAPI 서버 연결 실패 - 일부 기능 비활성화")
+            # 연결 실패해도 인스턴스는 반환 (나중에 재연결 가능)
 
     return _openapi_client_instance

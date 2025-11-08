@@ -1658,6 +1658,7 @@ def main():
     print("AutoTrade Pro v2.0".center(60))
     print("="*60 + "\n")
 
+    bot = None
     try:
         # 봇 생성
         print("1. 트레이딩 봇 초기화 중...")
@@ -1697,6 +1698,16 @@ def main():
         print(f"\n❌ 오류: {e}")
         logger.error(f"오류: {e}", exc_info=True)
         return 1
+    finally:
+        # Cleanup: OpenAPI 서버 종료
+        if bot and hasattr(bot, 'openapi_client') and bot.openapi_client:
+            try:
+                print("\n" + "="*60)
+                print("Shutting down OpenAPI server...")
+                print("="*60)
+                bot.openapi_client.shutdown_server()
+            except Exception as e:
+                logger.warning(f"OpenAPI 서버 종료 실패 (이미 종료됨): {e}")
 
     return 0
 
