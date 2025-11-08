@@ -65,35 +65,74 @@ def initialize_openapi_in_main_thread():
         from koapy import KiwoomOpenApiPlusEntrypoint
 
         logger.info("🔧 Initializing OpenAPI connection...")
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("⚠️  로그인 창 안내")
+        logger.info("=" * 60)
+        logger.info("1. 키움증권 로그인 창이 나타납니다")
+        logger.info("2. 창이 안 보이면 '작업 표시줄'을 확인하세요")
+        logger.info("3. 로그인 정보를 입력하고 '로그인' 버튼을 클릭하세요")
+        logger.info("4. 인증서 비밀번호를 입력하세요")
+        logger.info("=" * 60)
+        logger.info("")
+
         connection_status = "connecting"
 
         # IMPORTANT: Qt GUI must run in main thread
+        logger.info("🔧 Creating OpenAPI Entrypoint...")
         openapi_context = KiwoomOpenApiPlusEntrypoint().__enter__()
+        logger.info("✅ Entrypoint created")
+
+        # Process Qt events to show any pending windows
+        logger.info("🔧 Processing Qt events...")
+        for _ in range(5):  # Process events multiple times
+            app.processEvents()
+            import time
+            time.sleep(0.1)
 
         # Auto-login (will show login window)
-        logger.info("🔐 Attempting login...")
-        logger.info("   ⚠️  로그인 창이 나타납니다. 로그인을 완료해주세요.")
+        logger.info("🔐 Calling EnsureConnected()...")
+        logger.info("   👀 로그인 창을 찾아보세요!")
+        logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
+        logger.info("   - Alt+Tab으로 창 전환해보세요")
+        logger.info("")
 
-        # Process Qt events to show the login window
-        app.processEvents()
-
+        # Call EnsureConnected (this should show login window)
         openapi_context.EnsureConnected()
 
         # Check connection
+        logger.info("🔍 Checking connection state...")
         state = openapi_context.GetConnectState()
+        logger.info(f"   Connection state: {state}")
+
         if state == 1:
             account_list = openapi_context.GetAccountList()
             connection_status = "connected"
-            logger.info(f"✅ OpenAPI connected! Accounts: {account_list}")
+            logger.info("")
+            logger.info("=" * 60)
+            logger.info("✅ 로그인 성공!")
+            logger.info(f"   계좌 목록: {account_list}")
+            logger.info("=" * 60)
             return True
         else:
             connection_status = "failed"
-            logger.error("❌ OpenAPI connection failed")
+            logger.error("")
+            logger.error("=" * 60)
+            logger.error("❌ 로그인 실패")
+            logger.error(f"   연결 상태 코드: {state}")
+            logger.error("   예상 원인:")
+            logger.error("   1. 로그인 정보 오류")
+            logger.error("   2. 인증서 비밀번호 오류")
+            logger.error("   3. 키움 OpenAPI+ 미설치")
+            logger.error("=" * 60)
             return False
 
     except Exception as e:
         connection_status = "failed"
+        logger.error("")
+        logger.error("=" * 60)
         logger.error(f"❌ OpenAPI initialization error: {e}")
+        logger.error("=" * 60)
         import traceback
         traceback.print_exc()
         return False
