@@ -1663,15 +1663,19 @@ def find_anaconda_path():
     return None
 
 
-def check_and_install_32bit_packages(conda_path):
+def check_and_install_32bit_packages(conda_path, env_name):
     """
     32비트 환경에 필수 패키지가 설치되어 있는지 확인하고 없으면 설치 (최초 1회만)
+
+    Args:
+        conda_path: Anaconda 설치 경로
+        env_name: 환경 이름 (kiwoom32 또는 autotrade_32)
 
     Returns:
         True if packages are ready, False otherwise
     """
-    # 설치 완료 마커 파일
-    marker_file = Path(__file__).parent / ".openapi_packages_installed"
+    # 설치 완료 마커 파일 (환경별로 다르게)
+    marker_file = Path(__file__).parent / f".openapi_packages_installed_{env_name}"
 
     # 이미 설치 완료했으면 스킵
     if marker_file.exists():
@@ -1679,8 +1683,8 @@ def check_and_install_32bit_packages(conda_path):
 
     print("📦 OpenAPI 서버 패키지 확인 중...")
 
-    # 패키지 체크
-    check_cmd = f'"{conda_path / "Scripts" / "activate.bat"}" autotrade_32 && python -c "import flask; from koapy import KiwoomOpenApiPlusEntrypoint"'
+    # 패키지 체크 (kiwoom 라이브러리 사용)
+    check_cmd = f'"{conda_path / "Scripts" / "activate.bat"}" {env_name} && python -c "import flask; from kiwoom import Kiwoom"'
 
     try:
         result = subprocess.run(
@@ -1704,16 +1708,11 @@ def check_and_install_32bit_packages(conda_path):
     print("📦 자동 설치 중... (최초 1회만, 1-2분 소요)")
     print()
 
-    requirements_file = Path(__file__).parent / "requirements_32bit.txt"
-    if not requirements_file.exists():
-        print("❌ requirements_32bit.txt 파일을 찾을 수 없습니다")
-        print("   수동 설치: install_32bit.bat 실행")
-        return False
-
-    install_cmd = f'"{conda_path / "Scripts" / "activate.bat"}" autotrade_32 && pip install -q -r "{requirements_file}"'
+    # kiwoom 라이브러리 직접 설치 (requirements 파일 대신)
+    install_cmd = f'"{conda_path / "Scripts" / "activate.bat"}" {env_name} && pip install -q flask flask-cors "PyQt5==5.15.10" "pandas<2.0" numpy requests kiwoom'
 
     try:
-        print("   Installing: Flask, koapy, PyQt5...")
+        print("   Installing: Flask, kiwoom, PyQt5...")
         result = subprocess.run(
             install_cmd,
             shell=True,
@@ -1729,16 +1728,22 @@ def check_and_install_32bit_packages(conda_path):
         else:
             error_msg = result.stderr.decode('utf-8', errors='ignore')
             print(f"❌ 설치 실패")
-            print(f"   수동 설치: install_32bit.bat 실행")
+            print(f"   수동 설치:")
+            print(f"      conda activate {env_name}")
+            print(f'      pip install flask flask-cors "PyQt5==5.15.10" "pandas<2.0" numpy requests kiwoom')
             return False
 
     except subprocess.TimeoutExpired:
         print("❌ 설치 시간 초과 (5분)")
-        print("   수동 설치: install_32bit.bat 실행")
+        print(f"   수동 설치:")
+        print(f"      conda activate {env_name}")
+        print(f'      pip install flask flask-cors "PyQt5==5.15.10" "pandas<2.0" numpy requests kiwoom')
         return False
     except Exception as e:
         print(f"❌ 설치 실패: {e}")
-        print("   수동 설치: install_32bit.bat 실행")
+        print(f"   수동 설치:")
+        print(f"      conda activate {env_name}")
+        print(f'      pip install flask flask-cors "PyQt5==5.15.10" "pandas<2.0" numpy requests kiwoom')
         return False
 
 
@@ -1758,16 +1763,28 @@ def start_openapi_server():
         print("   REST API 기능은 정상 작동합니다")
         return None
 
-    # autotrade_32 환경 확인
-    env_path = conda_path / "envs" / "autotrade_32"
-    if not env_path.exists():
-        print("⚠️  autotrade_32 환경을 찾을 수 없습니다 - OpenAPI 기능 비활성화")
-        print("   환경 생성: INSTALL_ANACONDA_PROMPT.bat 실행")
+    # kiwoom32 또는 autotrade_32 환경 확인 (kiwoom32 우선)
+    env_name = None
+    for candidate in ["kiwoom32", "autotrade_32"]:
+        env_path = conda_path / "envs" / candidate
+        if env_path.exists():
+            env_name = candidate
+            print(f"✅ 32비트 환경 발견: {env_name}")
+            break
+
+    if not env_name:
+        print("⚠️  32비트 Python 환경(kiwoom32 또는 autotrade_32)을 찾을 수 없습니다")
+        print("   환경 생성:")
+        print("      conda create -n kiwoom32 -y")
+        print("      conda activate kiwoom32")
+        print("      conda config --env --set subdir win-32")
+        print("      conda install python=3.9 -y")
+        print("      pip install PyQt5 pandas<2.0 numpy requests kiwoom")
         print("   REST API 기능은 정상 작동합니다")
         return None
 
     # 패키지 확인 및 설치 (최초 1회)
-    if not check_and_install_32bit_packages(conda_path):
+    if not check_and_install_32bit_packages(conda_path, env_name):
         print("⚠️  패키지 설치 실패 - OpenAPI 기능 비활성화")
         print("   REST API 기능은 정상 작동합니다")
         return None
@@ -1780,7 +1797,7 @@ def start_openapi_server():
 
     # 명령어 구성
     activate_script = conda_path / "Scripts" / "activate.bat"
-    cmd = f'"{activate_script}" autotrade_32 && python "{server_script}"'
+    cmd = f'"{activate_script}" {env_name} && python "{server_script}"'
 
     try:
         # 로그 파일 경로
@@ -1811,7 +1828,7 @@ def start_openapi_server():
 
         print("✅ OpenAPI 서버 프로세스 시작됨")
         print("   - 서버 URL: http://localhost:5001")
-        print("   - 환경: autotrade_32 (32-bit Python 3.10)")
+        print(f"   - 환경: {env_name} (32-bit Python)")
         print("   - 서버 콘솔 창과 OpenAPI 로그인 창이 나타납니다")
 
         # 서버 초기화 대기 및 헬스체크
