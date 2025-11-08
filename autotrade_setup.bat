@@ -1,43 +1,43 @@
 @echo off
-chcp 65001 >nul
+chcp 65001 >nul 2>&1
 setlocal enabledelayedexpansion
 
 REM ====================================
-REM  AutoTrade - 올인원 설치 및 실행
+REM  AutoTrade - All-in-One Setup
 REM ====================================
 
 :MAIN_MENU
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║              🚀 AutoTrade 올인원 설치 및 실행 도구                ║
-echo ║                                                                    ║
-echo ║             키움 OpenAPI 32비트 환경 자동 설정                    ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo.
+echo              AutoTrade Setup and Management Tool
+echo.
+echo          Kiwoom OpenAPI 32-bit Environment Setup
+echo.
+echo ================================================================
 echo.
 
-REM 현재 환경 확인
+REM Check environment
 call :CHECK_ENVIRONMENT
 
 echo.
-echo ═══════════════════════════════════════════════════════════════════
-echo  📋 메뉴
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
+echo  Menu
+echo ================================================================
 echo.
-echo   [1] 🔧 전체 설치 (32비트 환경 생성 + 패키지 설치)
-echo   [2] 📦 패키지만 설치 (환경이 이미 있는 경우)
-echo   [3] 🧪 로그인 테스트 실행
-echo   [4] 🚀 메인 프로그램 실행
-echo   [5] ℹ️  환경 정보 확인
-echo   [6] 🗑️  환경 제거 후 재설치
-echo   [0] ❌ 종료
+echo   [1] Full Install (Create 32-bit env + Install packages)
+echo   [2] Install Packages Only (If env already exists)
+echo   [3] Run Login Test
+echo   [4] Run Main Program
+echo   [5] Show Environment Info
+echo   [6] Remove Environment and Reinstall
+echo   [0] Exit
 echo.
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
 echo.
 
-set /p CHOICE="선택하세요 (0-6): "
+set /p CHOICE="Select option (0-6): "
 
 if "%CHOICE%"=="1" goto FULL_INSTALL
 if "%CHOICE%"=="2" goto INSTALL_PACKAGES
@@ -49,147 +49,142 @@ if "%CHOICE%"=="0" goto EXIT
 goto MAIN_MENU
 
 REM ====================================
-REM 환경 확인
+REM Check Environment
 REM ====================================
 :CHECK_ENVIRONMENT
 where conda >nul 2>&1
 if %errorLevel% neq 0 (
-    set CONDA_INSTALLED=❌
+    set CONDA_INSTALLED=[X]
 ) else (
-    set CONDA_INSTALLED=✅
+    set CONDA_INSTALLED=[OK]
 )
 
 conda env list 2>nul | find "autotrade_32" >nul 2>&1
 if %errorLevel% neq 0 (
-    set ENV_EXISTS=❌
+    set ENV_EXISTS=[X]
 ) else (
-    set ENV_EXISTS=✅
+    set ENV_EXISTS=[OK]
 )
 
-echo 📊 현재 상태:
+echo Current Status:
 echo    Anaconda: %CONDA_INSTALLED%
-echo    autotrade_32 환경: %ENV_EXISTS%
+echo    autotrade_32 environment: %ENV_EXISTS%
 
-if "%ENV_EXISTS%"=="✅" (
+if "%ENV_EXISTS%"=="[OK]" (
     call conda activate autotrade_32 2>nul
-    python -c "import struct; bits = struct.calcsize('P') * 8; print('   Python 비트:', bits, 'bit')" 2>nul
+    python -c "import struct; bits = struct.calcsize('P') * 8; print('   Python bits:', bits, 'bit')" 2>nul
 )
 
 goto :EOF
 
 REM ====================================
-REM 1. 전체 설치
+REM 1. Full Install
 REM ====================================
 :FULL_INSTALL
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║                  🔧 전체 설치 시작                                ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Full Installation Starting
+echo ================================================================
 echo.
 
-REM Conda 확인
+REM Check Conda
 where conda >nul 2>&1
 if %errorLevel% neq 0 (
-    echo ❌ Anaconda가 설치되지 않았습니다!
+    echo [ERROR] Anaconda is not installed!
     echo.
-    echo 💡 Anaconda를 먼저 설치하세요:
+    echo Please install Anaconda first:
     echo    https://www.anaconda.com/download
     echo.
     pause
     goto MAIN_MENU
 )
 
-echo ✅ Anaconda 확인 완료
+echo [OK] Anaconda found
 echo.
 
-REM 기존 환경 확인
+REM Check existing environment
 conda env list | find "autotrade_32" >nul 2>&1
 if %errorLevel% equ 0 (
-    echo ⚠️  autotrade_32 환경이 이미 존재합니다.
+    echo [WARNING] autotrade_32 environment already exists.
     echo.
-    set /p REMOVE="삭제하고 재설치하시겠습니까? (y/n): "
+    set /p REMOVE="Remove and reinstall? (y/n): "
     if /i "!REMOVE!"=="y" (
         call :REMOVE_ENVIRONMENT
     ) else (
         echo.
-        echo 기존 환경을 유지합니다. 패키지 설치로 이동합니다.
+        echo Keeping existing environment. Moving to package installation.
         timeout /t 2 >nul
         goto INSTALL_PACKAGES
     )
 )
 
 echo.
-echo ═══════════════════════════════════════════════════════════════════
-echo  Step 1/5: 32비트 Python 환경 생성
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
+echo  Step 1/5: Creating 32-bit Python Environment
+echo ================================================================
 echo.
 
 set CONDA_FORCE_32BIT=1
-echo 32비트 Python 3.11 환경을 생성 중입니다...
-echo (시간이 걸릴 수 있습니다)
+echo Creating 32-bit Python 3.11 environment...
+echo (This may take a while)
 echo.
 
 conda create -n autotrade_32 python=3.11 -y
 
 if %errorLevel% neq 0 (
     echo.
-    echo ❌ 환경 생성 실패!
+    echo [ERROR] Environment creation failed!
     pause
     goto MAIN_MENU
 )
 
 echo.
-echo ✅ 환경 생성 완료
+echo [OK] Environment created
 timeout /t 2 >nul
 
-REM 패키지 설치로 이동
 goto INSTALL_PACKAGES
 
 REM ====================================
-REM 2. 패키지 설치
+REM 2. Install Packages
 REM ====================================
 :INSTALL_PACKAGES
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║                  📦 패키지 설치                                   ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Package Installation
+echo ================================================================
 echo.
 
-REM 환경 활성화
+REM Activate environment
 call conda activate autotrade_32
 
 if %errorLevel% neq 0 (
-    echo ❌ autotrade_32 환경을 찾을 수 없습니다!
+    echo [ERROR] Cannot find autotrade_32 environment!
     echo.
-    echo 💡 먼저 "전체 설치"를 실행하세요.
+    echo Please run "Full Install" first.
     pause
     goto MAIN_MENU
 )
 
-echo ✅ autotrade_32 환경 활성화
+echo [OK] autotrade_32 environment activated
 echo.
 
-REM 비트 확인
-echo ═══════════════════════════════════════════════════════════════════
-echo  Step 2/5: Python 비트 확인
-echo ═══════════════════════════════════════════════════════════════════
+REM Check Python bits
+echo ================================================================
+echo  Step 2/5: Checking Python Architecture
+echo ================================================================
 echo.
 
 python -c "import struct; bits = struct.calcsize('P') * 8; print(f'Python: {bits}-bit'); exit(0 if bits == 32 else 1)"
 
 if %errorLevel% neq 0 (
     echo.
-    echo ❌ 32비트 환경이 아닙니다!
+    echo [ERROR] This is not a 32-bit environment!
     echo.
-    echo 💡 해결책:
-    echo    1. 환경을 삭제하고 다시 생성 (메뉴 [6])
-    echo    2. 또는 32비트 Python을 직접 설치
+    echo Solution:
+    echo    1. Remove environment and reinstall (Menu [6])
+    echo    2. Or install 32-bit Python directly
     echo       https://www.python.org/downloads/
     pause
     goto MAIN_MENU
@@ -197,85 +192,83 @@ if %errorLevel% neq 0 (
 
 echo.
 
-REM pip 업그레이드
-echo ═══════════════════════════════════════════════════════════════════
-echo  Step 3/5: pip 업그레이드
-echo ═══════════════════════════════════════════════════════════════════
+REM Upgrade pip
+echo ================================================================
+echo  Step 3/5: Upgrading pip
+echo ================================================================
 echo.
 
 python -m pip install --upgrade pip --quiet
 
-echo ✅ pip 업그레이드 완료
+echo [OK] pip upgraded
 echo.
 
-REM 핵심 패키지 설치
-echo ═══════════════════════════════════════════════════════════════════
-echo  Step 4/5: 핵심 패키지 설치
-echo ═══════════════════════════════════════════════════════════════════
+REM Install core packages
+echo ================================================================
+echo  Step 4/5: Installing Core Packages
+echo ================================================================
 echo.
 
-echo [1/4] PyQt5 설치 중...
+echo [1/4] Installing PyQt5...
 pip install PyQt5 PyQt5-Qt5 PyQt5-sip --quiet --no-warn-script-location
 
 if %errorLevel% neq 0 (
-    echo ❌ PyQt5 설치 실패
+    echo [ERROR] PyQt5 installation failed
     pause
     goto MAIN_MENU
 )
-echo ✅ PyQt5 설치 완료
+echo [OK] PyQt5 installed
 
 echo.
-echo [2/4] koapy 의존성 설치 중...
+echo [2/4] Installing koapy dependencies...
 pip install protobuf==3.20.3 grpcio==1.50.0 --quiet --no-warn-script-location
-echo ✅ protobuf, grpcio 설치 완료
+echo [OK] protobuf, grpcio installed
 
 echo.
-echo [3/4] koapy 설치 중...
+echo [3/4] Installing koapy...
 pip install koapy --quiet --no-warn-script-location
-echo ✅ koapy 설치 완료
+echo [OK] koapy installed
 
 echo.
-echo [4/4] pywin32 설치 중...
+echo [4/4] Installing pywin32...
 pip install pywin32 --quiet --no-warn-script-location
-echo ✅ pywin32 설치 완료
+echo [OK] pywin32 installed
 
 echo.
 
-REM 전체 패키지 설치
-echo ═══════════════════════════════════════════════════════════════════
-echo  Step 5/5: 나머지 패키지 설치
-echo ═══════════════════════════════════════════════════════════════════
+REM Install all packages
+echo ================================================================
+echo  Step 5/5: Installing Remaining Packages
+echo ================================================================
 echo.
 
-echo 전체 requirements.txt 패키지를 설치합니다...
-echo (시간이 걸릴 수 있습니다)
+echo Installing all requirements.txt packages...
+echo (This may take a while)
 echo.
 
 pip install -r requirements.txt --quiet --no-warn-script-location
 
 if %errorLevel% neq 0 (
     echo.
-    echo ⚠️  일부 패키지 설치에 실패했습니다.
-    echo     하지만 핵심 패키지는 설치되었으므로 계속 진행합니다.
+    echo [WARNING] Some packages failed to install.
+    echo           Core packages are installed, continuing...
 )
 
 echo.
-echo ✅ 패키지 설치 완료
+echo [OK] Package installation complete
 echo.
 
-REM 설치 확인
+REM Verify installation
 call :VERIFY_INSTALLATION
 
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║              ✅ 설치 완료!                                        ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Installation Complete!
+echo ================================================================
 echo.
-echo 💡 이제 로그인 테스트를 실행하시겠습니까?
+echo Run login test now?
 echo.
-set /p RUN_TEST="로그인 테스트 실행? (y/n): "
+set /p RUN_TEST="Run login test? (y/n): "
 
 if /i "%RUN_TEST%"=="y" (
     goto TEST_LOGIN
@@ -285,166 +278,160 @@ pause
 goto MAIN_MENU
 
 REM ====================================
-REM 3. 로그인 테스트
+REM 3. Login Test
 REM ====================================
 :TEST_LOGIN
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║                  🧪 로그인 테스트                                 ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Login Test
+echo ================================================================
 echo.
 
-REM 환경 활성화
+REM Activate environment
 call conda activate autotrade_32 2>nul
 
 if %errorLevel% neq 0 (
-    echo ❌ autotrade_32 환경을 찾을 수 없습니다!
+    echo [ERROR] Cannot find autotrade_32 environment!
     echo.
-    echo 💡 먼저 설치를 진행하세요 (메뉴 [1])
+    echo Please run installation first (Menu [1])
     pause
     goto MAIN_MENU
 )
 
-REM test_login.py 존재 확인
+REM Check test file
 if not exist "test_login.py" (
-    echo ❌ test_login.py 파일을 찾을 수 없습니다!
+    echo [ERROR] test_login.py not found!
     echo.
-    echo 현재 디렉토리: %CD%
+    echo Current directory: %CD%
     pause
     goto MAIN_MENU
 )
 
-echo 🚀 로그인 테스트를 시작합니다...
+echo Starting login test...
 echo.
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
 echo.
 
 python test_login.py
 
 echo.
-echo ═══════════════════════════════════════════════════════════════════
-echo  테스트 완료
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
+echo  Test Complete
+echo ================================================================
 echo.
 
 pause
 goto MAIN_MENU
 
 REM ====================================
-REM 4. 메인 프로그램 실행
+REM 4. Run Main Program
 REM ====================================
 :RUN_MAIN
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║                  🚀 메인 프로그램 실행                            ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Running Main Program
+echo ================================================================
 echo.
 
-REM 환경 활성화
+REM Activate environment
 call conda activate autotrade_32 2>nul
 
 if %errorLevel% neq 0 (
-    echo ❌ autotrade_32 환경을 찾을 수 없습니다!
+    echo [ERROR] Cannot find autotrade_32 environment!
     echo.
-    echo 💡 먼저 설치를 진행하세요 (메뉴 [1])
+    echo Please run installation first (Menu [1])
     pause
     goto MAIN_MENU
 )
 
-REM main.py 존재 확인
+REM Check main file
 if not exist "main.py" (
-    echo ❌ main.py 파일을 찾을 수 없습니다!
+    echo [ERROR] main.py not found!
     echo.
-    echo 현재 디렉토리: %CD%
+    echo Current directory: %CD%
     pause
     goto MAIN_MENU
 )
 
-echo 🚀 AutoTrade 메인 프로그램을 시작합니다...
+echo Starting AutoTrade...
 echo.
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
 echo.
 
 python main.py
 
 echo.
-echo ═══════════════════════════════════════════════════════════════════
-echo  프로그램 종료
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
+echo  Program Terminated
+echo ================================================================
 echo.
 
 pause
 goto MAIN_MENU
 
 REM ====================================
-REM 5. 환경 정보 확인
+REM 5. Show Environment Info
 REM ====================================
 :SHOW_INFO
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║                  ℹ️  환경 정보                                    ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Environment Information
+echo ================================================================
 echo.
 
-REM Anaconda 확인
-echo ═══════════════════════════════════════════════════════════════════
-echo  Anaconda 정보
-echo ═══════════════════════════════════════════════════════════════════
+REM Check Anaconda
+echo ================================================================
+echo  Anaconda Info
+echo ================================================================
 echo.
 
 where conda >nul 2>&1
 if %errorLevel% neq 0 (
-    echo ❌ Anaconda가 설치되지 않았습니다
+    echo [X] Anaconda not installed
 ) else (
-    echo ✅ Anaconda 설치됨
+    echo [OK] Anaconda installed
     conda --version 2>nul
 )
 
 echo.
 
-REM 환경 목록
-echo ═══════════════════════════════════════════════════════════════════
-echo  Conda 환경 목록
-echo ═══════════════════════════════════════════════════════════════════
+REM Environment list
+echo ================================================================
+echo  Conda Environments
+echo ================================================================
 echo.
 
 conda env list 2>nul
 
 echo.
 
-REM autotrade_32 환경 확인
-echo ═══════════════════════════════════════════════════════════════════
-echo  autotrade_32 환경 상세 정보
-echo ═══════════════════════════════════════════════════════════════════
+REM autotrade_32 details
+echo ================================================================
+echo  autotrade_32 Environment Details
+echo ================================================================
 echo.
 
 conda env list | find "autotrade_32" >nul 2>&1
 if %errorLevel% neq 0 (
-    echo ❌ autotrade_32 환경이 존재하지 않습니다
+    echo [X] autotrade_32 environment does not exist
 ) else (
-    echo ✅ autotrade_32 환경 존재
+    echo [OK] autotrade_32 environment exists
     echo.
 
     call conda activate autotrade_32 2>nul
 
-    echo Python 버전:
+    echo Python version:
     python --version 2>nul
 
     echo.
-    echo Python 비트:
+    echo Python architecture:
     python -c "import struct; print(f'{struct.calcsize(\"P\")*8}-bit')" 2>nul
 
     echo.
-    echo 설치된 핵심 패키지:
+    echo Installed core packages:
     call :VERIFY_INSTALLATION
 )
 
@@ -453,32 +440,30 @@ pause
 goto MAIN_MENU
 
 REM ====================================
-REM 6. 환경 제거
+REM 6. Remove Environment
 REM ====================================
 :REMOVE_ENV
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║                  🗑️  환경 제거                                    ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo  Remove Environment
+echo ================================================================
 echo.
 
-echo ⚠️  경고: autotrade_32 환경을 완전히 삭제합니다!
+echo [WARNING] This will completely remove autotrade_32 environment!
 echo.
-set /p CONFIRM="정말로 삭제하시겠습니까? (y/n): "
+set /p CONFIRM="Are you sure? (y/n): "
 
 if /i not "%CONFIRM%"=="y" (
     echo.
-    echo 취소되었습니다.
+    echo Cancelled.
     timeout /t 2 >nul
     goto MAIN_MENU
 )
 
 call :REMOVE_ENVIRONMENT
 
-set /p REINSTALL="새로 설치하시겠습니까? (y/n): "
+set /p REINSTALL="Install again now? (y/n): "
 
 if /i "%REINSTALL%"=="y" (
     goto FULL_INSTALL
@@ -488,19 +473,19 @@ pause
 goto MAIN_MENU
 
 REM ====================================
-REM 환경 제거 함수
+REM Remove Environment Function
 REM ====================================
 :REMOVE_ENVIRONMENT
 echo.
-echo 🗑️  autotrade_32 환경 제거 중...
+echo Removing autotrade_32 environment...
 
 call conda deactivate 2>nul
 conda env remove -n autotrade_32 -y
 
 if %errorLevel% equ 0 (
-    echo ✅ 환경 제거 완료
+    echo [OK] Environment removed
 ) else (
-    echo ❌ 환경 제거 실패
+    echo [ERROR] Failed to remove environment
 )
 
 echo.
@@ -508,47 +493,47 @@ timeout /t 2 >nul
 goto :EOF
 
 REM ====================================
-REM 설치 확인 함수
+REM Verify Installation Function
 REM ====================================
 :VERIFY_INSTALLATION
-echo ═══════════════════════════════════════════════════════════════════
-echo  설치 확인
-echo ═══════════════════════════════════════════════════════════════════
+echo ================================================================
+echo  Verifying Installation
+echo ================================================================
 echo.
 
-python -c "from PyQt5.QtWidgets import QApplication; print('✅ PyQt5')" 2>nul
-if %errorLevel% neq 0 echo ❌ PyQt5
+python -c "from PyQt5.QtWidgets import QApplication; print('[OK] PyQt5')" 2>nul
+if %errorLevel% neq 0 echo [X] PyQt5
 
-python -c "from koapy import KiwoomOpenApiPlusEntrypoint; print('✅ koapy')" 2>nul
-if %errorLevel% neq 0 echo ❌ koapy
+python -c "from koapy import KiwoomOpenApiPlusEntrypoint; print('[OK] koapy')" 2>nul
+if %errorLevel% neq 0 echo [X] koapy
 
-python -c "from pydantic import BaseModel; print('✅ pydantic')" 2>nul
-if %errorLevel% neq 0 echo ❌ pydantic
+python -c "from pydantic import BaseModel; print('[OK] pydantic')" 2>nul
+if %errorLevel% neq 0 echo [X] pydantic
 
-python -c "import pandas; print('✅ pandas')" 2>nul
-if %errorLevel% neq 0 echo ❌ pandas
+python -c "import pandas; print('[OK] pandas')" 2>nul
+if %errorLevel% neq 0 echo [X] pandas
 
-python -c "import numpy; print('✅ numpy')" 2>nul
-if %errorLevel% neq 0 echo ❌ numpy
+python -c "import numpy; print('[OK] numpy')" 2>nul
+if %errorLevel% neq 0 echo [X] numpy
 
-python -c "import pywin32_system32; print('✅ pywin32')" 2>nul
-if %errorLevel% neq 0 echo ❌ pywin32
+python -c "import pywin32_system32; print('[OK] pywin32')" 2>nul
+if %errorLevel% neq 0 echo [X] pywin32
 
 goto :EOF
 
 REM ====================================
-REM 종료
+REM Exit
 REM ====================================
 :EXIT
 cls
 echo.
-echo ╔════════════════════════════════════════════════════════════════════╗
-echo ║                                                                    ║
-echo ║            👋 AutoTrade 설정 도구를 종료합니다                    ║
-echo ║                                                                    ║
-echo ║                   Happy Trading! 🚀📈                             ║
-echo ║                                                                    ║
-echo ╚════════════════════════════════════════════════════════════════════╝
+echo ================================================================
+echo.
+echo            Thank you for using AutoTrade!
+echo.
+echo                   Happy Trading!
+echo.
+echo ================================================================
 echo.
 timeout /t 2 >nul
 exit /b 0
