@@ -149,13 +149,15 @@ def verify_data_quality():
         print(f"   평균 데이터 종류: {avg_data:.1f}개/종목")
 
         if avg_data >= 18:
-            print(f"   ✅ 우수: 대부분의 데이터 수집 성공")
+            print(f"   ✅ 우수: 대부분의 데이터 수집 성공 (목표: 20가지)")
         elif avg_data >= 15:
-            print(f"   ⚠️  양호: 일부 데이터 누락")
+            print(f"   ⚠️  양호: 일부 데이터 누락 (목표: 20가지)")
         elif avg_data >= 10:
-            print(f"   ⚠️  보통: 많은 데이터 누락")
+            print(f"   ⚠️  보통: 많은 데이터 누락 (목표: 20가지)")
+        elif avg_data >= 6:
+            print(f"   ⚠️  미흡: 핵심 데이터만 수집됨 (목표: 20가지)")
         else:
-            print(f"   ❌ 불량: 대부분의 데이터 수집 실패")
+            print(f"   ❌ 불량: 대부분의 데이터 수집 실패 (목표: 20가지)")
 
     if total_stats['errors']:
         print(f"\n   ❌ 오류 목록 ({len(total_stats['errors'])}개):")
