@@ -42,9 +42,10 @@ echo.
 REM Step 2: Create 32-bit environment
 echo [Step 2/5] Creating 32-bit Python environment...
 echo This will create: autotrade_32
+echo Python: 3.10 (32-bit compatible)
 echo.
 set CONDA_FORCE_32BIT=1
-conda create -n autotrade_32 python=3.11 -y
+conda create -n autotrade_32 python=3.10 -y
 echo.
 
 REM Step 3: Activate environment
