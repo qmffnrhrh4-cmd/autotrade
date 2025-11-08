@@ -426,11 +426,20 @@ def main():
 
     # Kiwoom API
     from kiwoom import Kiwoom
+    import kiwoom
+
+    # 경고 메시지 숨기기
+    kiwoom.config.MUTE = True
+
     api = Kiwoom()
 
     # 로그인
     print("\n🔐 로그인 중...")
     api.login()
+
+    # 로그인 후 잠시 대기 (이벤트 처리)
+    print("⏳ 로그인 완료 대기 중...")
+    time.sleep(2)
 
     accounts = api.get_account_list()
     if not accounts:
