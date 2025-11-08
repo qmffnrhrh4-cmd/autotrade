@@ -19,8 +19,10 @@ Usage:
 import os
 import sys
 import logging
+import threading
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 
 # Set Qt environment before importing koapy
 os.environ['QT_API'] = 'pyqt5'
@@ -39,35 +41,69 @@ logger = logging.getLogger(__name__)
 # Global OpenAPI context
 openapi_context = None
 account_list = []
+connection_status = "not_started"  # not_started, connecting, connected, failed
 
 
-def initialize_openapi():
-    """Initialize OpenAPI connection"""
-    global openapi_context, account_list
+def initialize_openapi_worker():
+    """Worker function to initialize OpenAPI (runs in background)"""
+    global openapi_context, account_list, connection_status
 
     try:
         from koapy import KiwoomOpenApiPlusEntrypoint
 
         logger.info("🔧 Initializing OpenAPI connection...")
+        connection_status = "connecting"
+
         openapi_context = KiwoomOpenApiPlusEntrypoint().__enter__()
 
         # Auto-login
         logger.info("🔐 Attempting auto-login...")
+        logger.info("   (키움증권 로그인 창이 나타날 수 있습니다)")
         openapi_context.EnsureConnected()
 
         # Check connection
         state = openapi_context.GetConnectState()
         if state == 1:
             account_list = openapi_context.GetAccountList()
+            connection_status = "connected"
             logger.info(f"✅ OpenAPI connected! Accounts: {account_list}")
             return True
         else:
+            connection_status = "failed"
             logger.error("❌ OpenAPI connection failed")
             return False
 
     except Exception as e:
+        connection_status = "failed"
         logger.error(f"❌ OpenAPI initialization error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
+
+
+def initialize_openapi():
+    """Initialize OpenAPI connection with timeout"""
+    global connection_status
+
+    # Start connection in background thread with timeout
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(initialize_openapi_worker)
+
+    try:
+        # Wait up to 30 seconds for connection
+        result = future.result(timeout=30)
+        return result
+    except FuturesTimeoutError:
+        logger.error("❌ OpenAPI connection timeout (30 seconds)")
+        logger.error("   키움증권에 먼저 로그인해주세요")
+        connection_status = "timeout"
+        return False
+    except Exception as e:
+        logger.error(f"❌ OpenAPI connection error: {e}")
+        connection_status = "failed"
+        return False
+    finally:
+        executor.shutdown(wait=False)
 
 
 @app.route('/health', methods=['GET'])
@@ -77,6 +113,7 @@ def health():
         'status': 'ok',
         'server_ready': True,
         'openapi_connected': openapi_context is not None,
+        'connection_status': connection_status,
         'accounts': account_list
     })
 
