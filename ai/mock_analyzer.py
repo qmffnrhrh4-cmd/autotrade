@@ -45,15 +45,17 @@ class MockAnalyzer(BaseAnalyzer):
     def analyze_stock(
         self,
         stock_data: Dict[str, Any],
-        analysis_type: str = 'comprehensive'
+        analysis_type: str = 'comprehensive',
+        **kwargs
     ) -> Dict[str, Any]:
         """
         종목 분석 (Mock)
-        
+
         Args:
             stock_data: 종목 데이터
             analysis_type: 분석 유형
-        
+            **kwargs: 추가 파라미터 (score_info 등)
+
         Returns:
             Mock 분석 결과
         """

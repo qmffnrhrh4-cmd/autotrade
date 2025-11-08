@@ -681,6 +681,16 @@ class ScannerPipeline:
             logger.error(f"AI Scan 실패: {e}", exc_info=True)
             return []
 
+    def scan_market(self) -> List[StockCandidate]:
+        """
+        시장 스캔 실행 (main.py에서 호출)
+        run_full_pipeline()의 wrapper 메서드
+
+        Returns:
+            최종 후보 종목 리스트
+        """
+        return self.run_full_pipeline()
+
     def run_full_pipeline(self) -> List[StockCandidate]:
         """
         전체 파이프라인 실행 (필요한 단계만 실행)

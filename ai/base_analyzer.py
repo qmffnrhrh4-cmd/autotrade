@@ -52,15 +52,17 @@ class BaseAnalyzer(ABC):
     def analyze_stock(
         self,
         stock_data: Dict[str, Any],
-        analysis_type: str = 'comprehensive'
+        analysis_type: str = 'comprehensive',
+        **kwargs
     ) -> Dict[str, Any]:
         """
         종목 분석 (추상 메서드)
-        
+
         Args:
             stock_data: 종목 데이터
             analysis_type: 분석 유형 ('comprehensive', 'quick', 'technical', 'fundamental')
-        
+            **kwargs: 추가 파라미터 (score_info, portfolio_info 등)
+
         Returns:
             분석 결과
             {
