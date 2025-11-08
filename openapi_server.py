@@ -105,29 +105,28 @@ def initialize_openapi_in_main_thread():
         # Call login (this will show login window and block until login completes)
         openapi_context.login()
 
-        # Get account list
-        logger.info("🔍 Getting account list...")
-        account_list = openapi_context.get_account_list()
+        # 로그인 성공 - 일단 connected로 설정
+        connection_status = "connected"
+        logger.info("")
+        logger.info("=" * 60)
+        logger.info("✅ 로그인 성공!")
+        logger.info("=" * 60)
 
-        if account_list and len(account_list) > 0:
-            connection_status = "connected"
-            logger.info("")
-            logger.info("=" * 60)
-            logger.info("✅ 로그인 성공!")
-            logger.info(f"   계좌 목록: {account_list}")
-            logger.info("=" * 60)
-            return True
-        else:
-            connection_status = "failed"
-            logger.error("")
-            logger.error("=" * 60)
-            logger.error("❌ 로그인 실패")
-            logger.error("   예상 원인:")
-            logger.error("   1. 로그인 정보 오류")
-            logger.error("   2. 인증서 비밀번호 오류")
-            logger.error("   3. 키움 OpenAPI+ 미설치")
-            logger.error("=" * 60)
-            return False
+        # Get account list (로그인 성공 후에도 계좌 목록이 없을 수 있음)
+        logger.info("🔍 Getting account list...")
+        try:
+            account_list = openapi_context.get_account_list()
+            if account_list and len(account_list) > 0:
+                logger.info(f"   계좌 목록: {account_list}")
+            else:
+                logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
+                account_list = []
+        except Exception as e:
+            logger.warning(f"   계좌 목록 조회 실패: {e}")
+            account_list = []
+
+        logger.info("=" * 60)
+        return True
 
     except Exception as e:
         connection_status = "failed"
