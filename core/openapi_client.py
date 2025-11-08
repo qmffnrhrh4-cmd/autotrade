@@ -131,23 +131,29 @@ class KiwoomOpenAPIClient:
                     time.sleep(poll_interval)
                     elapsed += poll_interval
 
-                    status_result = self._request('GET', '/health', timeout=2)
-                    if status_result:
-                        status = status_result.get('connection_status')
+                    try:
+                        status_result = self._request('GET', '/health', timeout=5)
+                        if status_result:
+                            status = status_result.get('connection_status')
 
-                        if status == 'connected':
-                            self.is_connected = True
-                            self.account_list = status_result.get('accounts', [])
-                            logger.info("✅ OpenAPI 연결 성공!")
-                            logger.info(f"📋 계좌 목록: {self.account_list}")
-                            return True
-                        elif status in ['failed', 'timeout']:
-                            logger.error(f"❌ OpenAPI 연결 실패 (상태: {status})")
-                            return False
-                        elif status == 'connecting':
-                            if elapsed % 10 == 0:  # 10초마다 로그
-                                logger.info(f"   대기 중... ({elapsed}초)")
-                            continue
+                            if status == 'connected':
+                                self.is_connected = True
+                                self.account_list = status_result.get('accounts', [])
+                                logger.info("✅ OpenAPI 연결 성공!")
+                                logger.info(f"📋 계좌 목록: {self.account_list}")
+                                return True
+                            elif status in ['failed', 'timeout']:
+                                logger.error(f"❌ OpenAPI 연결 실패 (상태: {status})")
+                                return False
+                            elif status == 'connecting':
+                                if elapsed % 10 == 0:  # 10초마다 로그
+                                    logger.info(f"   대기 중... ({elapsed}초)")
+                                continue
+                    except Exception as e:
+                        # Timeout or connection error during polling - ignore and retry
+                        if elapsed % 10 == 0:
+                            logger.info(f"   연결 대기 중... ({elapsed}초)")
+                        continue
 
                 logger.error("❌ 연결 시간 초과 (60초)")
                 logger.error("   로그인을 완료했는지 확인하세요")
