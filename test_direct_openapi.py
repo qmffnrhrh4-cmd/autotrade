@@ -55,11 +55,30 @@ try:
     from PyQt5.QtWidgets import QApplication, QEventLoop
     from PyQt5.QtCore import QTimer
     print("  ✅ PyQt5")
-except ImportError:
-    print("  ❌ PyQt5 없음")
+except ImportError as e:
+    print(f"  ❌ PyQt5 import 실패: {e}")
     print()
-    print("설치:")
-    print("  pip install PyQt5")
+
+    # 더 자세한 진단
+    print("진단 중...")
+    try:
+        import PyQt5
+        print(f"  - PyQt5 모듈은 있음: {PyQt5.__file__}")
+        print(f"  - 하지만 QtWidgets를 import할 수 없음")
+        print()
+        print("  해결책:")
+        print("    pip uninstall PyQt5 PyQt5-Qt5 PyQt5-sip -y")
+        print("    pip install PyQt5")
+    except ImportError:
+        print("  - PyQt5 모듈 자체가 없음")
+        print()
+        print("  설치:")
+        print("    pip install PyQt5")
+
+    print()
+    import traceback
+    traceback.print_exc()
+
     input("\n종료하려면 Enter를 누르세요...")
     sys.exit(1)
 
