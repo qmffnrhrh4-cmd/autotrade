@@ -525,7 +525,7 @@ def main():
     tester = OpenAPITester(api, app)
 
     # 로그인 완료 이벤트 연결 (핵심!)
-    api.connect('on_event_connect', tester.on_connect)
+    api.connect('on_event_connect', slot=tester.on_connect)
 
     print("🔐 로그인 중...")
     print("   (로그인 창이 나타나면 로그인하세요)")
