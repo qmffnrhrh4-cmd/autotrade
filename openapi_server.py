@@ -51,7 +51,6 @@ def initialize_openapi_in_main_thread():
     try:
         # Qt 애플리케이션을 먼저 생성
         from PyQt5.QtWidgets import QApplication
-        import sys
 
         logger.info("🔧 Initializing Qt Application...")
 
@@ -313,7 +312,6 @@ def main():
         if app is not None:
             logger.info("🔄 Starting Qt event loop in main thread...")
             # Qt 이벤트 루프 실행 (GUI 표시에 필요)
-            import sys
             sys.exit(app.exec_())
         else:
             # Qt 앱이 없으면 단순 대기
