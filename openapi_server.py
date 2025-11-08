@@ -89,51 +89,7 @@ def initialize_openapi_in_main_thread():
         openapi_context = Kiwoom()
         logger.info("✅ Kiwoom API instance created")
 
-        # 로그인 이벤트 핸들러 등록
-        def on_login(err_code):
-            global connection_status, account_list
-
-            if err_code == 0:
-                connection_status = "connected"
-                logger.info("")
-                logger.info("=" * 60)
-                logger.info("✅ 로그인 성공!")
-                logger.info("=" * 60)
-
-                # Get account list (로그인 성공 후에도 계좌 목록이 없을 수 있음)
-                logger.info("🔍 Getting account list...")
-                try:
-                    account_list = openapi_context.get_account_list()
-                    if account_list and len(account_list) > 0:
-                        logger.info(f"   계좌 목록: {account_list}")
-                    else:
-                        logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
-                        account_list = []
-                except Exception as e:
-                    logger.warning(f"   계좌 목록 조회 실패: {e}")
-                    account_list = []
-
-                logger.info("=" * 60)
-            else:
-                connection_status = "failed"
-                logger.error("")
-                logger.error("=" * 60)
-                logger.error(f"❌ 로그인 실패: err_code={err_code}")
-                logger.error("=" * 60)
-
-        # 이벤트 핸들러 연결
-        openapi_context.OnEventConnect.connect(on_login)
-
-        # 비동기 로그인 시작
-        logger.info("🔐 Starting async login...")
-        logger.info("   👀 로그인 창을 찾아보세요!")
-        logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
-        logger.info("   - Alt+Tab으로 창 전환해보세요")
-        logger.info("")
-
-        # CommConnect()는 비동기로 실행됨 (Qt 이벤트 루프에서 처리)
-        openapi_context.CommConnect()
-
+        # 로그인 이벤트 핸들러를 전역 함수로 정의
         return True
 
     except Exception as e:
@@ -341,24 +297,76 @@ def main():
 
     success = initialize_openapi_in_main_thread()
 
-    if success:
-        logger.info("")
-        logger.info("✅ Server is ready!")
-        logger.info("   Press Ctrl+C to stop")
-        logger.info("")
-    else:
+    if not success:
         logger.error("")
         logger.error("❌ OpenAPI initialization failed")
         logger.error("   Server will continue running, but OpenAPI is not available")
         logger.error("")
+        return
+
+    # 로그인 이벤트 핸들러 정의
+    def on_login(err_code):
+        global connection_status, account_list
+
+        if err_code == 0:
+            connection_status = "connected"
+            logger.info("")
+            logger.info("=" * 60)
+            logger.info("✅ 로그인 성공!")
+            logger.info("=" * 60)
+
+            # Get account list (로그인 성공 후에도 계좌 목록이 없을 수 있음)
+            logger.info("🔍 Getting account list...")
+            try:
+                account_list = openapi_context.get_account_list()
+                if account_list and len(account_list) > 0:
+                    logger.info(f"   계좌 목록: {account_list}")
+                else:
+                    logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
+                    account_list = []
+            except Exception as e:
+                logger.warning(f"   계좌 목록 조회 실패: {e}")
+                account_list = []
+
+            logger.info("=" * 60)
+            logger.info("")
+            logger.info("✅ Server is ready!")
+            logger.info("   Press Ctrl+C to stop")
+            logger.info("")
+        else:
+            connection_status = "failed"
+            logger.error("")
+            logger.error("=" * 60)
+            logger.error(f"❌ 로그인 실패: err_code={err_code}")
+            logger.error("=" * 60)
+
+    # 로그인 시작 함수
+    def start_login():
+        logger.info("")
+        logger.info("🔐 Starting async login...")
+        logger.info("   👀 로그인 창을 찾아보세요!")
+        logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
+        logger.info("   - Alt+Tab으로 창 전환해보세요")
+        logger.info("")
+
+        # 이벤트 핸들러 연결
+        openapi_context.OnEventConnect.connect(on_login)
+
+        # CommConnect() 호출 (Qt 이벤트 루프가 실행 중이어야 함)
+        openapi_context.CommConnect()
 
     # Keep main thread alive with Qt event loop
     try:
         from PyQt5.QtWidgets import QApplication
+        from PyQt5.QtCore import QTimer
 
         app = QApplication.instance()
         if app is not None:
             logger.info("🔄 Starting Qt event loop in main thread...")
+
+            # Qt 이벤트 루프가 시작된 후 로그인 시작 (1초 후)
+            QTimer.singleShot(1000, start_login)
+
             # Qt 이벤트 루프 실행 (GUI 표시에 필요)
             sys.exit(app.exec_())
         else:
