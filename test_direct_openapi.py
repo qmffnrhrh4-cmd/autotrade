@@ -205,9 +205,21 @@ print("CommConnect() 호출 중...")
 print()
 
 try:
+    import win32gui
+    import time
+
+    # Windows 메시지 펌프 함수
+    def pump_messages():
+        """Windows 메시지 펌프 (GUI 이벤트 처리)"""
+        try:
+            win32gui.PumpWaitingMessages()
+        except:
+            pass
+        app.processEvents()
+
     # Qt 이벤트 처리 먼저 시작
-    print("Qt 이벤트 처리 시작...")
-    app.processEvents()
+    print("Windows 메시지 펌프 시작...")
+    pump_messages()
 
     # CommConnect 호출
     print()
@@ -222,16 +234,15 @@ try:
         print("로그인을 완료하세요. (최대 60초 대기)")
         print()
 
-        # Qt 이벤트 루프로 대기 (로그인 창 표시)
-        import time
+        # Windows 메시지 + Qt 이벤트 루프로 대기
         timeout = 60  # 60초 타임아웃
 
-        print("이벤트 처리 중...")
+        print("메시지 처리 중... (로그인 창을 확인하세요)")
         for i in range(timeout):
-            # 더 자주 이벤트 처리 (10ms마다)
-            for _ in range(100):
-                app.processEvents()
-                time.sleep(0.01)  # 10ms
+            # 더 자주 메시지 처리 (5ms마다)
+            for _ in range(200):
+                pump_messages()
+                time.sleep(0.005)  # 5ms
 
             if login_event_received:
                 break
