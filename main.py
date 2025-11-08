@@ -1789,17 +1789,16 @@ def start_openapi_server():
         # 로그 파일 경로
         log_file = Path(__file__).parent / "openapi_server.log"
 
-        # Windows에서 정상 윈도우로 실행 (로그인 창이 보여야 함)
+        # Windows에서 새 콘솔 창으로 실행 (GUI 표시를 위해)
         if sys.platform == 'win32':
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            startupinfo.wShowWindow = 1  # SW_SHOWNORMAL (정상 윈도우)
+            # CREATE_NEW_CONSOLE: 새 콘솔 창 생성 (Qt GUI 표시에 필요)
+            CREATE_NEW_CONSOLE = 0x00000010
 
             with open(log_file, 'w') as log:
                 process = subprocess.Popen(
                     cmd,
                     shell=True,
-                    startupinfo=startupinfo,
+                    creationflags=CREATE_NEW_CONSOLE,
                     stdout=log,
                     stderr=subprocess.STDOUT
                 )
