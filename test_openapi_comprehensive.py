@@ -437,9 +437,11 @@ def main():
     print("\n🔐 로그인 중...")
     api.login()
 
-    # 로그인 후 잠시 대기 (이벤트 처리)
+    # 로그인 후 Qt 이벤트 처리
     print("⏳ 로그인 완료 대기 중...")
-    time.sleep(2)
+    for _ in range(10):
+        app.processEvents()
+        time.sleep(0.2)
 
     accounts = api.get_account_list()
     if not accounts:
