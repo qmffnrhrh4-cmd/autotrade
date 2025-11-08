@@ -64,6 +64,10 @@ def initialize_openapi_in_main_thread():
 
         # breadum/kiwoom 라이브러리 사용
         from kiwoom import Kiwoom
+        import kiwoom
+
+        # 경고 메시지 숨기기
+        kiwoom.config.MUTE = True
 
         logger.info("🔧 Initializing Kiwoom OpenAPI connection...")
         logger.info("")
