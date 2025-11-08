@@ -112,21 +112,46 @@ class KiwoomOpenAPIClient:
                 logger.info(f"📋 계좌 목록: {self.account_list}")
                 return True
             else:
-                logger.info("🔐 OpenAPI 연결 시도 중...")
+                logger.info("🔐 OpenAPI 연결 시작...")
                 logger.info("   (로그인 창이 나타나면 로그인하세요, 최대 60초 대기)")
 
-                # Try to connect with longer timeout (60 seconds for login)
-                connect_result = self._request('POST', '/connect', timeout=60)
-                if connect_result and connect_result.get('success'):
-                    self.is_connected = True
-                    self.account_list = connect_result.get('accounts', [])
-                    logger.info("✅ OpenAPI 연결 성공!")
-                    logger.info(f"📋 계좌 목록: {self.account_list}")
-                    return True
-                else:
-                    logger.error("❌ OpenAPI 연결 실패")
-                    logger.error("   로그인을 완료했는지 확인하세요")
+                # Start connection (async)
+                connect_result = self._request('POST', '/connect', timeout=5)
+                if not connect_result:
+                    logger.error("❌ 연결 시작 실패")
                     return False
+
+                # Poll for connection status (max 60 seconds)
+                import time
+                max_wait = 60
+                poll_interval = 2
+                elapsed = 0
+
+                while elapsed < max_wait:
+                    time.sleep(poll_interval)
+                    elapsed += poll_interval
+
+                    status_result = self._request('GET', '/health', timeout=2)
+                    if status_result:
+                        status = status_result.get('connection_status')
+
+                        if status == 'connected':
+                            self.is_connected = True
+                            self.account_list = status_result.get('accounts', [])
+                            logger.info("✅ OpenAPI 연결 성공!")
+                            logger.info(f"📋 계좌 목록: {self.account_list}")
+                            return True
+                        elif status in ['failed', 'timeout']:
+                            logger.error(f"❌ OpenAPI 연결 실패 (상태: {status})")
+                            return False
+                        elif status == 'connecting':
+                            if elapsed % 10 == 0:  # 10초마다 로그
+                                logger.info(f"   대기 중... ({elapsed}초)")
+                            continue
+
+                logger.error("❌ 연결 시간 초과 (60초)")
+                logger.error("   로그인을 완료했는지 확인하세요")
+                return False
         else:
             logger.error("❌ OpenAPI 서버 응답 없음")
             logger.error("   서버가 시작되지 않았거나 응답하지 않습니다")
