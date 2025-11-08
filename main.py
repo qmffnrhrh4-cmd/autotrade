@@ -3,9 +3,11 @@ main_v2.py
 AutoTrade Pro v2.0 - 통합된 자동매매 시스템
 """
 import sys
+import os
 import time
 import signal
 import threading
+import subprocess
 from pathlib import Path
 from datetime import datetime
 
@@ -1648,6 +1650,93 @@ def signal_handler(signum, frame):
     sys.exit(0)
 
 
+def find_anaconda_path():
+    """Anaconda 설치 경로 찾기"""
+    possible_paths = [
+        Path.home() / "anaconda3",
+        Path.home() / "Anaconda3",
+        Path("C:/ProgramData/Anaconda3"),
+        Path("C:/ProgramData/anaconda3"),
+    ]
+
+    for path in possible_paths:
+        if path.exists() and (path / "Scripts" / "activate.bat").exists():
+            return path
+
+    return None
+
+
+def start_openapi_server():
+    """
+    OpenAPI 서버를 백그라운드로 시작
+
+    Returns:
+        subprocess.Popen object or None
+    """
+    print("🔧 OpenAPI 서버 시작 중 (32-bit, 백그라운드)...")
+
+    # Anaconda 경로 찾기
+    conda_path = find_anaconda_path()
+    if not conda_path:
+        print("⚠️  Anaconda를 찾을 수 없습니다 - OpenAPI 기능 비활성화")
+        print("   REST API 기능은 정상 작동합니다")
+        return None
+
+    # autotrade_32 환경 확인
+    env_path = conda_path / "envs" / "autotrade_32"
+    if not env_path.exists():
+        print("⚠️  autotrade_32 환경을 찾을 수 없습니다 - OpenAPI 기능 비활성화")
+        print("   환경 생성: INSTALL_ANACONDA_PROMPT.bat 실행")
+        print("   REST API 기능은 정상 작동합니다")
+        return None
+
+    # openapi_server.py 경로
+    server_script = Path(__file__).parent / "openapi_server.py"
+    if not server_script.exists():
+        print("⚠️  openapi_server.py를 찾을 수 없습니다")
+        return None
+
+    # 명령어 구성
+    activate_script = conda_path / "Scripts" / "activate.bat"
+    cmd = f'"{activate_script}" autotrade_32 && python "{server_script}"'
+
+    try:
+        # Windows에서 백그라운드로 실행 (창 안 보이게)
+        if sys.platform == 'win32':
+            CREATE_NO_WINDOW = 0x08000000
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                creationflags=CREATE_NO_WINDOW,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+        else:
+            # Linux/Mac
+            process = subprocess.Popen(
+                cmd,
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+
+        print("✅ OpenAPI 서버 시작됨 (백그라운드)")
+        print("   - 서버 URL: http://localhost:5001")
+        print("   - 환경: autotrade_32 (32-bit Python 3.10)")
+
+        # 서버 초기화 대기
+        print("   - 서버 초기화 중...", end='', flush=True)
+        time.sleep(3)
+        print(" 완료")
+
+        return process
+
+    except Exception as e:
+        print(f"⚠️  OpenAPI 서버 시작 실패: {e}")
+        print("   REST API 기능은 정상 작동합니다")
+        return None
+
+
 def main():
     """메인 함수"""
     # 시그널 핸들러
@@ -1657,6 +1746,10 @@ def main():
     print("\n" + "="*60)
     print("AutoTrade Pro v2.0".center(60))
     print("="*60 + "\n")
+
+    # OpenAPI 서버 자동 시작 (백그라운드)
+    openapi_process = start_openapi_server()
+    print()  # 빈 줄
 
     bot = None
     try:
@@ -1700,14 +1793,36 @@ def main():
         return 1
     finally:
         # Cleanup: OpenAPI 서버 종료
+        print("\n" + "="*60)
+        print("Shutting down...")
+        print("="*60)
+
+        # 1. HTTP API로 서버에 종료 신호 보내기
         if bot and hasattr(bot, 'openapi_client') and bot.openapi_client:
             try:
-                print("\n" + "="*60)
-                print("Shutting down OpenAPI server...")
-                print("="*60)
+                print("🛑 OpenAPI 서버에 종료 신호 전송 중...")
                 bot.openapi_client.shutdown_server()
+                time.sleep(1)
             except Exception as e:
-                logger.warning(f"OpenAPI 서버 종료 실패 (이미 종료됨): {e}")
+                pass  # 이미 종료되었을 수 있음
+
+        # 2. 프로세스 강제 종료 (응답 없으면)
+        if openapi_process:
+            try:
+                print("🛑 OpenAPI 서버 프로세스 종료 중...")
+                openapi_process.terminate()
+                try:
+                    openapi_process.wait(timeout=5)
+                    print("✅ OpenAPI 서버 종료됨")
+                except subprocess.TimeoutExpired:
+                    print("⚠️  강제 종료 중...")
+                    openapi_process.kill()
+                    openapi_process.wait()
+                    print("✅ OpenAPI 서버 강제 종료됨")
+            except Exception as e:
+                print(f"⚠️  프로세스 종료 실패: {e}")
+
+        print("="*60)
 
     return 0
 
