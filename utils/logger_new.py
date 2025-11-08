@@ -39,13 +39,23 @@ class LoguruLogger:
             from config.manager import get_config
             config = get_config()
             log_config = config.logging
+
+            # Pydantic 모델을 dictionary처럼 사용할 수 있도록 헬퍼 함수
+            def get_config_value(key, default=None):
+                try:
+                    if isinstance(log_config, dict):
+                        return log_config.get(key, default)
+                    else:
+                        return getattr(log_config, key, default)
+                except:
+                    return default
+
         except ImportError:
-            # 기본 설정 사용
             log_config = {
-                'level': 'INFO',  # 파일 로그 레벨
-                'console_level': 'WARNING',  # 콘솔 로그 레벨 (cmd 창 스팸 방지)
+                'level': 'INFO',
+                'console_level': 'WARNING',
                 'file_path': 'logs/bot.log',
-                'max_file_size': 10485760,  # 10MB
+                'max_file_size': 10485760,
                 'backup_count': 30,
                 'rotation': '00:00',
                 'format': '{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}',
@@ -53,51 +63,48 @@ class LoguruLogger:
                 'colored_output': True,
             }
 
-        # 기존 핸들러 제거
+            def get_config_value(key, default=None):
+                return log_config.get(key, default)
+
         logger.remove()
 
-        # 기본 포맷 정의
         default_format = '{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}'
 
-        # 콘솔 핸들러 (컬러 출력) - WARNING 이상만 출력 (cmd 창 스팸 방지)
-        if log_config.get('console_output', True):
-            console_level = log_config.get('console_level', 'WARNING')  # 기본값: WARNING
+        if get_config_value('console_output', True):
+            console_level = get_config_value('console_level', 'WARNING')
             logger.add(
                 sys.stdout,
-                format=log_config.get('format') or default_format,
-                level=console_level,  # 콘솔은 WARNING 이상만
-                colorize=log_config.get('colored_output', True),
+                format=get_config_value('format') or default_format,
+                level=console_level,
+                colorize=get_config_value('colored_output', True),
                 backtrace=True,
                 diagnose=True,
             )
 
-        # 파일 핸들러 (로테이션)
-        log_file = log_config.get('file_path', 'logs/bot.log')
+        log_file = get_config_value('file_path', 'logs/bot.log')
         log_path = Path(log_file)
 
-        # 로그 디렉토리 생성
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
         logger.add(
             log_path,
-            format=log_config.get('format') or default_format,
-            level=log_config.get('level', 'INFO'),
-            rotation=log_config.get('rotation', '00:00'),  # 매일 자정
-            retention=log_config.get('backup_count', 30),  # 30일 보관
-            compression='zip',  # 압축
+            format=get_config_value('format') or default_format,
+            level=get_config_value('level', 'INFO'),
+            rotation=get_config_value('rotation', '00:00'),
+            retention=get_config_value('backup_count', 30),
+            compression='zip',
             encoding='utf-8',
             backtrace=True,
             diagnose=True,
         )
 
-        # 에러 전용 파일 핸들러
         error_log_path = log_path.parent / 'error.log'
         logger.add(
             error_log_path,
-            format=log_config.get('format') or default_format,
+            format=get_config_value('format') or default_format,
             level='ERROR',
             rotation='10 MB',
-            retention=60,  # 60일 보관
+            retention=60,
             compression='zip',
             encoding='utf-8',
             backtrace=True,
