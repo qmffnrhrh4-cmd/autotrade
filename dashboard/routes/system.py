@@ -252,7 +252,7 @@ def get_system_connections():
 
                     # EnsembleAnalyzer의 경우 내부 analyzers 확인
                     if analyzer_type == 'EnsembleAnalyzer' and hasattr(analyzer, 'analyzers'):
-                        from ai.ensemble_analyzer import AIModel
+                        #from ai.ensemble_analyzer import AIModel
                         is_gemini = AIModel.GEMINI in analyzer.analyzers
 
                     connections['gemini'] = is_gemini and not is_mock

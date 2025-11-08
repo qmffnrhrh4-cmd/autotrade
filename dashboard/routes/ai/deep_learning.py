@@ -18,30 +18,12 @@ deep_learning_bp = Blueprint('deep_learning', __name__)
 
 @deep_learning_bp.route('/api/v4.1/deep_learning/predict/<stock_code>')
 def get_deep_learning_prediction(stock_code: str):
-    """Get deep learning prediction (LSTM + Transformer + CNN)"""
-    try:
-        from ai.deep_learning import get_deep_learning_manager
-        from dataclasses import asdict
-
-        manager = get_deep_learning_manager()
-
-        # Mock historical data
-        historical_data = []
-
-        prediction = manager.predict(
-            stock_code=stock_code,
-            stock_name=stock_code,
-            historical_data=historical_data,
-            current_price=73500
-        )
-
-        return jsonify({
-            'success': True,
-            'prediction': asdict(prediction)
-        })
-    except Exception as e:
-        print(f"Deep learning prediction error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+    """Get deep learning prediction (LSTM + Transformer + CNN) - Currently disabled"""
+    return jsonify({
+        'success': False,
+        'message': 'Deep Learning 기능은 현재 비활성화되었습니다. PyTorch 환경 구축 후 사용 가능합니다.',
+        'prediction': None
+    })
 
 
 @deep_learning_bp.route('/api/v4.1/advanced_rl/action')
@@ -215,25 +197,12 @@ def run_backtest():
 
 @deep_learning_bp.route('/api/v4.1/all/status')
 def get_all_ai_status():
-    """Get comprehensive status of all v4.1 AI systems"""
-    try:
-        from ai.deep_learning import get_deep_learning_manager
-        from ai.advanced_rl import get_advanced_rl_manager
-        from ai.automl import get_automl_manager
-
-        dl_manager = get_deep_learning_manager()
-        rl_manager = get_advanced_rl_manager()
-        automl_manager = get_automl_manager()
-
-        return jsonify({
-            'success': True,
-            'deep_learning': dl_manager.get_performance(),
-            'advanced_rl': rl_manager.get_all_performances(),
-            'automl': {
-                'optimizations_run': len(automl_manager.get_optimization_history())
-            },
-            'version': '4.1'
-        })
-    except Exception as e:
-        print(f"All AI status error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+    """Get comprehensive status of all v4.1 AI systems - Currently disabled"""
+    return jsonify({
+        'success': False,
+        'message': 'Advanced AI 기능들은 현재 비활성화되었습니다. Gemini AI 분석기를 사용하세요.',
+        'deep_learning': None,
+        'advanced_rl': None,
+        'automl': None,
+        'version': '4.1 (disabled)'
+    })
