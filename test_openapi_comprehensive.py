@@ -64,19 +64,47 @@ class OpenAPITester:
         """모든 테스트 실행"""
         print("\n🚀 테스트 시작...")
 
-        # 계좌 확인 (breadum/kiwoom 메서드 사용)
+        # 계좌 확인 - 여러 방법 시도
+        accounts = []
+
+        # 방법 1: get_login_info 사용
         try:
-            accounts = self.api.get_account_list()
-            if isinstance(accounts, str):
-                # 세미콜론으로 구분된 경우
-                accounts = [acc.strip() for acc in accounts.split(';') if acc.strip()]
-            elif not isinstance(accounts, list):
-                accounts = [accounts]
+            acc_info = self.api.get_login_info("ACCLIST")
+            if acc_info:
+                print(f"   get_login_info 결과: {acc_info}")
+                if ';' in acc_info:
+                    accounts = [acc.strip() for acc in acc_info.split(';') if acc.strip()]
+                else:
+                    accounts = [acc_info]
         except Exception as e:
-            print(f"❌ 계좌 목록 조회 실패: {e}")
-            import traceback
-            traceback.print_exc()
-            accounts = []
+            print(f"   get_login_info 실패: {e}")
+
+        # 방법 2: account 속성 확인
+        if not accounts:
+            try:
+                if hasattr(self.api, 'account'):
+                    acc = self.api.account
+                    print(f"   account 속성: {acc}")
+                    accounts = [acc] if acc else []
+            except Exception as e:
+                print(f"   account 속성 실패: {e}")
+
+        # 방법 3: accounts 속성 확인
+        if not accounts:
+            try:
+                if hasattr(self.api, 'accounts'):
+                    accs = self.api.accounts
+                    print(f"   accounts 속성: {accs}")
+                    accounts = accs if isinstance(accs, list) else [accs]
+            except Exception as e:
+                print(f"   accounts 속성 실패: {e}")
+
+        # 디버깅: API 객체의 모든 속성/메서드 출력
+        if not accounts:
+            print("\n   🔍 API 객체 분석:")
+            for attr in dir(self.api):
+                if 'account' in attr.lower() or 'login' in attr.lower():
+                    print(f"      - {attr}")
 
         if not accounts:
             print("❌ 계좌 목록이 없습니다")
@@ -146,7 +174,7 @@ class OpenAPITester:
 
         try:
             # 계좌 목록
-            accounts = self.api.get_account_list()
+            accounts = self.api.get_login_info("ACCLIST")
             print(f"✅ 계좌 목록: {accounts}")
             results['accounts'] = accounts if isinstance(accounts, list) else [accounts]
 
