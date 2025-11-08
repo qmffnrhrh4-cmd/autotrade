@@ -51,6 +51,7 @@ def initialize_openapi_in_main_thread():
     try:
         # Qt 애플리케이션을 먼저 생성
         from PyQt5.QtWidgets import QApplication
+        from PyQt5.QtCore import QTimer
 
         logger.info("🔧 Initializing Qt Application...")
 
@@ -88,44 +89,51 @@ def initialize_openapi_in_main_thread():
         openapi_context = Kiwoom()
         logger.info("✅ Kiwoom API instance created")
 
-        # Process Qt events to show any pending windows
-        logger.info("🔧 Processing Qt events...")
-        for _ in range(5):  # Process events multiple times
-            app.processEvents()
-            import time
-            time.sleep(0.1)
+        # 로그인 이벤트 핸들러 등록
+        def on_login(err_code):
+            global connection_status, account_list
 
-        # Auto-login (will show login window)
-        logger.info("🔐 Calling login()...")
+            if err_code == 0:
+                connection_status = "connected"
+                logger.info("")
+                logger.info("=" * 60)
+                logger.info("✅ 로그인 성공!")
+                logger.info("=" * 60)
+
+                # Get account list (로그인 성공 후에도 계좌 목록이 없을 수 있음)
+                logger.info("🔍 Getting account list...")
+                try:
+                    account_list = openapi_context.get_account_list()
+                    if account_list and len(account_list) > 0:
+                        logger.info(f"   계좌 목록: {account_list}")
+                    else:
+                        logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
+                        account_list = []
+                except Exception as e:
+                    logger.warning(f"   계좌 목록 조회 실패: {e}")
+                    account_list = []
+
+                logger.info("=" * 60)
+            else:
+                connection_status = "failed"
+                logger.error("")
+                logger.error("=" * 60)
+                logger.error(f"❌ 로그인 실패: err_code={err_code}")
+                logger.error("=" * 60)
+
+        # 이벤트 핸들러 연결
+        openapi_context.OnEventConnect.connect(on_login)
+
+        # 비동기 로그인 시작
+        logger.info("🔐 Starting async login...")
         logger.info("   👀 로그인 창을 찾아보세요!")
         logger.info("   - 화면에 보이지 않으면 작업 표시줄의 깜빡이는 아이콘 클릭")
         logger.info("   - Alt+Tab으로 창 전환해보세요")
         logger.info("")
 
-        # Call login (this will show login window and block until login completes)
-        openapi_context.login()
+        # CommConnect()는 비동기로 실행됨 (Qt 이벤트 루프에서 처리)
+        openapi_context.CommConnect()
 
-        # 로그인 성공 - 일단 connected로 설정
-        connection_status = "connected"
-        logger.info("")
-        logger.info("=" * 60)
-        logger.info("✅ 로그인 성공!")
-        logger.info("=" * 60)
-
-        # Get account list (로그인 성공 후에도 계좌 목록이 없을 수 있음)
-        logger.info("🔍 Getting account list...")
-        try:
-            account_list = openapi_context.get_account_list()
-            if account_list and len(account_list) > 0:
-                logger.info(f"   계좌 목록: {account_list}")
-            else:
-                logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
-                account_list = []
-        except Exception as e:
-            logger.warning(f"   계좌 목록 조회 실패: {e}")
-            account_list = []
-
-        logger.info("=" * 60)
         return True
 
     except Exception as e:
