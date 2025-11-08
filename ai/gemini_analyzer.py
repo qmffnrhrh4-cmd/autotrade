@@ -21,41 +21,100 @@ class GeminiAnalyzer(BaseAnalyzer):
     # 복잡한 프롬프트는 JSON 생성 실패 가능성이 높음 - 간소화
     STOCK_ANALYSIS_PROMPT_TEMPLATE_SIMPLE = """# 종목 투자 분석 요청
 
-당신은 전문 트레이더입니다. 다음 종목을 분석하여 **반드시 JSON 형식으로만** 응답하세요.
+당신은 20년 경력의 퀀트 트레이더입니다. 한국 주식시장에서 다음 종목을 **데이트레이딩/스윙 트레이딩** 관점에서 분석하세요.
 
-## 종목 정보
-- 종목: {stock_name} ({stock_code})
+## 📊 종목 정보
+- 종목명: {stock_name} ({stock_code})
 - 현재가: {current_price:,}원
 - 등락률: {change_rate:+.2f}%
 - 거래량: {volume:,}주
 
-## 평가 점수
-- 종합 점수: {score}/{percentage:.1f}%
-- 세부 점수:
+## 🎯 퀀트 평가 점수 (440점 만점)
+**종합 점수**: {score}점 ({percentage:.1f}%)
+
+**점수 등급 해석**:
+- 350점 이상 (80%+): S등급 - 매우 강력한 매수 신호
+- 300-349점 (68-79%): A등급 - 강력한 매수 신호
+- 250-299점 (57-68%): B등급 - 긍정적 매수 신호
+- 200-249점 (45-56%): C등급 - 중립/관망
+- 200점 미만 (45%-): D등급 - 부정적 신호
+
+**세부 점수 분석**:
 {score_breakdown_detailed}
 
-## 투자자 동향
+## 💰 스마트머니 흐름
 - 기관 순매수: {institutional_net_buy:,}원
 - 외국인 순매수: {foreign_net_buy:,}원
-- 매수호가 비율: {bid_ask_ratio:.2f}
+- 매수호가 강도: {bid_ask_ratio:.2f}
 
-## 포트폴리오
+**해석 가이드**:
+- 1.5 이상 = 강한 매수세, 0.7 이하 = 강한 매도세
+- 외국인+기관 동시 순매수 = 강력한 상승 신호
+- 외국인 순매도+개인 순매수 = 경고 신호
+
+## 📈 현재 포트폴리오
 {portfolio_info}
 
 ---
 
-**중요: 반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요.**
+## 🎓 분석 요구사항
+
+**5가지 핵심 영역** 분석:
+
+1. **점수 타당성**: {score}점이 실제 시장 상황과 부합하는가?
+2. **스마트머니 신호**: 기관/외국인 매매 패턴이 의미하는 것은?
+3. **가격 모멘텀**: 급등/추세전환/조정 후 재상승 중 무엇인가?
+4. **리스크 평가**: 주요 하락 리스크 3가지와 손절 기준
+5. **매매 전략**: 즉시 매수 vs 대기 vs 분할 매수 vs 회피
+
+---
+
+**반드시 아래 JSON 형식으로만 응답하세요:**
 
 ```json
 {{
-  "signal": "buy" 또는 "hold" 또는 "sell",
-  "confidence_level": "Very High" 또는 "High" 또는 "Medium" 또는 "Low",
-  "overall_score": 0.0~10.0 사이의 숫자,
-  "reasons": ["이유1", "이유2", "이유3"],
-  "risks": ["리스크1", "리스크2"],
-  "detailed_reasoning": "상세 분석 (3-5문장)"
+  "signal": "buy" | "hold" | "sell",
+  "confidence_level": "Very High" | "High" | "Medium" | "Low",
+  "overall_score": <0-10, 소수점 1자리>,
+
+  "score_analysis": {{
+    "is_reliable": true | false,
+    "comment": "점수 타당성 평가 (1-2문장)"
+  }},
+
+  "smart_money_signal": {{
+    "institutional_sentiment": "Strong Buy" | "Buy" | "Neutral" | "Sell",
+    "foreign_sentiment": "Strong Buy" | "Buy" | "Neutral" | "Sell",
+    "comment": "스마트머니 해석 (1-2문장)"
+  }},
+
+  "price_momentum": {{
+    "pattern": "Sharp Rally" | "Trend Reversal" | "Post-Correction" | "Consolidation" | "Breakdown",
+    "sustainability": "Very High" | "High" | "Medium" | "Low",
+    "comment": "모멘텀 분석 (1-2문장)"
+  }},
+
+  "risk_assessment": {{
+    "overall_risk": "Very High" | "High" | "Medium" | "Low",
+    "key_risks": ["리스크1 (구체적)", "리스크2", "리스크3"],
+    "stop_loss_criteria": "손절 기준 (가격 또는 %)"
+  }},
+
+  "trading_strategy": {{
+    "entry_timing": "Immediate" | "Wait for Pullback" | "Wait for Breakout" | "Avoid",
+    "position_size": "Full" | "Half" | "Quarter" | "None",
+    "holding_period": "1-3일" | "1-2주" | "1개월+"
+  }},
+
+  "reasons": ["매수/매도/관망 이유 1", "이유 2", "이유 3"],
+  "detailed_reasoning": "종합 분석 (3-5문장)"
 }}
-```"""
+```
+
+## ⚠️ 중요 원칙
+- 점수가 높다고 무조건 매수 아님: 스마트머니와 모멘텀 종합 고려
+- 불확실하면 "hold" 추천
+- 구체적 근거 제시 (모호한 표현 금지)"""
 
     # 종목 분석 프롬프트 템플릿 (v6.1 - ULTRA ENHANCED - 복잡함, 실패 가능성 높음)
     STOCK_ANALYSIS_PROMPT_TEMPLATE_COMPLEX = """# 🎯 PROFESSIONAL QUANTITATIVE TRADING ANALYSIS REQUEST (v6.1 - Gemini Pro)
@@ -737,41 +796,114 @@ class GeminiAnalyzer(BaseAnalyzer):
 
     def _create_market_analysis_prompt(self, market_data: Dict[str, Any]) -> str:
         """시장 분석 프롬프트 생성"""
-        prompt = f"""
-당신은 전문 시장 분석가입니다. 현재 시장 상황을 분석해주세요.
+        kospi = market_data.get('kospi', {})
+        kosdaq = market_data.get('kosdaq', {})
 
-**시장 데이터:**
-{self._format_market_data(market_data)}
+        prompt = f"""당신은 한국 주식시장 전문 애널리스트입니다. 현재 시장을 분석하세요.
 
-**분석 요청:**
-다음 형식으로 분석해주세요:
+## 📊 시장 지표
 
-시장심리: [bullish/bearish/neutral 중 하나]
-점수: [0~10점]
-분석: [시장 상황 분석 3-5줄]
-추천: [투자 전략 추천 2-3가지]
-"""
-        
+**KOSPI**:
+- 현재: {kospi.get('index', 0):.2f} ({kospi.get('change_rate', 0):+.2f}%)
+- 거래대금: {kospi.get('trading_value', 0):,}억원
+- 외국인: {kospi.get('foreign_net', 0):,}억원
+
+**KOSDAQ**:
+- 현재: {kosdaq.get('index', 0):.2f} ({kosdaq.get('change_rate', 0):+.2f}%)
+- 거래대금: {kosdaq.get('trading_value', 0):,}억원
+
+---
+
+## 🎯 분석 요청
+
+**5가지 관점**에서 분석:
+
+1. **시장 레짐**: Bull/Bear/Sideways/Transitioning
+2. **투자 심리**: Euphoria/Greed/Neutral/Fear/Panic
+3. **스마트머니**: 외국인/기관 매집 또는 분산
+4. **섹터 로테이션**: 강세/약세 업종
+5. **단기 전략**: 공격 매수/선별 매수/관망/현금 확대
+
+**JSON 형식으로 응답:**
+
+```json
+{{
+  "market_regime": "Bull Market" | "Bear Market" | "Sideways" | "Transitioning",
+  "market_sentiment": "Euphoria" | "Greed" | "Neutral" | "Fear" | "Panic",
+  "market_score": <0-10>,
+
+  "smart_money_flow": {{
+    "foreign_trend": "Strong Buy" | "Buy" | "Neutral" | "Sell" | "Strong Sell",
+    "comment": "스마트머니 해석 (1-2문장)"
+  }},
+
+  "trading_strategy": "Aggressive Buy" | "Selective Buy" | "Hold" | "Increase Cash",
+
+  "key_insights": ["인사이트 1", "인사이트 2", "인사이트 3"],
+  "risks": ["리스크 1", "리스크 2"],
+  "detailed_analysis": "시장 종합 분석 (3-5문장)"
+}}
+```"""
+
         return prompt
     
     def _create_portfolio_analysis_prompt(self, portfolio_data: Dict[str, Any]) -> str:
         """포트폴리오 분석 프롬프트 생성"""
-        prompt = f"""
-당신은 포트폴리오 관리 전문가입니다. 다음 포트폴리오를 분석해주세요.
+        holdings = portfolio_data.get('holdings', [])
+        total_assets = portfolio_data.get('total_assets', 0)
 
-**포트폴리오:**
-- 총 자산: {portfolio_data.get('total_assets', 0):,}원
+        prompt = f"""당신은 포트폴리오 리스크 관리 전문가입니다. **리스크 관점**에서 분석하세요.
+
+## 📊 포트폴리오 현황
+
+**자산 구성**:
+- 총 자산: {total_assets:,}원
 - 현금 비중: {portfolio_data.get('cash_ratio', 0):.1f}%
-- 종목 수: {portfolio_data.get('position_count', 0)}개
+- 주식 비중: {100 - portfolio_data.get('cash_ratio', 0):.1f}%
+- 보유 종목: {portfolio_data.get('position_count', 0)}개
 - 총 수익률: {portfolio_data.get('total_profit_loss_rate', 0):+.2f}%
 
-**보유 종목:**
-{self._format_holdings_data(portfolio_data.get('holdings', []))}
+**보유 종목**:
+{self._format_holdings_data(holdings)}
 
-**분석 요청:**
-포트폴리오의 강점, 약점, 개선사항을 분석해주세요.
-"""
-        
+---
+
+## 🎯 분석 요청
+
+**6가지 영역** 분석:
+
+1. **포트폴리오 구성**: 현금/주식 비중 적절성
+2. **집중도 리스크**: 특정 종목 과도 집중 여부
+3. **업종 다각화**: 업종 분산 적절성
+4. **수익률 분석**: 주요 기여/악화 종목
+5. **손절 필요성**: 손실 종목 중 손절 필요 종목
+6. **리밸런싱**: 비중 조정 필요 종목
+
+**JSON 형식으로 응답:**
+
+```json
+{{
+  "overall_health": "Excellent" | "Good" | "Fair" | "Poor",
+  "risk_level": "Very High" | "High" | "Medium" | "Low",
+
+  "concentration_risk": {{
+    "level": "Very High" | "High" | "Medium" | "Low",
+    "comment": "집중도 평가 (1-2문장)"
+  }},
+
+  "actions_required": {{
+    "stop_loss_candidates": ["종목명 (이유)"],
+    "reduce_position": ["종목명"],
+    "increase_position": ["종목명"]
+  }},
+
+  "strengths": ["강점 1", "강점 2"],
+  "weaknesses": ["약점 1", "약점 2"],
+  "key_recommendations": ["추천 1", "추천 2", "추천 3"],
+  "detailed_analysis": "포트폴리오 종합 분석 (3-5문장)"
+}}
+```"""
+
         return prompt
     
     # ==================== 응답 파싱 ====================

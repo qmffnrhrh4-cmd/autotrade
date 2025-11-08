@@ -14,12 +14,8 @@ from datetime import datetime
 # 프로젝트 루트 경로
 sys.path.insert(0, str(Path(__file__).parent))
 
-# 새로운 시스템 임포트 (v4.2: Unified config)
-try:
-    from config.manager import get_config
-except ImportError:
-    # Fallback to old config_manager
-    from config.config_manager import get_config
+from config.manager import get_config
+from config.constants import DELAYS, URLS
 try:
     from utils.logger_new import get_logger
 except ImportError:
@@ -1822,11 +1818,11 @@ def start_openapi_server():
         print("   - 서버 초기화 중...", end='', flush=True)
 
         import requests
-        max_retries = 15  # 15초 대기
+        max_retries = 15
         for i in range(max_retries):
-            time.sleep(1)
+            time.sleep(DELAYS['server_init'])
             try:
-                response = requests.get('http://127.0.0.1:5001/health', timeout=1)
+                response = requests.get(URLS['openapi_health'], timeout=1)
                 if response.status_code == 200:
                     print(f" 완료 ({i+1}초)")
                     print("   - 서버 상태: ✅ 정상")

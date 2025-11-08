@@ -36,7 +36,7 @@ class LoguruLogger:
     def _setup_logger(self):
         """로거 초기 설정"""
         try:
-            from config.config_manager import get_config
+            from config.manager import get_config
             config = get_config()
             log_config = config.logging
         except ImportError:

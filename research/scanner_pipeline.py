@@ -9,7 +9,7 @@ from datetime import datetime
 
 from utils.logger_new import get_logger
 
-from config.config_manager import get_config
+from config.manager import get_config
 
 
 logger = get_logger()

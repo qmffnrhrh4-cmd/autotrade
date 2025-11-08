@@ -14,8 +14,8 @@ import hashlib
 import json
 
 from utils.logger_new import get_logger
-from utils.cache_manager import get_cache_manager
-from config.config_manager import get_config
+from utils.data_cache import get_api_cache
+from config.manager import get_config
 
 
 logger = get_logger()
@@ -90,8 +90,8 @@ class ScoringSystem:
 
         # v5.9: 캐싱 설정
         self.enable_cache = enable_cache
-        self.cache_manager = get_cache_manager() if enable_cache else None
-        self.cache_ttl = 30  # 30초 TTL
+        self.cache_manager = get_api_cache() if enable_cache else None
+        self.cache_ttl = 30
 
         logger.info("📊 10가지 기준 스코어링 시스템 초기화 완료 (v5.9 - 캐싱/병렬 지원)")
 

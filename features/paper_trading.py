@@ -21,6 +21,8 @@ from pathlib import Path
 from collections import defaultdict
 import logging
 
+from config.constants import DELAYS
+
 logger = logging.getLogger(__name__)
 
 
@@ -344,12 +346,11 @@ class PaperTradingEngine:
                 # Save state periodically
                 self._save_state()
 
-                # Sleep for a bit (e.g., 30 seconds)
-                time.sleep(30)
+                time.sleep(DELAYS['paper_trading_check'])
 
             except Exception as e:
                 logger.error(f"Error in paper trading execution loop: {e}")
-                time.sleep(60)  # Wait longer on error
+                time.sleep(DELAYS['paper_trading_error'])
 
     def _execute_iteration(self):
         """Execute one iteration of paper trading"""

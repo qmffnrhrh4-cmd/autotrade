@@ -18,6 +18,7 @@ from typing import Dict, Any, Optional, Callable, List
 from datetime import datetime
 
 from utils.logger_new import get_logger
+from config.constants import URLS
 
 logger = get_logger()
 
@@ -25,7 +26,7 @@ logger = get_logger()
 class WebSocketManager:
     """WebSocket 실시간 시세 매니저"""
 
-    def __init__(self, access_token: str, base_url: str = "https://api.kiwoom.com"):
+    def __init__(self, access_token: str, base_url: str = None):
         """
         WebSocketManager 초기화
 
@@ -33,6 +34,8 @@ class WebSocketManager:
             access_token: API 액세스 토큰
             base_url: API 베이스 URL
         """
+        if base_url is None:
+            base_url = URLS['kiwoom_api_base']
         self.access_token = access_token
         self.base_url = base_url
 

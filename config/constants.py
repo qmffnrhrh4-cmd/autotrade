@@ -66,3 +66,66 @@ MARKET_HOURS = {
 
 DEFAULT_INITIAL_CAPITAL = 10_000_000
 DEFAULT_VIRTUAL_CAPITAL = 10_000_000
+
+DELAYS = {
+    'api_retry': 1.0,
+    'api_retry_error': 2.0,
+    'paper_trading_check': 30.0,
+    'paper_trading_error': 60.0,
+    'order_check': 30.0,
+    'websocket_reconnect': 5.0,
+    'rate_limit': 0.2,
+    'server_init': 1.0,
+    'batch_delay': 0.1
+}
+
+URLS = {
+    'openapi_server': 'http://127.0.0.1:5001',
+    'kiwoom_api_base': 'https://api.kiwoom.com',
+    'openapi_health': 'http://127.0.0.1:5001/health'
+}
+
+PROFIT_LOSS_RATIOS = {
+    'default': {
+        'stop_loss': 0.05,
+        'take_profit': 0.10
+    },
+    'aggressive': {
+        'stop_loss': 0.07,
+        'take_profit': 0.15
+    },
+    'conservative': {
+        'stop_loss': 0.03,
+        'take_profit': 0.08
+    },
+    'moderate': {
+        'stop_loss': 0.05,
+        'take_profit': 0.12
+    },
+    'day_trading': {
+        'stop_loss': 0.02,
+        'take_profit': 0.05
+    }
+}
+
+RISK_LIMITS = {
+    'max_position_size': 0.30,
+    'max_daily_loss': 0.03,
+    'max_total_loss': 0.10,
+    'max_consecutive_losses': 3,
+    'position_limit': 5,
+    'emergency_stop_loss': 0.15
+}
+
+THRESHOLDS = {
+    'min_ai_score': 7.0,
+    'min_trading_volume': 100000,
+    'max_spread_pct': 0.02,
+    'min_market_cap': 100_000_000_000
+}
+
+RETRY_CONFIG = {
+    'max_retries': 3,
+    'backoff_factor': 2.0,
+    'max_backoff': 60.0
+}
