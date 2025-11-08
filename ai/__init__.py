@@ -1,226 +1,75 @@
 """
-Advanced AI Package
-Next-generation AI trading system
+Advanced AI Package - Simplified v3.0
 
-v4.0 Modules:
-- ML Predictor: Machine learning price prediction
-- RL Agent: Reinforcement learning trading agent
-- Ensemble AI: Combined multi-model predictions
-- Meta Learning: Learning how to learn
-
-v4.1 Modules:
-- Deep Learning: LSTM, Transformer, CNN models
-- Advanced RL: A3C, PPO, SAC algorithms
-- AutoML: Automatic hyperparameter optimization
-- Backtesting: Strategy validation engine
-
-v4.2 Modules:
-- Real-time System: WebSocket streaming, event-driven trading
-- Portfolio Optimization: Markowitz, Black-Litterman, Risk Parity, Monte Carlo
-- Sentiment Analysis: News and social media analysis
-- Multi-Agent System: Consensus-based decision making
-- Advanced Risk Management: VaR, CVaR, stress testing
-- Market Regime Detection: Bull/bear/sideways classification
-- Performance Optimization: Multi-processing, caching
-- Options Pricing: Black-Scholes, Greeks, strategies
-- High-Frequency Trading: Microsecond latency, arbitrage
+Core AI modules only (삭제된 모듈 제거됨)
 """
 
-# Legacy ensemble analyzer (for backward compatibility)
-from .ensemble_analyzer import EnsembleAnalyzer, get_analyzer
+from .base_analyzer import BaseAnalyzer
+from .gemini_analyzer import GeminiAnalyzer
+from .mock_analyzer import MockAnalyzer
 
-# v4.0 modules
-from .ml_predictor import MLPricePredictor, PricePrediction, get_ml_predictor
-from .rl_agent import DQNAgent, RLState, RLAction, get_rl_agent
-from .ensemble_ai import EnsembleAI, EnsemblePrediction, get_ensemble_ai
-from .meta_learning import MetaLearningEngine, MetaKnowledge, get_meta_learning_engine
+try:
+    from .ml_predictor import MLPricePredictor, PricePrediction, get_ml_predictor
+except ImportError:
+    MLPricePredictor = PricePrediction = get_ml_predictor = None
 
-# v4.1 modules
-from .deep_learning import (
-    DeepLearningManager, DeepLearningPrediction,
-    LSTMPricePredictor, TransformerPricePredictor, CNNPatternRecognizer,
-    get_deep_learning_manager
-)
-from .advanced_rl import (
-    AdvancedRLManager, RLAction as AdvancedRLAction,
-    A3CAgent, PPOAgent, SACAgent,
-    get_advanced_rl_manager
-)
-from .automl import (
-    AutoMLManager, AutoMLResult, HyperparameterConfig,
-    FeatureImportance, get_automl_manager
-)
-from .backtesting import (
-    BacktestEngine, BacktestResult, BacktestConfig,
-    BacktestTrade, get_backtest_engine
-)
-# Position is now imported from core (v4.2 standardization)
-from core import Position
+try:
+    from .rl_agent import DQNAgent, RLState, RLAction, get_rl_agent
+except ImportError:
+    DQNAgent = RLState = RLAction = get_rl_agent = None
 
-# v4.2 modules
-from .realtime_system import (
-    RealTimeDataStream, EventDrivenTradingEngine,
-    StreamingTick, StreamingCandle, StreamingEvent,
-    get_data_stream, get_trading_engine
-)
-from .portfolio_optimization import (
-    PortfolioOptimizationManager, PortfolioAllocation, PortfolioMetrics,
-    MarkowitzOptimizer, BlackLittermanOptimizer, RiskParityOptimizer,
-    MonteCarloSimulator, get_portfolio_manager
-)
-from .sentiment_analysis import (
-    SentimentAnalysisManager, SentimentReport,
-    NewsSentimentAnalyzer, SocialMediaAnalyzer,
-    NewsArticle, SocialMediaPost,
-    get_sentiment_manager
-)
-from .advanced_systems import (
-    MultiAgentSystem, AdvancedRiskManager, MarketRegimeDetector,
-    PerformanceOptimizer, AgentDecision, ConsensusDecision,
-    RiskMetrics, MarketRegime,
-    get_multi_agent_system, get_risk_manager,
-    get_regime_detector, get_performance_optimizer
-)
-from .options_hft import (
-    BlackScholesModel, OptionsStrategyAnalyzer, HighFrequencyTrader,
-    OptionContract, OptionGreeks, HFTOrder, HFTSignal,
-    get_bs_model, get_options_analyzer, get_hft_trader
-)
+try:
+    from .ensemble_ai import EnsembleAI, EnsemblePrediction, get_ensemble_ai
+except ImportError:
+    EnsembleAI = EnsemblePrediction = get_ensemble_ai = None
 
-# v4.0 Advanced Features
+try:
+    from .realtime_system import RealTimeDataStream, EventDrivenTradingEngine, get_data_stream, get_trading_engine
+except ImportError:
+    RealTimeDataStream = EventDrivenTradingEngine = get_data_stream = get_trading_engine = None
+
+try:
+    from .sentiment_analysis import SentimentAnalysisManager, get_sentiment_manager
+except ImportError:
+    SentimentAnalysisManager = get_sentiment_manager = None
+
+try:
+    from .advanced_systems import MultiAgentSystem, get_multi_agent_system
+except ImportError:
+    MultiAgentSystem = get_multi_agent_system = None
+
 try:
     from .backtest_report_generator import BacktestReportGenerator, BacktestReport
-    from .strategy_optimizer import StrategyOptimizer, OptimizationResult
-    from .market_regime_classifier import MarketRegimeClassifier, RegimeType, VolatilityLevel
-    from .anomaly_detector import AnomalyDetector, AnomalyEvent, AnomalyType
-except ImportError as e:
-    import warnings
-    warnings.warn(f"v4.0 Advanced Features could not be imported: {e}")
+except ImportError:
     BacktestReportGenerator = BacktestReport = None
+
+try:
+    from .strategy_optimizer import StrategyOptimizer, OptimizationResult
+except ImportError:
     StrategyOptimizer = OptimizationResult = None
+
+try:
+    from .market_regime_classifier import MarketRegimeClassifier, RegimeType, VolatilityLevel
+except ImportError:
     MarketRegimeClassifier = RegimeType = VolatilityLevel = None
+
+try:
+    from .anomaly_detector import AnomalyDetector, AnomalyEvent, AnomalyType
+except ImportError:
     AnomalyDetector = AnomalyEvent = AnomalyType = None
 
 __all__ = [
-    # Legacy
-    'EnsembleAnalyzer',
-    'get_analyzer',
-
-    # v4.0 - ML Predictor
+    'BaseAnalyzer',
+    'GeminiAnalyzer',
+    'MockAnalyzer',
     'MLPricePredictor',
-    'PricePrediction',
-    'get_ml_predictor',
-
-    # v4.0 - RL Agent
     'DQNAgent',
-    'RLState',
-    'RLAction',
-    'get_rl_agent',
-
-    # v4.0 - Ensemble AI
     'EnsembleAI',
-    'EnsemblePrediction',
-    'get_ensemble_ai',
-
-    # v4.0 - Meta Learning
-    'MetaLearningEngine',
-    'MetaKnowledge',
-    'get_meta_learning_engine',
-
-    # v4.1 - Deep Learning
-    'DeepLearningManager',
-    'DeepLearningPrediction',
-    'LSTMPricePredictor',
-    'TransformerPricePredictor',
-    'CNNPatternRecognizer',
-    'get_deep_learning_manager',
-
-    # v4.1 - Advanced RL
-    'AdvancedRLManager',
-    'AdvancedRLAction',
-    'A3CAgent',
-    'PPOAgent',
-    'SACAgent',
-    'get_advanced_rl_manager',
-
-    # v4.1 - AutoML
-    'AutoMLManager',
-    'AutoMLResult',
-    'HyperparameterConfig',
-    'FeatureImportance',
-    'get_automl_manager',
-
-    # v4.1 - Backtesting
-    'BacktestEngine',
-    'BacktestResult',
-    'BacktestConfig',
-    'BacktestTrade',  # v4.2: Renamed from Trade
-    'Position',  # v4.2: From core (standardized)
-    'get_backtest_engine',
-
-    # v4.2 - Real-time System
     'RealTimeDataStream',
-    'EventDrivenTradingEngine',
-    'StreamingTick',
-    'StreamingCandle',
-    'StreamingEvent',
-    'get_data_stream',
-    'get_trading_engine',
-
-    # v4.2 - Portfolio Optimization
-    'PortfolioOptimizationManager',
-    'PortfolioAllocation',
-    'PortfolioMetrics',
-    'MarkowitzOptimizer',
-    'BlackLittermanOptimizer',
-    'RiskParityOptimizer',
-    'MonteCarloSimulator',
-    'get_portfolio_manager',
-
-    # v4.2 - Sentiment Analysis
     'SentimentAnalysisManager',
-    'SentimentReport',
-    'NewsSentimentAnalyzer',
-    'SocialMediaAnalyzer',
-    'NewsArticle',
-    'SocialMediaPost',
-    'get_sentiment_manager',
-
-    # v4.2 - Advanced Systems
     'MultiAgentSystem',
-    'AdvancedRiskManager',
-    'MarketRegimeDetector',
-    'PerformanceOptimizer',
-    'AgentDecision',
-    'ConsensusDecision',
-    'RiskMetrics',
-    'MarketRegime',
-    'get_multi_agent_system',
-    'get_risk_manager',
-    'get_regime_detector',
-    'get_performance_optimizer',
-
-    # v4.2 - Options & HFT
-    'BlackScholesModel',
-    'OptionsStrategyAnalyzer',
-    'HighFrequencyTrader',
-    'OptionContract',
-    'OptionGreeks',
-    'HFTOrder',
-    'HFTSignal',
-    'get_bs_model',
-    'get_options_analyzer',
-    'get_hft_trader',
-
-    # v4.0 - Advanced Features
     'BacktestReportGenerator',
-    'BacktestReport',
     'StrategyOptimizer',
-    'OptimizationResult',
     'MarketRegimeClassifier',
-    'RegimeType',
-    'VolatilityLevel',
     'AnomalyDetector',
-    'AnomalyEvent',
-    'AnomalyType',
 ]
