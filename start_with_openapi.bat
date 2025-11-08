@@ -8,17 +8,17 @@ echo ===========================================================================
 echo.
 
 REM Step 1: Find 32-bit Python (kiwoom32 environment)
-set PYTHON32=
+set "PYTHON32="
 
 if exist "C:\Users\USER\anaconda3\envs\kiwoom32\python.exe" (
-    set PYTHON32=C:\Users\USER\anaconda3\envs\kiwoom32\python.exe
-    echo Found 32-bit Python: %PYTHON32%
+    set "PYTHON32=C:\Users\USER\anaconda3\envs\kiwoom32\python.exe"
+    echo Found 32-bit Python: C:\Users\USER\anaconda3\envs\kiwoom32\python.exe
 ) else if exist "C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe" (
-    set PYTHON32=C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe
-    echo Found 32-bit Python: %PYTHON32%
+    set "PYTHON32=C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe"
+    echo Found 32-bit Python: C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe
 ) else if exist "C:\Anaconda3\envs\kiwoom32\python.exe" (
-    set PYTHON32=C:\Anaconda3\envs\kiwoom32\python.exe
-    echo Found 32-bit Python: %PYTHON32%
+    set "PYTHON32=C:\Anaconda3\envs\kiwoom32\python.exe"
+    echo Found 32-bit Python: C:\Anaconda3\envs\kiwoom32\python.exe
 ) else (
     echo ERROR: 32-bit Python kiwoom32 environment not found!
     echo.
@@ -43,17 +43,45 @@ echo.
 echo ================================================================================
 echo Step 1: Starting OpenAPI Server (32-bit)
 echo ================================================================================
-echo A NEW CONSOLE WINDOW will open
+echo Server will run in background (minimized)
 echo Please LOGIN when the Kiwoom login window appears
 echo ================================================================================
 echo.
 
-REM Start OpenAPI server in a NEW CONSOLE WINDOW
-start "Kiwoom OpenAPI Server" "%PYTHON32%" openapi_server.py
+REM Start OpenAPI server MINIMIZED (창 최소화)
+start "Kiwoom OpenAPI Server" /MIN "%PYTHON32%" openapi_server.py
 
-echo Waiting 5 seconds for server to initialize...
-timeout /t 5 /nobreak >nul
+echo Waiting for OpenAPI server to be ready...
+echo This may take 10-30 seconds (login required)
+echo.
 
+REM Wait for server health check with timeout
+set /a RETRY_COUNT=0
+set /a MAX_RETRIES=30
+
+:WAIT_LOOP
+set /a RETRY_COUNT+=1
+if %RETRY_COUNT% gtr %MAX_RETRIES% (
+    echo ERROR: OpenAPI server failed to start after %MAX_RETRIES% seconds
+    echo Please check the minimized console window and login manually
+    goto START_MAIN
+)
+
+REM Check if server is responding
+curl -s http://127.0.0.1:5001/health >nul 2>&1
+if %ERRORLEVEL% equ 0 (
+    echo.
+    echo ✅ OpenAPI server is ready!
+    goto START_MAIN
+)
+
+REM Show countdown
+set /a REMAINING=%MAX_RETRIES% - %RETRY_COUNT%
+echo [%RETRY_COUNT%/%MAX_RETRIES%] Waiting for server... (%REMAINING% seconds remaining^)
+timeout /t 1 /nobreak >nul
+goto WAIT_LOOP
+
+:START_MAIN
 echo.
 echo ================================================================================
 echo Step 2: Starting Main Application (64-bit)

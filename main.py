@@ -144,6 +144,18 @@ class AutoTradingBot:
             logger.info("Initializing OpenAPI client...")
             try:
                 from core.openapi_client import KiwoomOpenAPIClient
+
+                # 먼저 OpenAPI 서버가 이미 실행 중인지 확인
+                import requests
+                server_already_running = False
+                try:
+                    response = requests.get('http://127.0.0.1:5001/health', timeout=2)
+                    if response.status_code == 200:
+                        server_already_running = True
+                        logger.info("✅ OpenAPI server already running (started externally)")
+                except:
+                    pass
+
                 self.openapi_client = KiwoomOpenAPIClient(auto_connect=False)
 
                 if self.openapi_client.connect():
@@ -151,6 +163,12 @@ class AutoTradingBot:
                     accounts = self.openapi_client.get_account_list()
                     if accounts:
                         logger.info(f"Accounts: {accounts}")
+                elif server_already_running:
+                    logger.warning("OpenAPI server running but not connected yet")
+                    logger.warning("Server may still be initializing or waiting for login")
+                    logger.warning("Check the OpenAPI server window (minimized in taskbar)")
+                    logger.warning("Continuing with REST API only...")
+                    self.openapi_client = None
                 else:
                     logger.warning("OpenAPI server not running - attempting to start...")
                     server_started = self._start_openapi_server()
