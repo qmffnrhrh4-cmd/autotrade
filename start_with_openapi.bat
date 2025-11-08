@@ -52,12 +52,13 @@ REM Start OpenAPI server MINIMIZED (창 최소화)
 start "Kiwoom OpenAPI Server" /MIN "%PYTHON32%" openapi_server.py
 
 echo Waiting for OpenAPI server to be ready...
-echo This may take 10-30 seconds (login required)
+echo This may take up to 60 seconds (login required)
+echo Please login when the Kiwoom login window appears!
 echo.
 
 REM Wait for server health check with timeout
 set /a RETRY_COUNT=0
-set /a MAX_RETRIES=30
+set /a MAX_RETRIES=60
 
 :WAIT_LOOP
 set /a RETRY_COUNT+=1
@@ -67,13 +68,23 @@ if %RETRY_COUNT% gtr %MAX_RETRIES% (
     goto START_MAIN
 )
 
-REM Check if server is responding
-curl -s http://127.0.0.1:5001/health >nul 2>&1
+REM Check if server is responding AND connected
+curl -s http://127.0.0.1:5001/health > health_check.json 2>&1
 if %ERRORLEVEL% equ 0 (
-    echo.
-    echo ✅ OpenAPI server is ready!
-    goto START_MAIN
+    REM Check if connection_status is "connected"
+    findstr /C:"\"connection_status\": \"connected\"" health_check.json >nul 2>&1
+    if %ERRORLEVEL% equ 0 (
+        del health_check.json >nul 2>&1
+        echo.
+        echo ✅ OpenAPI server is ready and connected!
+        echo    Waiting additional 10 seconds for stability...
+        timeout /t 10 /nobreak >nul
+        goto START_MAIN
+    )
 )
+
+REM Clean up temp file if exists
+if exist health_check.json del health_check.json >nul 2>&1
 
 REM Show countdown
 set /a REMAINING=%MAX_RETRIES% - %RETRY_COUNT%
@@ -82,6 +93,8 @@ timeout /t 1 /nobreak >nul
 goto WAIT_LOOP
 
 :START_MAIN
+REM Clean up temp file
+if exist health_check.json del health_check.json >nul 2>&1
 echo.
 echo ================================================================================
 echo Step 2: Starting Main Application (64-bit)
