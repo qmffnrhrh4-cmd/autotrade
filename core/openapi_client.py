@@ -101,17 +101,18 @@ class KiwoomOpenAPIClient:
         # Health check
         result = self._request('GET', '/health')
 
-        if result and result.get('status') == 'ok':
-            self.is_connected = result.get('connected', False)
-            self.account_list = result.get('accounts', [])
+        if result and result.get('status') == 'ok' and result.get('server_ready'):
+            logger.info("✅ OpenAPI 서버 응답 확인!")
 
-            if self.is_connected:
-                logger.info("✅ OpenAPI 서버 연결됨!")
+            # Check if already connected to koapy
+            if result.get('openapi_connected', False):
+                self.is_connected = True
+                self.account_list = result.get('accounts', [])
+                logger.info("✅ OpenAPI 이미 연결됨!")
                 logger.info(f"📋 계좌 목록: {self.account_list}")
                 return True
             else:
-                logger.warning("⚠️  OpenAPI 서버는 실행 중이나 koapy 연결 안 됨")
-                logger.info("   /connect 엔드포인트로 재연결 시도...")
+                logger.info("🔐 OpenAPI 연결 시도 중...")
 
                 # Try to connect
                 connect_result = self._request('POST', '/connect')
@@ -122,11 +123,11 @@ class KiwoomOpenAPIClient:
                     logger.info(f"📋 계좌 목록: {self.account_list}")
                     return True
                 else:
-                    logger.error("❌ OpenAPI 연결 실패")
+                    logger.error("❌ OpenAPI 연결 실패 (키움 로그인 필요)")
                     return False
         else:
             logger.error("❌ OpenAPI 서버 응답 없음")
-            logger.error("   start.bat를 실행하거나 openapi_server.py를 수동으로 시작하세요")
+            logger.error("   서버가 시작되지 않았거나 응답하지 않습니다")
             return False
 
     def disconnect(self):
