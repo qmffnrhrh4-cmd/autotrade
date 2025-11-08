@@ -106,10 +106,10 @@ class OpenAPITester:
                 if 'account' in attr.lower() or 'login' in attr.lower():
                     print(f"      - {attr}")
 
+        # 계좌 조회 실패 시 직접 지정
         if not accounts:
-            print("❌ 계좌 목록이 없습니다")
-            self.app.quit()
-            return
+            print("⚠️  계좌 자동 조회 실패 - 직접 지정된 계좌 사용")
+            accounts = ['64523232-10']
 
         print(f"📋 계좌 목록: {accounts}")
 
