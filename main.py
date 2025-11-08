@@ -702,12 +702,12 @@ class TradingBotV2:
     def _main_loop(self):
         """메인 루프"""
         cycle_count = 0
-        # Backward compatibility: handle both Pydantic (object) and old config (dict)
+        # Pydantic 모델과 dictionary 모두 지원
         try:
-            if hasattr(self.config.main_cycle, 'sleep_seconds'):
-                sleep_seconds = self.config.main_cycle.sleep_seconds
-            else:
+            if isinstance(self.config.main_cycle, dict):
                 sleep_seconds = self.config.main_cycle.get('sleep_seconds', 60)
+            else:
+                sleep_seconds = getattr(self.config.main_cycle, 'sleep_seconds', 60)
         except Exception as e:
             logger.warning(f"Config 로드 실패, 기본값 사용: {e}")
             sleep_seconds = 60
