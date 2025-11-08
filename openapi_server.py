@@ -26,8 +26,6 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 
 # Set Qt environment before importing koapy
 os.environ['QT_API'] = 'pyqt5'
-# Ensure Qt GUI runs properly
-os.environ['QT_QPA_PLATFORM'] = 'windows'
 
 app = Flask(__name__)
 CORS(app)
