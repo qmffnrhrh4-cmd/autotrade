@@ -62,10 +62,31 @@ class GeminiAnalyzer(BaseAnalyzer):
 **5가지 핵심 영역** 분석:
 
 1. **점수 타당성**: {score}점이 실제 시장 상황과 부합하는가?
+   - 점수가 높아도 스마트머니 유출이면 경고
+   - 점수가 낮아도 기관/외국인 동시 매집이면 기회
+
 2. **스마트머니 신호**: 기관/외국인 매매 패턴이 의미하는 것은?
-3. **가격 모멘텀**: 급등/추세전환/조정 후 재상승 중 무엇인가?
-4. **리스크 평가**: 주요 하락 리스크 3가지와 손절 기준
-5. **매매 전략**: 즉시 매수 vs 대기 vs 분할 매수 vs 회피
+   - 외국인+기관 동시 순매수 = 강력한 신호
+   - 외국인 순매도 + 개인 순매수 = 경고 신호
+   - 매수호가 강도 1.5 이상 = 강한 매수세
+
+3. **가격 모멘텀**: 현재 가격 움직임의 특성은?
+   - 단기 급등 (수익 실현 압력)
+   - 추세 전환 (신규 상승 시작)
+   - 조정 후 재상승 (건전한 상승)
+   - 횡보 돌파 (에너지 축적 후 폭발)
+
+4. **리스크 평가**: 구체적인 리스크 3가지
+   - 기술적 리스크 (저항선, 과매수)
+   - 시장 리스크 (전체 시장 약세)
+   - 개별 리스크 (실적, 업종)
+   - 손절 기준: 지지선 이탈 또는 __%
+
+5. **매매 전략**: 구체적인 실행 계획
+   - 즉시 매수: 강력한 모멘텀, 스마트머니 매집
+   - 조정 대기: 과열, 단기 급등 후
+   - 분할 매수: 불확실성 있지만 긍정적
+   - 회피: 스마트머니 유출, 리스크 과다
 
 ---
 
@@ -1015,6 +1036,45 @@ class GeminiAnalyzer(BaseAnalyzer):
                     trading_plan = data.get('trading_plan', {})
                     entry_strategy = trading_plan.get('entry_strategy', '') if isinstance(trading_plan, dict) else ''
 
+                    # 목표가/손절가 계산 (AI 추천값 또는 데이터 기반)
+                    current_price = stock_data.get('current_price', 0)
+
+                    # AI가 제공한 목표가/손절가 추출
+                    target_price = current_price
+                    stop_loss_price = current_price
+
+                    if isinstance(trading_plan, dict):
+                        take_profit_targets = trading_plan.get('take_profit_targets', [])
+                        if isinstance(take_profit_targets, list) and len(take_profit_targets) > 0:
+                            # 첫 번째 목표가 사용
+                            first_target = take_profit_targets[0]
+                            if isinstance(first_target, dict) and 'price' in first_target:
+                                target_price = int(first_target['price'])
+
+                        # 손절가
+                        if 'stop_loss' in trading_plan:
+                            stop_loss = trading_plan['stop_loss']
+                            if isinstance(stop_loss, (int, float)) and stop_loss > 0:
+                                stop_loss_price = int(stop_loss)
+
+                    # AI가 값을 제공하지 않은 경우 - 신호 기반 계산
+                    if target_price == current_price:
+                        if signal == 'buy':
+                            # 매수 신호: 변동성 기반 목표 설정
+                            volatility = stock_data.get('volatility', 3.0)  # 기본 3%
+                            target_price = int(current_price * (1 + volatility / 100 * 2))
+                        else:
+                            target_price = int(current_price * 1.05)
+
+                    if stop_loss_price == current_price:
+                        # 손절가: 지지선 또는 변동성 기반
+                        support_price = stock_data.get('support_price', 0)
+                        if support_price > 0 and support_price < current_price:
+                            stop_loss_price = int(support_price * 0.98)
+                        else:
+                            volatility = stock_data.get('volatility', 3.0)
+                            stop_loss_price = int(current_price * (1 - volatility / 100))
+
                     result = {
                         'score': 0,
                         'signal': signal,
@@ -1023,8 +1083,8 @@ class GeminiAnalyzer(BaseAnalyzer):
                         'recommendation': signal,
                         'reasons': reasons if reasons else ['AI 분석 완료'],
                         'risks': warnings if isinstance(warnings, list) else [],
-                        'target_price': int(stock_data.get('current_price', 0) * 1.1),
-                        'stop_loss_price': int(stock_data.get('current_price', 0) * 0.95),
+                        'target_price': target_price,
+                        'stop_loss_price': stop_loss_price,
                         'analysis_text': cleaned_text,
                     }
 
@@ -1065,6 +1125,23 @@ class GeminiAnalyzer(BaseAnalyzer):
         elif 'sell' in text_lower:
             signal = 'sell'
 
+        # 목표가/손절가 계산 (데이터 기반)
+        current_price = stock_data.get('current_price', 0)
+        volatility = stock_data.get('volatility', 3.0)
+        support_price = stock_data.get('support_price', 0)
+
+        # 목표가
+        if signal == 'buy':
+            target_price = int(current_price * (1 + volatility / 100 * 2))
+        else:
+            target_price = int(current_price * 1.05)
+
+        # 손절가
+        if support_price > 0 and support_price < current_price:
+            stop_loss_price = int(support_price * 0.98)
+        else:
+            stop_loss_price = int(current_price * (1 - volatility / 100))
+
         result = {
             'score': 0,
             'signal': signal,
@@ -1073,8 +1150,8 @@ class GeminiAnalyzer(BaseAnalyzer):
             'recommendation': signal,
             'reasons': [response_text[:200] if len(response_text) > 200 else response_text],
             'risks': [],
-            'target_price': int(stock_data.get('current_price', 0) * 1.1),
-            'stop_loss_price': int(stock_data.get('current_price', 0) * 0.95),
+            'target_price': target_price,
+            'stop_loss_price': stop_loss_price,
             'analysis_text': response_text,
         }
 

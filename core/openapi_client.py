@@ -108,59 +108,25 @@ class KiwoomOpenAPIClient:
         if result and result.get('status') == 'ok' and result.get('server_ready'):
             logger.info("✅ OpenAPI 서버 응답 확인!")
 
-            # Check if already connected to koapy
-            if result.get('openapi_connected', False):
+            # Check if already connected to kiwoom
+            connection_status = result.get('connection_status')
+
+            if connection_status == 'connected':
                 self.is_connected = True
                 self.account_list = result.get('accounts', [])
-                logger.info("✅ OpenAPI 이미 연결됨!")
+                logger.info("✅ OpenAPI 연결 완료!")
                 logger.info(f"📋 계좌 목록: {self.account_list}")
                 return True
+            elif connection_status == 'connecting':
+                logger.info("🔐 OpenAPI 로그인 진행 중...")
+                logger.info("   서버에서 로그인 처리 중입니다")
+                # 연결 진행 중이므로 나중에 재시도 가능
+                return False
+            elif connection_status in ['failed', 'timeout']:
+                logger.warning(f"⚠️  OpenAPI 연결 실패 (상태: {connection_status})")
+                return False
             else:
-                logger.info("🔐 OpenAPI 연결 시작...")
-                logger.info("   (로그인 창이 나타나면 로그인하세요, 최대 60초 대기)")
-
-                # Start connection (async)
-                connect_result = self._request('POST', '/connect', timeout=5)
-                if not connect_result:
-                    logger.error("❌ 연결 시작 실패")
-                    return False
-
-                # Poll for connection status (max 60 seconds)
-                import time
-                max_wait = 60
-                poll_interval = 2
-                elapsed = 0
-
-                while elapsed < max_wait:
-                    time.sleep(poll_interval)
-                    elapsed += poll_interval
-
-                    try:
-                        status_result = self._request('GET', '/health', timeout=5)
-                        if status_result:
-                            status = status_result.get('connection_status')
-
-                            if status == 'connected':
-                                self.is_connected = True
-                                self.account_list = status_result.get('accounts', [])
-                                logger.info("✅ OpenAPI 연결 성공!")
-                                logger.info(f"📋 계좌 목록: {self.account_list}")
-                                return True
-                            elif status in ['failed', 'timeout']:
-                                logger.error(f"❌ OpenAPI 연결 실패 (상태: {status})")
-                                return False
-                            elif status == 'connecting':
-                                if elapsed % 10 == 0:  # 10초마다 로그
-                                    logger.info(f"   대기 중... ({elapsed}초)")
-                                continue
-                    except Exception as e:
-                        # Timeout or connection error during polling - ignore and retry
-                        if elapsed % 10 == 0:
-                            logger.info(f"   연결 대기 중... ({elapsed}초)")
-                        continue
-
-                logger.error("❌ 연결 시간 초과 (60초)")
-                logger.error("   로그인을 완료했는지 확인하세요")
+                logger.info("ℹ️  OpenAPI 서버 준비 중...")
                 return False
         else:
             logger.error("❌ OpenAPI 서버 응답 없음")
