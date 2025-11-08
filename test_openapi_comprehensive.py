@@ -16,7 +16,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QEventLoop
 
 
 def print_section(title):
@@ -47,10 +47,22 @@ class OpenAPITester:
         self.api = api
         self.app = app
         self.start_time = None
+        self.is_connected = False
+
+    def on_connect(self, err_code):
+        """로그인 완료 콜백"""
+        if err_code == 0:
+            print("\n✅ 로그인 성공!")
+            self.is_connected = True
+            # 로그인 성공 후 잠시 대기 후 테스트 시작
+            QTimer.singleShot(1000, self.run_tests)
+        else:
+            print(f"\n❌ 로그인 실패: {err_code}")
+            self.app.quit()
 
     def run_tests(self):
         """모든 테스트 실행"""
-        print("\n✅ 로그인 성공! 테스트 시작...")
+        print("\n🚀 테스트 시작...")
 
         # 계좌 확인
         accounts = self.api.get_account_list()
@@ -120,7 +132,7 @@ class OpenAPITester:
         finally:
             # Qt 앱 종료
             print("\n👋 프로그램 종료")
-            self.app.quit()
+            QTimer.singleShot(1000, self.app.quit)
 
     def test_account_info(self):
         """계좌 정보 조회"""
@@ -485,8 +497,8 @@ class OpenAPITester:
         """실시간 데이터 수신 테스트"""
         print_section(f"9. 실시간 데이터 ({stock_code})")
 
-        print("실시간 데이터는 이벤트 기반이므로 별도 구현 필요")
-        print("TR 코드: 주식체결(실시간), 주식호가(실시간) 등")
+        print("💡 실시간 데이터는 이벤트 기반이므로 별도 구현 필요")
+        print("   TR 코드: 주식체결(실시간), 주식호가(실시간) 등")
 
 
 def main():
@@ -509,17 +521,17 @@ def main():
     print("\n🔧 API 초기화 중...")
     api = Kiwoom()
 
+    # 테스터 생성
+    tester = OpenAPITester(api, app)
+
+    # 로그인 완료 이벤트 연결 (핵심!)
+    api.connect('on_event_connect', tester.on_connect)
+
     print("🔐 로그인 중...")
     print("   (로그인 창이 나타나면 로그인하세요)")
 
     # 로그인
     api.login()
-
-    # 테스터 생성
-    tester = OpenAPITester(api, app)
-
-    # 1초 후 테스트 시작 (Qt 타이머 사용)
-    QTimer.singleShot(1000, tester.run_tests)
 
     # Qt 이벤트 루프 실행
     sys.exit(app.exec_())
@@ -529,7 +541,7 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\n사용자가 중단했습니다.")
+        print("\n\n👋 사용자가 중단했습니다.")
     except Exception as e:
         print(f"\n❌ 오류 발생: {e}")
         import traceback
