@@ -1,0 +1,20 @@
+# ====================================
+# OpenAPI Server Requirements (32-bit)
+# ====================================
+# 32비트 autotrade_32 환경에서 openapi_server.py 실행을 위한 패키지
+
+# Flask (OpenAPI 서버용)
+Flask>=3.0.0
+flask-cors>=4.0.0
+
+# koapy 관련 (32비트 호환 버전)
+PyQt5>=5.15.0
+PyQt5-Qt5>=5.15.0
+PyQt5-sip>=12.0.0
+protobuf==3.20.3
+grpcio==1.50.0
+koapy>=0.5.0
+pywin32>=305
+
+# 기본 유틸리티
+requests>=2.31.0
