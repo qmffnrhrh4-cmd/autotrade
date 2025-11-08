@@ -49,6 +49,20 @@ def initialize_openapi_in_main_thread():
     global openapi_context, account_list, connection_status
 
     try:
+        # Qt 애플리케이션을 먼저 생성
+        from PyQt5.QtWidgets import QApplication
+        import sys
+
+        logger.info("🔧 Initializing Qt Application...")
+
+        # QApplication이 이미 있는지 확인
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+            logger.info("✅ Qt Application created")
+        else:
+            logger.info("✅ Qt Application already exists")
+
         from koapy import KiwoomOpenApiPlusEntrypoint
 
         logger.info("🔧 Initializing OpenAPI connection...")
@@ -60,6 +74,10 @@ def initialize_openapi_in_main_thread():
         # Auto-login (will show login window)
         logger.info("🔐 Attempting login...")
         logger.info("   ⚠️  로그인 창이 나타납니다. 로그인을 완료해주세요.")
+
+        # Process Qt events to show the login window
+        app.processEvents()
+
         openapi_context.EnsureConnected()
 
         # Check connection
@@ -287,12 +305,28 @@ def main():
         logger.error("   Server will continue running, but OpenAPI is not available")
         logger.error("")
 
-    # Keep main thread alive (Qt event loop)
+    # Keep main thread alive with Qt event loop
     try:
-        while True:
-            time.sleep(1)
+        from PyQt5.QtWidgets import QApplication
+
+        app = QApplication.instance()
+        if app is not None:
+            logger.info("🔄 Starting Qt event loop in main thread...")
+            # Qt 이벤트 루프 실행 (GUI 표시에 필요)
+            import sys
+            sys.exit(app.exec_())
+        else:
+            # Qt 앱이 없으면 단순 대기
+            logger.info("⚠️  Qt application not available, using simple loop")
+            while True:
+                time.sleep(1)
     except KeyboardInterrupt:
         logger.info("\n🛑 Shutting down...")
+        if openapi_context:
+            try:
+                openapi_context.__exit__(None, None, None)
+            except:
+                pass
         sys.exit(0)
 
 
