@@ -8,29 +8,57 @@
 
 ---
 
-## ⚡ 빠른 시작
+## 🎯 **처음 사용하시나요? → [`START_HERE.md`](START_HERE.md) 먼저 보세요!**
 
-### 실행 방법 (딱 하나!)
+## ⚡ 원클릭 설치 및 실행
 
-```bash
-python main.py
+### 단 하나의 파일로 모든 것을 해결!
+
+```cmd
+autotrade_setup.bat
 ```
 
-### 대시보드 접속
+이 스크립트 하나로:
+- ✅ **32비트 Python 환경 자동 생성**
+- ✅ **모든 패키지 자동 설치** (PyQt5, koapy, pydantic 등)
+- ✅ **로그인 테스트 실행**
+- ✅ **메인 프로그램 실행**
+- ✅ **환경 관리** (확인, 제거, 재설치)
 
-```
-http://localhost:5000
-```
+**더 이상 복잡한 설정은 필요 없습니다!**
 
-**끝!** 이게 전부입니다.
+### 빠른 시작 (3단계)
+
+1. **스크립트 실행**
+   ```cmd
+   autotrade_setup.bat
+   ```
+
+2. **메뉴에서 [1] 선택** (전체 설치)
+
+3. **완료!** 🎉
 
 ---
 
-## 📋 사전 준비
+## 📋 수동 설치 (고급 사용자)
 
-### 1. Python 패키지 설치
+### 1. 32비트 Python 환경 생성
 
-```bash
+**⚠️ 중요: 키움 OpenAPI는 32비트 전용입니다!**
+
+```cmd
+# Anaconda로 32비트 환경 생성
+set CONDA_FORCE_32BIT=1
+conda create -n autotrade_32 python=3.11 -y
+conda activate autotrade_32
+
+# 비트 확인 (32-bit 출력되어야 함)
+python -c "import struct; print(f'{struct.calcsize(\"P\")*8}-bit')"
+```
+
+### 2. Python 패키지 설치
+
+```cmd
 pip install -r requirements.txt
 ```
 
