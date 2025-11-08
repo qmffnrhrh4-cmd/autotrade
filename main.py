@@ -208,7 +208,7 @@ class TradingBotV2:
             try:
                 from core import get_openapi_client
 
-                self.openapi_client = get_openapi_client(auto_login=True)
+                self.openapi_client = get_openapi_client(auto_connect=True)
 
                 if self.openapi_client and self.openapi_client.is_connected:
                     logger.info("✅ OpenAPI 클라이언트 초기화 완료")
