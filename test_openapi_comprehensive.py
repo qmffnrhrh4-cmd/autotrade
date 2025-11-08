@@ -16,6 +16,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 from PyQt5.QtWidgets import QApplication
+from PyQt5.QtCore import QTimer
 
 
 def print_section(title):
@@ -39,379 +40,453 @@ def save_json(data, filename):
     return filepath
 
 
-def test_account_info(api):
-    """계좌 정보 조회"""
-    print_section("1. 계좌 정보")
+class OpenAPITester:
+    """OpenAPI 테스트 클래스"""
 
-    results = {}
+    def __init__(self, api, app):
+        self.api = api
+        self.app = app
+        self.start_time = None
 
-    try:
-        # 계좌 목록
-        accounts = api.get_account_list()
-        print(f"✅ 계좌 목록: {accounts}")
-        results['accounts'] = accounts
+    def run_tests(self):
+        """모든 테스트 실행"""
+        print("\n✅ 로그인 성공! 테스트 시작...")
 
-        if accounts:
-            account = accounts[0]
+        # 계좌 확인
+        accounts = self.api.get_account_list()
+        if not accounts:
+            print("❌ 계좌 목록이 없습니다")
+            self.app.quit()
+            return
 
-            # 예수금 조회
-            deposit = api.get_deposit()
-            print(f"✅ 예수금: {deposit:,}원")
-            results['deposit'] = deposit
+        print(f"📋 계좌 목록: {accounts}")
 
-            # 출금 가능 금액
-            withdrawal = api.get_withdrawable_cash()
-            print(f"✅ 출금가능: {withdrawal:,}원")
-            results['withdrawable_cash'] = withdrawal
+        # 시작 시간
+        self.start_time = time.time()
 
-            # 보유 종목 정보
-            stocks = api.get_stocks()
-            print(f"✅ 보유 종목 수: {len(stocks)}")
-            results['stocks'] = stocks
+        # 테스트할 종목 코드
+        test_stocks = ['005930', '000660', '035420']  # 삼성전자, SK하이닉스, NAVER
 
-            # 각 보유 종목 상세 정보
-            for stock in stocks[:3]:  # 최대 3개만
-                code = stock.get('종목코드', '')
-                name = stock.get('종목명', '')
-                print(f"   - {name}({code}): {stock.get('보유수량', 0)}주, "
-                      f"수익률: {stock.get('수익률', 0)}%")
+        try:
+            # 1. 계좌 정보
+            self.test_account_info()
 
-        save_json(results, 'account_info')
+            # 2-6. 각 종목별 데이터
+            for stock_code in test_stocks:
+                print(f"\n🔍 종목 테스트: {stock_code}")
 
-    except Exception as e:
-        print(f"❌ 계좌 정보 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+                self.test_stock_basic_info(stock_code)
+                time.sleep(0.5)
 
+                self.test_stock_quote(stock_code)
+                time.sleep(0.5)
 
-def test_stock_basic_info(api, stock_code='005930'):
-    """종목 기본 정보 조회"""
-    print_section(f"2. 종목 기본 정보 ({stock_code})")
+                self.test_order_book(stock_code)
+                time.sleep(0.5)
 
-    results = {}
+                self.test_chart_data(stock_code)
+                time.sleep(0.5)
 
-    try:
-        # 종목 이름
-        name = api.get_master_stock_name(stock_code)
-        print(f"✅ 종목명: {name}")
-        results['stock_name'] = name
+                self.test_investor_data(stock_code)
+                time.sleep(0.5)
 
-        # 현재가
-        price = api.get_current_price(stock_code)
-        print(f"✅ 현재가: {price:,}원")
-        results['current_price'] = price
+            # 7. 시장 지수
+            self.test_market_index()
+            time.sleep(0.5)
 
-        # 시장 구분
-        market_type = api.get_master_market_type(stock_code)
-        print(f"✅ 시장구분: {market_type}")
-        results['market_type'] = market_type
+            # 8. 조건 검색
+            self.test_condition_search()
 
-        # 상장주식수
-        listed_stock_count = api.get_master_listed_stock_count(stock_code)
-        print(f"✅ 상장주식수: {listed_stock_count:,}주")
-        results['listed_stock_count'] = listed_stock_count
+            # 9. 실시간 데이터 안내
+            self.test_realtime_data(test_stocks[0])
 
-        # 감리구분
-        supervision = api.get_master_supervision_type(stock_code)
-        print(f"✅ 감리구분: {supervision}")
-        results['supervision'] = supervision
+            # 종료
+            elapsed = time.time() - self.start_time
 
-        # 액면가
-        construction_price = api.get_master_construction_price(stock_code)
-        print(f"✅ 액면가: {construction_price}원")
-        results['construction_price'] = construction_price
+            print_section("완료")
+            print(f"✅ 전체 테스트 완료")
+            print(f"   소요 시간: {elapsed:.1f}초")
+            print(f"   결과 저장: test_outputs/ 폴더")
 
-        # 자본금
-        capital = api.get_master_capital(stock_code)
-        print(f"✅ 자본금: {capital:,}원")
-        results['capital'] = capital
+            print("\n💡 다음 단계:")
+            print("   1. test_outputs/ 폴더에서 JSON 파일 확인")
+            print("   2. 필요한 데이터를 main.py에 통합")
+            print("   3. 실시간 데이터 수신 기능 구현")
 
-        # 신용구분
-        credit_type = api.get_master_credit_type(stock_code)
-        print(f"✅ 신용구분: {credit_type}")
-        results['credit_type'] = credit_type
+        except Exception as e:
+            print(f"\n❌ 테스트 중 오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Qt 앱 종료
+            print("\n👋 프로그램 종료")
+            self.app.quit()
 
-        # 거래정지 여부
-        suspension = api.get_master_suspension_type(stock_code)
-        print(f"✅ 거래정지: {suspension}")
-        results['suspension'] = suspension
+    def test_account_info(self):
+        """계좌 정보 조회"""
+        print_section("1. 계좌 정보")
 
-        save_json(results, f'stock_basic_{stock_code}')
+        results = {}
 
-    except Exception as e:
-        print(f"❌ 종목 기본 정보 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+        try:
+            # 계좌 목록
+            accounts = self.api.get_account_list()
+            print(f"✅ 계좌 목록: {accounts}")
+            results['accounts'] = accounts
 
+            if accounts:
+                account = accounts[0]
 
-def test_stock_quote(api, stock_code='005930'):
-    """종목 시세 정보 조회"""
-    print_section(f"3. 종목 시세 정보 ({stock_code})")
+                # 예수금 조회
+                deposit = self.api.get_deposit()
+                print(f"✅ 예수금: {deposit:,}원")
+                results['deposit'] = deposit
 
-    results = {}
+                # 출금 가능 금액
+                withdrawal = self.api.get_withdrawable_cash()
+                print(f"✅ 출금가능: {withdrawal:,}원")
+                results['withdrawable_cash'] = withdrawal
 
-    try:
-        # opt10001: 주식기본정보요청
-        stock_info = api.block_request(
-            "opt10001",
-            종목코드=stock_code,
-            output="주식기본정보",
-            next=0
-        )
+                # 보유 종목 정보
+                stocks = self.api.get_stocks()
+                print(f"✅ 보유 종목 수: {len(stocks)}")
+                results['stocks'] = stocks
 
-        if stock_info:
-            print(f"✅ 종목기본정보:")
-            for key, value in list(stock_info.items())[:10]:  # 처음 10개만 출력
-                print(f"   - {key}: {value}")
+                # 각 보유 종목 상세 정보
+                for stock in stocks[:3]:  # 최대 3개만
+                    code = stock.get('종목코드', '')
+                    name = stock.get('종목명', '')
+                    print(f"   - {name}({code}): {stock.get('보유수량', 0)}주, "
+                          f"수익률: {stock.get('수익률', 0)}%")
 
-            results['basic_info'] = stock_info
+            save_json(results, 'account_info')
 
-        # opt10002: 주식거래량요청
-        volume_info = api.block_request(
-            "opt10002",
-            종목코드=stock_code,
-            output="주식거래량",
-            next=0
-        )
+        except Exception as e:
+            print(f"❌ 계좌 정보 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
 
-        if volume_info:
-            print(f"✅ 거래량정보: {len(volume_info)}개 항목")
-            results['volume_info'] = volume_info[:5]  # 최근 5개만 저장
+    def test_stock_basic_info(self, stock_code='005930'):
+        """종목 기본 정보 조회"""
+        print_section(f"2. 종목 기본 정보 ({stock_code})")
 
-        # opt10003: 체결정보요청
-        transaction_info = api.block_request(
-            "opt10003",
-            종목코드=stock_code,
-            output="체결정보",
-            next=0
-        )
+        results = {}
 
-        if transaction_info:
-            print(f"✅ 체결정보: {len(transaction_info)}개 항목")
-            results['transaction_info'] = transaction_info[:5]
+        try:
+            # 종목 이름
+            name = self.api.get_master_stock_name(stock_code)
+            print(f"✅ 종목명: {name}")
+            results['stock_name'] = name
 
-        save_json(results, f'stock_quote_{stock_code}')
+            # 현재가
+            price = self.api.get_current_price(stock_code)
+            print(f"✅ 현재가: {price:,}원")
+            results['current_price'] = price
 
-    except Exception as e:
-        print(f"❌ 종목 시세 정보 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+            # 시장 구분
+            market_type = self.api.get_master_market_type(stock_code)
+            print(f"✅ 시장구분: {market_type}")
+            results['market_type'] = market_type
 
+            # 상장주식수
+            listed_stock_count = self.api.get_master_listed_stock_count(stock_code)
+            print(f"✅ 상장주식수: {listed_stock_count:,}주")
+            results['listed_stock_count'] = listed_stock_count
 
-def test_order_book(api, stock_code='005930'):
-    """호가 정보 조회"""
-    print_section(f"4. 호가 정보 ({stock_code})")
+            # 감리구분
+            supervision = self.api.get_master_supervision_type(stock_code)
+            print(f"✅ 감리구분: {supervision}")
+            results['supervision'] = supervision
 
-    results = {}
+            # 액면가
+            construction_price = self.api.get_master_construction_price(stock_code)
+            print(f"✅ 액면가: {construction_price}원")
+            results['construction_price'] = construction_price
 
-    try:
-        # opt10004: 호가요청
-        order_book = api.block_request(
-            "opt10004",
-            종목코드=stock_code,
-            output="호가",
-            next=0
-        )
+            # 자본금
+            capital = self.api.get_master_capital(stock_code)
+            print(f"✅ 자본금: {capital:,}원")
+            results['capital'] = capital
 
-        if order_book:
-            print(f"✅ 호가정보:")
-            # 매도 호가
-            print("   [매도]")
-            for i in range(1, 6):
-                sell_price = order_book.get(f'매도호가{i}', 0)
-                sell_qty = order_book.get(f'매도호가수량{i}', 0)
-                print(f"   {i}: {sell_price:>8}원 x {sell_qty:>10}주")
+            # 신용구분
+            credit_type = self.api.get_master_credit_type(stock_code)
+            print(f"✅ 신용구분: {credit_type}")
+            results['credit_type'] = credit_type
 
-            # 매수 호가
-            print("   [매수]")
-            for i in range(1, 6):
-                buy_price = order_book.get(f'매수호가{i}', 0)
-                buy_qty = order_book.get(f'매수호가수량{i}', 0)
-                print(f"   {i}: {buy_price:>8}원 x {buy_qty:>10}주")
+            # 거래정지 여부
+            suspension = self.api.get_master_suspension_type(stock_code)
+            print(f"✅ 거래정지: {suspension}")
+            results['suspension'] = suspension
 
-            results['order_book'] = order_book
+            save_json(results, f'stock_basic_{stock_code}')
 
-        save_json(results, f'order_book_{stock_code}')
+        except Exception as e:
+            print(f"❌ 종목 기본 정보 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
 
-    except Exception as e:
-        print(f"❌ 호가 정보 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+    def test_stock_quote(self, stock_code='005930'):
+        """종목 시세 정보 조회"""
+        print_section(f"3. 종목 시세 정보 ({stock_code})")
 
+        results = {}
 
-def test_chart_data(api, stock_code='005930'):
-    """차트 데이터 조회"""
-    print_section(f"5. 차트 데이터 ({stock_code})")
+        try:
+            # opt10001: 주식기본정보요청
+            stock_info = self.api.block_request(
+                "opt10001",
+                종목코드=stock_code,
+                output="주식기본정보",
+                next=0
+            )
 
-    results = {}
+            if stock_info:
+                print(f"✅ 종목기본정보:")
+                for key, value in list(stock_info.items())[:10]:  # 처음 10개만 출력
+                    print(f"   - {key}: {value}")
 
-    try:
-        # opt10081: 일봉 데이터
-        daily_chart = api.block_request(
-            "opt10081",
-            종목코드=stock_code,
-            기준일자=datetime.now().strftime('%Y%m%d'),
-            수정주가구분="1",
-            output="일봉차트",
-            next=0
-        )
+                results['basic_info'] = stock_info
 
-        if daily_chart:
-            print(f"✅ 일봉 데이터: {len(daily_chart)}개")
-            results['daily_chart'] = daily_chart[:10]  # 최근 10일만
+            # opt10002: 주식거래량요청
+            volume_info = self.api.block_request(
+                "opt10002",
+                종목코드=stock_code,
+                output="주식거래량",
+                next=0
+            )
 
-            # 최근 데이터 출력
+            if volume_info:
+                print(f"✅ 거래량정보: {len(volume_info)}개 항목")
+                results['volume_info'] = volume_info[:5]  # 최근 5개만 저장
+
+            # opt10003: 체결정보요청
+            transaction_info = self.api.block_request(
+                "opt10003",
+                종목코드=stock_code,
+                output="체결정보",
+                next=0
+            )
+
+            if transaction_info:
+                print(f"✅ 체결정보: {len(transaction_info)}개 항목")
+                results['transaction_info'] = transaction_info[:5]
+
+            save_json(results, f'stock_quote_{stock_code}')
+
+        except Exception as e:
+            print(f"❌ 종목 시세 정보 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def test_order_book(self, stock_code='005930'):
+        """호가 정보 조회"""
+        print_section(f"4. 호가 정보 ({stock_code})")
+
+        results = {}
+
+        try:
+            # opt10004: 호가요청
+            order_book = self.api.block_request(
+                "opt10004",
+                종목코드=stock_code,
+                output="호가",
+                next=0
+            )
+
+            if order_book:
+                print(f"✅ 호가정보:")
+                # 매도 호가
+                print("   [매도]")
+                for i in range(1, 6):
+                    sell_price = order_book.get(f'매도호가{i}', 0)
+                    sell_qty = order_book.get(f'매도호가수량{i}', 0)
+                    print(f"   {i}: {sell_price:>8}원 x {sell_qty:>10}주")
+
+                # 매수 호가
+                print("   [매수]")
+                for i in range(1, 6):
+                    buy_price = order_book.get(f'매수호가{i}', 0)
+                    buy_qty = order_book.get(f'매수호가수량{i}', 0)
+                    print(f"   {i}: {buy_price:>8}원 x {buy_qty:>10}주")
+
+                results['order_book'] = order_book
+
+            save_json(results, f'order_book_{stock_code}')
+
+        except Exception as e:
+            print(f"❌ 호가 정보 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def test_chart_data(self, stock_code='005930'):
+        """차트 데이터 조회"""
+        print_section(f"5. 차트 데이터 ({stock_code})")
+
+        results = {}
+
+        try:
+            # opt10081: 일봉 데이터
+            daily_chart = self.api.block_request(
+                "opt10081",
+                종목코드=stock_code,
+                기준일자=datetime.now().strftime('%Y%m%d'),
+                수정주가구분="1",
+                output="일봉차트",
+                next=0
+            )
+
             if daily_chart:
-                recent = daily_chart[0]
-                print(f"   최근: {recent.get('일자', '')} - "
-                      f"시가: {recent.get('시가', 0):,}, "
-                      f"고가: {recent.get('고가', 0):,}, "
-                      f"저가: {recent.get('저가', 0):,}, "
-                      f"종가: {recent.get('현재가', 0):,}")
+                print(f"✅ 일봉 데이터: {len(daily_chart)}개")
+                results['daily_chart'] = daily_chart[:10]  # 최근 10일만
 
-        # opt10080: 분봉 데이터
-        minute_chart = api.block_request(
-            "opt10080",
-            종목코드=stock_code,
-            틱범위="1",
-            수정주가구분="1",
-            output="분봉차트",
-            next=0
-        )
+                # 최근 데이터 출력
+                if daily_chart:
+                    recent = daily_chart[0]
+                    print(f"   최근: {recent.get('일자', '')} - "
+                          f"시가: {recent.get('시가', 0):,}, "
+                          f"고가: {recent.get('고가', 0):,}, "
+                          f"저가: {recent.get('저가', 0):,}, "
+                          f"종가: {recent.get('현재가', 0):,}")
 
-        if minute_chart:
-            print(f"✅ 분봉 데이터: {len(minute_chart)}개")
-            results['minute_chart'] = minute_chart[:10]
+            # opt10080: 분봉 데이터
+            minute_chart = self.api.block_request(
+                "opt10080",
+                종목코드=stock_code,
+                틱범위="1",
+                수정주가구분="1",
+                output="분봉차트",
+                next=0
+            )
 
-        save_json(results, f'chart_data_{stock_code}')
+            if minute_chart:
+                print(f"✅ 분봉 데이터: {len(minute_chart)}개")
+                results['minute_chart'] = minute_chart[:10]
 
-    except Exception as e:
-        print(f"❌ 차트 데이터 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+            save_json(results, f'chart_data_{stock_code}')
 
+        except Exception as e:
+            print(f"❌ 차트 데이터 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
 
-def test_investor_data(api, stock_code='005930'):
-    """투자자 매매 동향"""
-    print_section(f"6. 투자자 매매 동향 ({stock_code})")
+    def test_investor_data(self, stock_code='005930'):
+        """투자자 매매 동향"""
+        print_section(f"6. 투자자 매매 동향 ({stock_code})")
 
-    results = {}
+        results = {}
 
-    try:
-        # opt10059: 투자자별 매매동향
-        investor = api.block_request(
-            "opt10059",
-            일자=datetime.now().strftime('%Y%m%d'),
-            종목코드=stock_code,
-            금액수량구분="1",
-            매매구분="0",
-            단위구분="1",
-            output="투자자별매매동향",
-            next=0
-        )
+        try:
+            # opt10059: 투자자별 매매동향
+            investor = self.api.block_request(
+                "opt10059",
+                일자=datetime.now().strftime('%Y%m%d'),
+                종목코드=stock_code,
+                금액수량구분="1",
+                매매구분="0",
+                단위구분="1",
+                output="투자자별매매동향",
+                next=0
+            )
 
-        if investor:
-            print(f"✅ 투자자별 매매동향: {len(investor)}개 항목")
+            if investor:
+                print(f"✅ 투자자별 매매동향: {len(investor)}개 항목")
 
-            for item in investor[:5]:
-                date = item.get('일자', '')
-                foreign = item.get('외국인순매수', 0)
-                institution = item.get('기관계순매수', 0)
-                print(f"   {date}: 외국인 {foreign:>12,}, 기관 {institution:>12,}")
+                for item in investor[:5]:
+                    date = item.get('일자', '')
+                    foreign = item.get('외국인순매수', 0)
+                    institution = item.get('기관계순매수', 0)
+                    print(f"   {date}: 외국인 {foreign:>12,}, 기관 {institution:>12,}")
 
-            results['investor'] = investor[:10]
+                results['investor'] = investor[:10]
 
-        save_json(results, f'investor_data_{stock_code}')
+            save_json(results, f'investor_data_{stock_code}')
 
-    except Exception as e:
-        print(f"❌ 투자자 매매 동향 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+        except Exception as e:
+            print(f"❌ 투자자 매매 동향 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
 
+    def test_market_index(self):
+        """시장 지수 조회"""
+        print_section("7. 시장 지수")
 
-def test_market_index(api):
-    """시장 지수 조회"""
-    print_section("7. 시장 지수")
+        results = {}
 
-    results = {}
+        try:
+            # KOSPI
+            kospi = self.api.block_request(
+                "opt10001",
+                종목코드="001",
+                output="주식기본정보",
+                next=0
+            )
 
-    try:
-        # KOSPI
-        kospi = api.block_request(
-            "opt10001",
-            종목코드="001",
-            output="주식기본정보",
-            next=0
-        )
+            if kospi:
+                print(f"✅ KOSPI: {kospi.get('현재가', 0)}")
+                results['kospi'] = kospi
 
-        if kospi:
-            print(f"✅ KOSPI: {kospi.get('현재가', 0)}")
-            results['kospi'] = kospi
+            # KOSDAQ
+            kosdaq = self.api.block_request(
+                "opt10001",
+                종목코드="101",
+                output="주식기본정보",
+                next=0
+            )
 
-        # KOSDAQ
-        kosdaq = api.block_request(
-            "opt10001",
-            종목코드="101",
-            output="주식기본정보",
-            next=0
-        )
+            if kosdaq:
+                print(f"✅ KOSDAQ: {kosdaq.get('현재가', 0)}")
+                results['kosdaq'] = kosdaq
 
-        if kosdaq:
-            print(f"✅ KOSDAQ: {kosdaq.get('현재가', 0)}")
-            results['kosdaq'] = kosdaq
+            save_json(results, 'market_index')
 
-        save_json(results, 'market_index')
+        except Exception as e:
+            print(f"❌ 시장 지수 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
 
-    except Exception as e:
-        print(f"❌ 시장 지수 조회 실패: {e}")
-        import traceback
-        traceback.print_exc()
+    def test_condition_search(self):
+        """조건 검색"""
+        print_section("8. 조건 검색")
 
+        results = {}
 
-def test_condition_search(api):
-    """조건 검색"""
-    print_section("8. 조건 검색")
+        try:
+            # 조건 목록 조회
+            conditions = self.api.get_condition_list()
 
-    results = {}
-
-    try:
-        # 조건 목록 조회
-        conditions = api.get_condition_list()
-
-        if conditions:
-            print(f"✅ 조건 목록: {len(conditions)}개")
-
-            for idx, name in conditions.items():
-                print(f"   {idx}: {name}")
-
-            results['conditions'] = conditions
-
-            # 첫 번째 조건으로 검색 (있으면)
             if conditions:
-                first_idx = list(conditions.keys())[0]
-                first_name = conditions[first_idx]
+                print(f"✅ 조건 목록: {len(conditions)}개")
 
-                print(f"\n   조건검색 실행: {first_name}")
-                stocks = api.get_condition_stock_list(first_idx, first_name)
+                for idx, name in conditions.items():
+                    print(f"   {idx}: {name}")
 
-                if stocks:
-                    print(f"   ✅ 검색 결과: {len(stocks)}개 종목")
-                    results['search_results'] = stocks[:10]
+                results['conditions'] = conditions
 
-        save_json(results, 'condition_search')
+                # 첫 번째 조건으로 검색 (있으면)
+                if conditions:
+                    first_idx = list(conditions.keys())[0]
+                    first_name = conditions[first_idx]
 
-    except Exception as e:
-        print(f"❌ 조건 검색 실패: {e}")
-        import traceback
-        traceback.print_exc()
+                    print(f"\n   조건검색 실행: {first_name}")
+                    stocks = self.api.get_condition_stock_list(first_idx, first_name)
 
+                    if stocks:
+                        print(f"   ✅ 검색 결과: {len(stocks)}개 종목")
+                        results['search_results'] = stocks[:10]
 
-def test_realtime_data(api, stock_code='005930'):
-    """실시간 데이터 수신 테스트"""
-    print_section(f"9. 실시간 데이터 ({stock_code})")
+            save_json(results, 'condition_search')
 
-    print("실시간 데이터는 이벤트 기반이므로 별도 구현 필요")
-    print("TR 코드: 주식체결(실시간), 주식호가(실시간) 등")
+        except Exception as e:
+            print(f"❌ 조건 검색 실패: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def test_realtime_data(self, stock_code='005930'):
+        """실시간 데이터 수신 테스트"""
+        print_section(f"9. 실시간 데이터 ({stock_code})")
+
+        print("실시간 데이터는 이벤트 기반이므로 별도 구현 필요")
+        print("TR 코드: 주식체결(실시간), 주식호가(실시간) 등")
 
 
 def main():
@@ -431,73 +506,23 @@ def main():
     # 경고 메시지 숨기기
     kiwoom.config.MUTE = True
 
+    print("\n🔧 API 초기화 중...")
     api = Kiwoom()
 
+    print("🔐 로그인 중...")
+    print("   (로그인 창이 나타나면 로그인하세요)")
+
     # 로그인
-    print("\n🔐 로그인 중...")
     api.login()
 
-    # 로그인 후 Qt 이벤트 처리
-    print("⏳ 로그인 완료 대기 중...")
-    for _ in range(10):
-        app.processEvents()
-        time.sleep(0.2)
+    # 테스터 생성
+    tester = OpenAPITester(api, app)
 
-    accounts = api.get_account_list()
-    if not accounts:
-        print("❌ 로그인 실패 또는 계좌 없음")
-        return
+    # 1초 후 테스트 시작 (Qt 타이머 사용)
+    QTimer.singleShot(1000, tester.run_tests)
 
-    print(f"✅ 로그인 성공: {accounts}")
-
-    # 테스트할 종목 코드
-    test_stocks = ['005930', '000660', '035420']  # 삼성전자, SK하이닉스, NAVER
-
-    # 시작 시간
-    start_time = time.time()
-
-    # 1. 계좌 정보
-    test_account_info(api)
-
-    # 2-9. 각 종목별 데이터
-    for stock_code in test_stocks:
-        test_stock_basic_info(api, stock_code)
-        time.sleep(0.5)  # API 호출 제한 고려
-
-        test_stock_quote(api, stock_code)
-        time.sleep(0.5)
-
-        test_order_book(api, stock_code)
-        time.sleep(0.5)
-
-        test_chart_data(api, stock_code)
-        time.sleep(0.5)
-
-        test_investor_data(api, stock_code)
-        time.sleep(0.5)
-
-    # 시장 지수
-    test_market_index(api)
-    time.sleep(0.5)
-
-    # 조건 검색
-    test_condition_search(api)
-
-    # 실시간 데이터 안내
-    test_realtime_data(api, test_stocks[0])
-
-    # 종료
-    elapsed = time.time() - start_time
-
-    print_section("완료")
-    print(f"✅ 전체 테스트 완료")
-    print(f"   소요 시간: {elapsed:.1f}초")
-    print(f"   결과 저장: test_outputs/ 폴더")
-
-    print("\n💡 다음 단계:")
-    print("   1. test_outputs/ 폴더에서 JSON 파일 확인")
-    print("   2. 필요한 데이터를 main.py에 통합")
-    print("   3. 실시간 데이터 수신 기능 구현")
+    # Qt 이벤트 루프 실행
+    sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
