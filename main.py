@@ -153,7 +153,9 @@ class AutoTradingBot:
                         logger.info(f"Accounts: {accounts}")
                 else:
                     logger.warning("OpenAPI server not running - attempting to start...")
-                    if self._start_openapi_server():
+                    server_started = self._start_openapi_server()
+                    logger.info(f"Server start result: {server_started}")
+                    if server_started:
                         logger.info("")
                         logger.info("="*80)
                         logger.info("⚠️  키움증권 로그인이 필요합니다!")
@@ -415,7 +417,10 @@ class AutoTradingBot:
                     break
 
             if not python_exe:
-                logger.warning("❌ 32-bit Python (kiwoom32) not found")
+                logger.error("❌ 32-bit Python (kiwoom32) not found")
+                logger.error(f"   Searched paths:")
+                for path in conda_paths:
+                    logger.error(f"   - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
                 logger.info("")
                 logger.info("수동으로 실행하세요:")
                 logger.info("  1. 새 터미널을 엽니다")
