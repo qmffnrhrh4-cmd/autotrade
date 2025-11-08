@@ -350,7 +350,9 @@ class ScannerPipeline:
                                     import statistics
                                     candidate.volatility = statistics.stdev(returns) if len(returns) > 1 else 0.0
 
-                            print(f"   ✓ 일봉: avg_volume={candidate.avg_volume:,.0f if candidate.avg_volume else 0}, volatility={candidate.volatility:.4f if candidate.volatility else 0}")
+                            avg_vol_str = f"{candidate.avg_volume:,.0f}" if candidate.avg_volume else "0"
+                            vol_str = f"{candidate.volatility:.4f}" if candidate.volatility else "0"
+                            print(f"   ✓ 일봉: avg_volume={avg_vol_str}, volatility={vol_str}")
                         else:
                             print(f"   ⚠️  일봉 데이터 없음")
                     except Exception as e:

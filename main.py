@@ -154,29 +154,57 @@ class AutoTradingBot:
                 else:
                     logger.warning("OpenAPI server not running - attempting to start...")
                     if self._start_openapi_server():
-                        logger.info("OpenAPI server starting... waiting for initialization")
+                        logger.info("")
+                        logger.info("="*80)
+                        logger.info("⚠️  중요: 키움증권 로그인이 필요합니다!")
+                        logger.info("="*80)
+                        logger.info("1. 로그인 창이 나타났는지 확인하세요 (작업 표시줄 확인)")
+                        logger.info("2. 키움증권 계정 정보를 입력하고 로그인하세요")
+                        logger.info("3. 인증서 비밀번호를 입력하세요")
+                        logger.info("4. 로그인 완료까지 최대 60초 대기합니다...")
+                        logger.info("="*80)
+                        logger.info("")
 
-                        # 서버 시작 대기 및 재시도 (최대 30초)
-                        max_retries = 10
+                        # 서버 시작 대기 및 재시도 (최대 60초)
+                        max_retries = 20
                         retry_delay = 3
                         connected = False
 
                         for retry in range(max_retries):
-                            logger.info(f"Connection attempt {retry + 1}/{max_retries}...")
+                            logger.info(f"⏳ 연결 시도 {retry + 1}/{max_retries} (남은 시간: {(max_retries - retry) * retry_delay}초)")
                             time.sleep(retry_delay)
 
                             if self.openapi_client.connect():
-                                logger.info("✅ OpenAPI client initialized after server start")
+                                logger.info("")
+                                logger.info("="*80)
+                                logger.info("✅ OpenAPI 로그인 성공!")
+                                logger.info("="*80)
                                 accounts = self.openapi_client.get_account_list()
                                 if accounts:
-                                    logger.info(f"Accounts: {accounts}")
+                                    logger.info(f"📋 계좌 목록: {accounts}")
                                 connected = True
                                 break
                             else:
-                                logger.info(f"Not ready yet, waiting {retry_delay} more seconds...")
+                                if retry < max_retries - 1:
+                                    logger.info(f"   아직 준비되지 않음... {retry_delay}초 후 재시도")
 
                         if not connected:
-                            logger.warning("OpenAPI server did not respond after 30 seconds - using REST API only")
+                            logger.warning("")
+                            logger.warning("="*80)
+                            logger.warning("⚠️  OpenAPI 연결 실패")
+                            logger.warning("="*80)
+                            logger.warning("60초 대기 후에도 연결되지 않았습니다.")
+                            logger.warning("가능한 원인:")
+                            logger.warning("  - 로그인 창에서 로그인하지 않음")
+                            logger.warning("  - 인증서 비밀번호 오류")
+                            logger.warning("  - OpenAPI 서버 시작 실패")
+                            logger.warning("")
+                            logger.warning("REST API로 계속 진행합니다.")
+                            logger.warning("OpenAPI 기능을 사용하려면 수동으로 시작하세요:")
+                            logger.warning("  conda activate kiwoom32")
+                            logger.warning("  python openapi_server.py")
+                            logger.warning("="*80)
+                            logger.warning("")
                             self.openapi_client = None
                     else:
                         logger.warning("OpenAPI server start failed - using REST API only")

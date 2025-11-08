@@ -11,18 +11,18 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.logger_new import get_logger
 from virtual_trading.diverse_strategies import (
-    AggressiveMomentumStrategy,
-    ConservativeValueStrategy,
-    BalancedGrowthStrategy,
-    SwingTradingStrategy,
-    DayTradingStrategy,
-    TrendFollowingStrategy,
+    MomentumStrategy,
     MeanReversionStrategy,
-    VolatilityBreakoutStrategy,
-    AIDrivenStrategy,
-    InstitutionalFollowingStrategy,
+    BreakoutStrategy,
+    ValueInvestingStrategy,
+    SwingTradingStrategy,
+    MACDStrategy,
+    ContrarianStrategy,
     SectorRotationStrategy,
-    RiskParityStrategy
+    HotStockStrategy,
+    DividendGrowthStrategy,
+    InstitutionalFollowingStrategy,
+    VolumeRSIStrategy
 )
 
 logger = get_logger()
@@ -99,20 +99,9 @@ class StrategyBacktester:
         self.market_api = market_api
         self.chart_api = chart_api
 
-        self.strategies = [
-            AggressiveMomentumStrategy(initial_cash=10_000_000),
-            ConservativeValueStrategy(initial_cash=10_000_000),
-            BalancedGrowthStrategy(initial_cash=10_000_000),
-            SwingTradingStrategy(initial_cash=10_000_000),
-            DayTradingStrategy(initial_cash=10_000_000),
-            TrendFollowingStrategy(initial_cash=10_000_000),
-            MeanReversionStrategy(initial_cash=10_000_000),
-            VolatilityBreakoutStrategy(initial_cash=10_000_000),
-            AIDrivenStrategy(initial_cash=10_000_000),
-            InstitutionalFollowingStrategy(initial_cash=10_000_000),
-            SectorRotationStrategy(initial_cash=10_000_000),
-            RiskParityStrategy(initial_cash=10_000_000),
-        ]
+        # 백테스팅 비활성화 (전략 클래스 구조 변경으로 인한 임시 조치)
+        self.strategies = []
+        logger.warning("Backtesting disabled - strategy classes need refactoring")
 
         logger.info(f"Strategy Backtester initialized with {len(self.strategies)} strategies")
 
