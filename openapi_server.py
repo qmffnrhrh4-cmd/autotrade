@@ -26,6 +26,8 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 
 # Set Qt environment before importing koapy
 os.environ['QT_API'] = 'pyqt5'
+# Ensure Qt GUI runs properly
+os.environ['QT_QPA_PLATFORM'] = 'windows'
 
 app = Flask(__name__)
 CORS(app)
@@ -44,8 +46,8 @@ account_list = []
 connection_status = "not_started"  # not_started, connecting, connected, failed
 
 
-def initialize_openapi_worker():
-    """Worker function to initialize OpenAPI (runs in background)"""
+def initialize_openapi_in_main_thread():
+    """Initialize OpenAPI in MAIN thread (Qt requirement)"""
     global openapi_context, account_list, connection_status
 
     try:
@@ -54,11 +56,12 @@ def initialize_openapi_worker():
         logger.info("🔧 Initializing OpenAPI connection...")
         connection_status = "connecting"
 
+        # IMPORTANT: Qt GUI must run in main thread
         openapi_context = KiwoomOpenApiPlusEntrypoint().__enter__()
 
-        # Auto-login
-        logger.info("🔐 Attempting auto-login...")
-        logger.info("   (키움증권 로그인 창이 나타날 수 있습니다)")
+        # Auto-login (will show login window)
+        logger.info("🔐 Attempting login...")
+        logger.info("   ⚠️  로그인 창이 나타납니다. 로그인을 완료해주세요.")
         openapi_context.EnsureConnected()
 
         # Check connection
@@ -81,31 +84,6 @@ def initialize_openapi_worker():
         return False
 
 
-def initialize_openapi():
-    """Initialize OpenAPI connection with timeout"""
-    global connection_status
-
-    # Start connection in background thread with timeout
-    executor = ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(initialize_openapi_worker)
-
-    try:
-        # Wait up to 60 seconds for connection (login may take time)
-        result = future.result(timeout=60)
-        return result
-    except FuturesTimeoutError:
-        logger.error("❌ OpenAPI connection timeout (60 seconds)")
-        logger.error("   로그인 창에서 로그인을 완료해주세요")
-        connection_status = "timeout"
-        return False
-    except Exception as e:
-        logger.error(f"❌ OpenAPI connection error: {e}")
-        connection_status = "failed"
-        return False
-    finally:
-        executor.shutdown(wait=False)
-
-
 @app.route('/health', methods=['GET'])
 def health():
     """Health check"""
@@ -120,7 +98,7 @@ def health():
 
 @app.route('/connect', methods=['POST'])
 def connect():
-    """Connect to OpenAPI (async)"""
+    """Connect to OpenAPI"""
     global connection_status
 
     # If already connecting or connected, return status
@@ -131,16 +109,12 @@ def connect():
             'accounts': account_list
         })
 
-    # Start connection in background thread
-    connection_status = 'connecting'
-    thread = threading.Thread(target=initialize_openapi, daemon=True)
-    thread.start()
-
-    # Return immediately (don't wait)
+    # OpenAPI must be initialized from main thread (Qt requirement)
+    # So we just return a message telling the client to wait
     return jsonify({
-        'status': 'connecting',
+        'status': 'not_started',
         'success': False,
-        'message': 'Connection started in background. Poll /health to check status.',
+        'message': 'OpenAPI will be initialized automatically on server startup. Please wait and poll /health.',
         'accounts': []
     })
 
@@ -248,6 +222,18 @@ def shutdown():
     return jsonify({'message': 'Server shutting down'})
 
 
+def run_flask_in_thread():
+    """Run Flask server in background thread"""
+    logger.info("🚀 Starting Flask HTTP server on http://localhost:5001")
+    app.run(
+        host='127.0.0.1',
+        port=5001,
+        debug=False,
+        use_reloader=False,
+        threaded=True
+    )
+
+
 def main():
     """Main entry point"""
     logger.info("=" * 60)
@@ -265,9 +251,6 @@ def main():
         logger.error("   Please use: conda activate autotrade_32")
         sys.exit(1)
 
-    # Start Flask server FIRST (without OpenAPI connection)
-    # OpenAPI will be connected later via /connect endpoint
-    logger.info("🚀 Starting OpenAPI server on http://localhost:5001")
     logger.info("   Available endpoints:")
     logger.info("   - GET  /health")
     logger.info("   - POST /connect")
@@ -278,12 +261,41 @@ def main():
     logger.info("   - POST /shutdown")
     logger.info("-" * 60)
 
-    app.run(
-        host='127.0.0.1',
-        port=5001,
-        debug=False,
-        use_reloader=False
-    )
+    # Start Flask in background thread
+    flask_thread = threading.Thread(target=run_flask_in_thread, daemon=True)
+    flask_thread.start()
+    logger.info("✅ Flask server started in background thread")
+
+    # Wait for Flask to initialize
+    import time
+    time.sleep(2)
+
+    # Initialize OpenAPI in MAIN thread (Qt requirement)
+    logger.info("")
+    logger.info("🔧 Initializing OpenAPI in main thread...")
+    logger.info("   (Qt GUI must run in main thread)")
+    logger.info("")
+
+    success = initialize_openapi_in_main_thread()
+
+    if success:
+        logger.info("")
+        logger.info("✅ Server is ready!")
+        logger.info("   Press Ctrl+C to stop")
+        logger.info("")
+    else:
+        logger.error("")
+        logger.error("❌ OpenAPI initialization failed")
+        logger.error("   Server will continue running, but OpenAPI is not available")
+        logger.error("")
+
+    # Keep main thread alive (Qt event loop)
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("\n🛑 Shutting down...")
+        sys.exit(0)
 
 
 if __name__ == '__main__':
