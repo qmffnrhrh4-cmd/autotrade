@@ -796,41 +796,114 @@ class GeminiAnalyzer(BaseAnalyzer):
 
     def _create_market_analysis_prompt(self, market_data: Dict[str, Any]) -> str:
         """시장 분석 프롬프트 생성"""
-        prompt = f"""
-당신은 전문 시장 분석가입니다. 현재 시장 상황을 분석해주세요.
+        kospi = market_data.get('kospi', {})
+        kosdaq = market_data.get('kosdaq', {})
 
-**시장 데이터:**
-{self._format_market_data(market_data)}
+        prompt = f"""당신은 한국 주식시장 전문 애널리스트입니다. 현재 시장을 분석하세요.
 
-**분석 요청:**
-다음 형식으로 분석해주세요:
+## 📊 시장 지표
 
-시장심리: [bullish/bearish/neutral 중 하나]
-점수: [0~10점]
-분석: [시장 상황 분석 3-5줄]
-추천: [투자 전략 추천 2-3가지]
-"""
-        
+**KOSPI**:
+- 현재: {kospi.get('index', 0):.2f} ({kospi.get('change_rate', 0):+.2f}%)
+- 거래대금: {kospi.get('trading_value', 0):,}억원
+- 외국인: {kospi.get('foreign_net', 0):,}억원
+
+**KOSDAQ**:
+- 현재: {kosdaq.get('index', 0):.2f} ({kosdaq.get('change_rate', 0):+.2f}%)
+- 거래대금: {kosdaq.get('trading_value', 0):,}억원
+
+---
+
+## 🎯 분석 요청
+
+**5가지 관점**에서 분석:
+
+1. **시장 레짐**: Bull/Bear/Sideways/Transitioning
+2. **투자 심리**: Euphoria/Greed/Neutral/Fear/Panic
+3. **스마트머니**: 외국인/기관 매집 또는 분산
+4. **섹터 로테이션**: 강세/약세 업종
+5. **단기 전략**: 공격 매수/선별 매수/관망/현금 확대
+
+**JSON 형식으로 응답:**
+
+```json
+{{
+  "market_regime": "Bull Market" | "Bear Market" | "Sideways" | "Transitioning",
+  "market_sentiment": "Euphoria" | "Greed" | "Neutral" | "Fear" | "Panic",
+  "market_score": <0-10>,
+
+  "smart_money_flow": {{
+    "foreign_trend": "Strong Buy" | "Buy" | "Neutral" | "Sell" | "Strong Sell",
+    "comment": "스마트머니 해석 (1-2문장)"
+  }},
+
+  "trading_strategy": "Aggressive Buy" | "Selective Buy" | "Hold" | "Increase Cash",
+
+  "key_insights": ["인사이트 1", "인사이트 2", "인사이트 3"],
+  "risks": ["리스크 1", "리스크 2"],
+  "detailed_analysis": "시장 종합 분석 (3-5문장)"
+}}
+```"""
+
         return prompt
     
     def _create_portfolio_analysis_prompt(self, portfolio_data: Dict[str, Any]) -> str:
         """포트폴리오 분석 프롬프트 생성"""
-        prompt = f"""
-당신은 포트폴리오 관리 전문가입니다. 다음 포트폴리오를 분석해주세요.
+        holdings = portfolio_data.get('holdings', [])
+        total_assets = portfolio_data.get('total_assets', 0)
 
-**포트폴리오:**
-- 총 자산: {portfolio_data.get('total_assets', 0):,}원
+        prompt = f"""당신은 포트폴리오 리스크 관리 전문가입니다. **리스크 관점**에서 분석하세요.
+
+## 📊 포트폴리오 현황
+
+**자산 구성**:
+- 총 자산: {total_assets:,}원
 - 현금 비중: {portfolio_data.get('cash_ratio', 0):.1f}%
-- 종목 수: {portfolio_data.get('position_count', 0)}개
+- 주식 비중: {100 - portfolio_data.get('cash_ratio', 0):.1f}%
+- 보유 종목: {portfolio_data.get('position_count', 0)}개
 - 총 수익률: {portfolio_data.get('total_profit_loss_rate', 0):+.2f}%
 
-**보유 종목:**
-{self._format_holdings_data(portfolio_data.get('holdings', []))}
+**보유 종목**:
+{self._format_holdings_data(holdings)}
 
-**분석 요청:**
-포트폴리오의 강점, 약점, 개선사항을 분석해주세요.
-"""
-        
+---
+
+## 🎯 분석 요청
+
+**6가지 영역** 분석:
+
+1. **포트폴리오 구성**: 현금/주식 비중 적절성
+2. **집중도 리스크**: 특정 종목 과도 집중 여부
+3. **업종 다각화**: 업종 분산 적절성
+4. **수익률 분석**: 주요 기여/악화 종목
+5. **손절 필요성**: 손실 종목 중 손절 필요 종목
+6. **리밸런싱**: 비중 조정 필요 종목
+
+**JSON 형식으로 응답:**
+
+```json
+{{
+  "overall_health": "Excellent" | "Good" | "Fair" | "Poor",
+  "risk_level": "Very High" | "High" | "Medium" | "Low",
+
+  "concentration_risk": {{
+    "level": "Very High" | "High" | "Medium" | "Low",
+    "comment": "집중도 평가 (1-2문장)"
+  }},
+
+  "actions_required": {{
+    "stop_loss_candidates": ["종목명 (이유)"],
+    "reduce_position": ["종목명"],
+    "increase_position": ["종목명"]
+  }},
+
+  "strengths": ["강점 1", "강점 2"],
+  "weaknesses": ["약점 1", "약점 2"],
+  "key_recommendations": ["추천 1", "추천 2", "추천 3"],
+  "detailed_analysis": "포트폴리오 종합 분석 (3-5문장)"
+}}
+```"""
+
         return prompt
     
     # ==================== 응답 파싱 ====================
