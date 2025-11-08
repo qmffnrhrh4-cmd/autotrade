@@ -14,12 +14,7 @@ from datetime import datetime
 # 프로젝트 루트 경로
 sys.path.insert(0, str(Path(__file__).parent))
 
-# 새로운 시스템 임포트 (v4.2: Unified config)
-try:
-    from config.manager import get_config
-except ImportError:
-    # Fallback to old config_manager
-    from config.config_manager import get_config
+from config.manager import get_config
 try:
     from utils.logger_new import get_logger
 except ImportError:

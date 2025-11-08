@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 # 기존 모듈 import
 try:
     from core import KiwoomRESTClient
-    from config.config_manager import get_config
+    from config.manager import get_config
     import account
 except ImportError as e:
     print(f"오류: 필수 모듈을 찾을 수 없습니다. {e}")

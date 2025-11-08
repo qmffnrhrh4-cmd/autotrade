@@ -18,7 +18,7 @@ def test_imports():
 
     try:
         # 새로운 설정 시스템
-        from config.config_manager import get_config
+        from config.manager import get_config
         config = get_config()
         print("✓ YAML 설정 시스템")
 
@@ -60,7 +60,7 @@ def test_config():
     print("\n2. 설정 시스템 테스트...")
 
     try:
-        from config.config_manager import get_config
+        from config.manager import get_config
 
         config = get_config()
 
