@@ -308,6 +308,8 @@ def main():
     def on_login(err_code):
         global connection_status, account_list
 
+        logger.info(f"🔔 OnEventConnect called with err_code={err_code}")
+
         if err_code == 0:
             connection_status = "connected"
             logger.info("")
@@ -340,7 +342,48 @@ def main():
             logger.error(f"❌ 로그인 실패: err_code={err_code}")
             logger.error("=" * 60)
 
-    # 이벤트 핸들러 연결
+    # 로그인 상태를 주기적으로 확인하는 타이머 함수
+    def check_login_status():
+        global connection_status, account_list
+
+        try:
+            # GetConnectState()로 로그인 상태 확인
+            # 0: 미연결, 1: 연결됨
+            state = openapi_context.GetConnectState()
+
+            if state == 1 and connection_status == "connecting":
+                # 로그인 성공!
+                connection_status = "connected"
+                logger.info("")
+                logger.info("=" * 60)
+                logger.info("✅ 로그인 성공! (폴링으로 감지)")
+                logger.info("=" * 60)
+
+                # Get account list
+                logger.info("🔍 Getting account list...")
+                try:
+                    account_list = openapi_context.get_account_list()
+                    if account_list and len(account_list) > 0:
+                        logger.info(f"   계좌 목록: {account_list}")
+                    else:
+                        logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
+                        account_list = []
+                except Exception as e:
+                    logger.warning(f"   계좌 목록 조회 실패: {e}")
+                    account_list = []
+
+                logger.info("=" * 60)
+                logger.info("")
+                logger.info("✅ Server is ready!")
+                logger.info("   Press Ctrl+C to stop")
+                logger.info("")
+            elif state == 0:
+                # 아직 로그인 안 됨 - 계속 대기
+                pass
+        except Exception as e:
+            logger.error(f"⚠️  Login status check error: {e}")
+
+    # 이벤트 핸들러 연결 (fallback용)
     logger.info("")
     logger.info("🔐 Connecting event handler and starting login...")
     logger.info("   👀 로그인 창을 찾아보세요!")
@@ -356,10 +399,18 @@ def main():
     # Keep main thread alive with Qt event loop
     try:
         from PyQt5.QtWidgets import QApplication
+        from PyQt5.QtCore import QTimer
 
         app = QApplication.instance()
         if app is not None:
             logger.info("🔄 Starting Qt event loop in main thread...")
+
+            # 주기적으로 로그인 상태 확인 (2초마다)
+            timer = QTimer()
+            timer.timeout.connect(check_login_status)
+            timer.start(2000)  # 2000ms = 2초
+            logger.info("⏱️  Login status polling started (every 2 seconds)")
+
             # Qt 이벤트 루프 실행 (GUI 표시에 필요)
             sys.exit(app.exec_())
         else:
