@@ -113,9 +113,10 @@ class KiwoomOpenAPIClient:
                 return True
             else:
                 logger.info("🔐 OpenAPI 연결 시도 중...")
+                logger.info("   (로그인 창이 나타나면 로그인하세요, 최대 60초 대기)")
 
-                # Try to connect
-                connect_result = self._request('POST', '/connect')
+                # Try to connect with longer timeout (60 seconds for login)
+                connect_result = self._request('POST', '/connect', timeout=60)
                 if connect_result and connect_result.get('success'):
                     self.is_connected = True
                     self.account_list = connect_result.get('accounts', [])
@@ -123,7 +124,8 @@ class KiwoomOpenAPIClient:
                     logger.info(f"📋 계좌 목록: {self.account_list}")
                     return True
                 else:
-                    logger.error("❌ OpenAPI 연결 실패 (키움 로그인 필요)")
+                    logger.error("❌ OpenAPI 연결 실패")
+                    logger.error("   로그인을 완료했는지 확인하세요")
                     return False
         else:
             logger.error("❌ OpenAPI 서버 응답 없음")
