@@ -28,8 +28,8 @@ echo.
 REM 사용자에게 선택 제공
 echo 실행할 테스트를 선택하세요:
 echo.
-echo   1. 간단한 테스트 (4가지 데이터, 약 30초)
-echo   2. 종합 테스트 (20가지 데이터, 약 1-2분) [권장]
+echo   1. 간단한 테스트 (6가지 데이터, 약 1분)
+echo   2. 완전한 수집 (20가지 데이터, 약 3-5분) [권장]
 echo   3. 기본 정보만 (로그인 + 마스터 정보, 약 10초)
 echo.
 set /p choice="선택 (1/2/3): "
@@ -37,11 +37,11 @@ set /p choice="선택 (1/2/3): "
 if "%choice%"=="1" (
     echo.
     echo 🚀 간단한 테스트 실행 중...
-    python test_stock_simple.py
+    python test_stock_improved.py
 ) else if "%choice%"=="2" (
     echo.
-    echo 🚀 종합 테스트 실행 중...
-    python test_stock_comprehensive_20.py
+    echo 🚀 완전한 수집 실행 중 (20가지)...
+    python test_stock_complete20.py
 ) else if "%choice%"=="3" (
     echo.
     echo 🚀 기본 정보 테스트 실행 중...
@@ -50,8 +50,8 @@ if "%choice%"=="1" (
     echo.
     echo ❌ 잘못된 선택입니다. 기본값(2번)으로 실행합니다.
     echo.
-    echo 🚀 종합 테스트 실행 중...
-    python test_stock_comprehensive_20.py
+    echo 🚀 완전한 수집 실행 중 (20가지)...
+    python test_stock_complete20.py
 )
 
 echo.
@@ -61,8 +61,8 @@ echo ===========================================================================
 echo.
 
 REM 결과 검증
-echo 🔍 수집된 데이터 검증 중...
-python verify_openapi_data.py
+echo 🔍 수집된 데이터 품질 검증 중...
+python validate_data_quality.py
 
 echo.
 echo ✅ 모든 작업 완료!
