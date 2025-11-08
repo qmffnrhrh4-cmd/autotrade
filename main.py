@@ -143,17 +143,19 @@ class AutoTradingBot:
 
             logger.info("Initializing OpenAPI client...")
             try:
-                from core import get_openapi_client
-                self.openapi_client = get_openapi_client(auto_connect=True)
+                from core.openapi_client import KiwoomOpenAPIClient
+                self.openapi_client = KiwoomOpenAPIClient(auto_connect=False)
 
-                if self.openapi_client and self.openapi_client.is_connected:
+                if self.openapi_client.connect():
                     logger.info("OpenAPI client initialized")
-                    logger.info(f"Accounts: {self.openapi_client.get_account_list()}")
+                    accounts = self.openapi_client.get_account_list()
+                    if accounts:
+                        logger.info(f"Accounts: {accounts}")
                 else:
-                    logger.info("OpenAPI not connected - using REST API only")
+                    logger.warning("OpenAPI server not running - using REST API only")
                     self.openapi_client = None
             except Exception as e:
-                logger.info(f"OpenAPI client not available: {e}")
+                logger.warning(f"OpenAPI client not available: {e}")
                 self.openapi_client = None
 
             logger.info("Initializing WebSocket...")
@@ -235,7 +237,6 @@ class AutoTradingBot:
             self.scanner = ScannerPipeline(
                 market_api=self.market_api,
                 screener=screener,
-                data_fetcher=self.data_fetcher,
                 ai_analyzer=self.analyzer
             )
             logger.info("Scanner pipeline initialized")

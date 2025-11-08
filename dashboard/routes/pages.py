@@ -53,3 +53,9 @@ def ai_dashboard():
 def settings_page():
     """통합 설정 페이지"""
     return render_template('settings_unified.html')
+
+
+@pages_bp.route('/backtest')
+def backtest_page():
+    """백테스팅 페이지"""
+    return render_template('backtest.html')

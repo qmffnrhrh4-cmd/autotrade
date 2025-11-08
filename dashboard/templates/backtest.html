@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strategy Backtesting - AutoTrade Pro</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .controls {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 14px 32px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        .ranking-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .ranking-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .ranking-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .ranking-table tr:hover {
+            background: rgba(102, 126, 234, 0.05);
+        }
+
+        .rank-badge {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 30px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .rank-1 { background: #FFD700; }
+        .rank-2 { background: #C0C0C0; }
+        .rank-3 { background: #CD7F32; }
+        .rank-other { background: #999; }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+
+        .positive { color: #10b981; }
+        .negative { color: #ef4444; }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            font-size: 18px;
+            color: #667eea;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 15px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+
+        .trade-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .trade-item {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .trade-item:hover {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Strategy Backtesting</h1>
+            <p class="subtitle">12가지 가상매매 전략을 과거 데이터로 백테스트하여 최적 전략을 찾아보세요</p>
+        </div>
+
+        <div class="controls">
+            <div class="form-group">
+                <label>종목 코드 (쉼표로 구분)</label>
+                <input type="text" id="stock_codes" value="005930,000660,035720" placeholder="005930,000660,035720">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>시작일</label>
+                    <input type="date" id="start_date">
+                </div>
+
+                <div class="form-group">
+                    <label>종료일</label>
+                    <input type="date" id="end_date">
+                </div>
+
+                <div class="form-group">
+                    <label>분봉 간격</label>
+                    <select id="interval">
+                        <option value="1">1분</option>
+                        <option value="3">3분</option>
+                        <option value="5" selected>5분</option>
+                        <option value="10">10분</option>
+                        <option value="15">15분</option>
+                        <option value="30">30분</option>
+                        <option value="60">60분</option>
+                    </select>
+                </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="runBacktest()" id="runBtn">
+                백테스트 실행
+            </button>
+        </div>
+
+        <div id="loading" class="card" style="display: none;">
+            <div class="loading">
+                <div class="spinner"></div>
+                <p>백테스팅 실행 중... 잠시만 기다려주세요.</p>
+            </div>
+        </div>
+
+        <div id="results" style="display: none;">
+            <div class="card">
+                <div class="card-title">🏆 전략 순위</div>
+                <table class="ranking-table" id="ranking-table">
+                    <thead>
+                        <tr>
+                            <th>순위</th>
+                            <th>전략명</th>
+                            <th>수익률</th>
+                            <th>승률</th>
+                            <th>샤프 비율</th>
+                            <th>거래 횟수</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+
+            <div class="results-grid">
+                <div class="card">
+                    <div class="card-title">📈 누적 수익률</div>
+                    <div class="chart-container">
+                        <canvas id="cumulative-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">📊 전략별 일일 수익률</div>
+                    <div class="chart-container">
+                        <canvas id="daily-returns-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-grid">
+                <div class="card">
+                    <div class="card-title">🎯 리스크 vs 수익률</div>
+                    <div class="chart-container">
+                        <canvas id="risk-return-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">💰 전략별 최종 수익</div>
+                    <div class="chart-container">
+                        <canvas id="profit-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">📝 최고 전략 상세 분석</div>
+                <div id="best-strategy-details"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let cumulativeChart, dailyReturnsChart, riskReturnChart, profitChart;
+
+        function setDefaultDates() {
+            const today = new Date();
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+
+            document.getElementById('end_date').valueAsDate = today;
+            document.getElementById('start_date').valueAsDate = weekAgo;
+        }
+
+        async function runBacktest() {
+            const stockCodes = document.getElementById('stock_codes').value.split(',').map(s => s.trim());
+            const startDate = document.getElementById('start_date').value.replace(/-/g, '');
+            const endDate = document.getElementById('end_date').value.replace(/-/g, '');
+            const interval = document.getElementById('interval').value;
+
+            document.getElementById('runBtn').disabled = true;
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+
+            try {
+                const response = await axios.post('/api/backtest/run', {
+                    stock_codes: stockCodes,
+                    start_date: startDate,
+                    end_date: endDate,
+                    interval: interval,
+                    parallel: true
+                });
+
+                if (response.data.success) {
+                    displayResults(response.data);
+                } else {
+                    alert('백테스트 실패: ' + response.data.error);
+                }
+            } catch (error) {
+                console.error(error);
+                alert('에러 발생: ' + error.message);
+            } finally {
+                document.getElementById('runBtn').disabled = false;
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('results').style.display = 'block';
+
+            displayRankingTable(data.ranking);
+            displayCumulativeChart(data.results);
+            displayDailyReturnsChart(data.results);
+            displayRiskReturnChart(data.results);
+            displayProfitChart(data.results);
+            displayBestStrategyDetails(data.best_strategy, data.results);
+        }
+
+        function displayRankingTable(ranking) {
+            const tbody = document.querySelector('#ranking-table tbody');
+            tbody.innerHTML = '';
+
+            ranking.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                const rankClass = index === 0 ? 'rank-1' : index === 1 ? 'rank-2' : index === 2 ? 'rank-3' : 'rank-other';
+                const returnClass = item.return_pct >= 0 ? 'positive' : 'negative';
+
+                tr.innerHTML = `
+                    <td><span class="rank-badge ${rankClass}">${item.rank}</span></td>
+                    <td>${item.name}</td>
+                    <td class="${returnClass}">${item.return_pct.toFixed(2)}%</td>
+                    <td>${item.win_rate.toFixed(1)}%</td>
+                    <td>${item.sharpe_ratio.toFixed(2)}</td>
+                    <td>${item.total_trades}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function displayCumulativeChart(results) {
+            const ctx = document.getElementById('cumulative-chart').getContext('2d');
+
+            if (cumulativeChart) cumulativeChart.destroy();
+
+            const datasets = [];
+            const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
+
+            Object.keys(results).slice(0, 6).forEach((strategyName, index) => {
+                const result = results[strategyName];
+                datasets.push({
+                    label: strategyName,
+                    data: result.daily_cash,
+                    borderColor: colors[index % colors.length],
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.4
+                });
+            });
+
+            cumulativeChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: results[Object.keys(results)[0]].daily_dates,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            ticks: {
+                                callback: function(value) {
+                                    return '₩' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayDailyReturnsChart(results) {
+            const ctx = document.getElementById('daily-returns-chart').getContext('2d');
+
+            if (dailyReturnsChart) dailyReturnsChart.destroy();
+
+            const labels = Object.keys(results);
+            const avgReturns = labels.map(strategy => {
+                const returns = results[strategy].daily_returns;
+                return returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
+            });
+
+            dailyReturnsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '평균 일일 수익률 (%)',
+                        data: avgReturns,
+                        backgroundColor: avgReturns.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.7)' : 'rgba(239, 68, 68, 0.7)'),
+                        borderColor: avgReturns.map(v => v >= 0 ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)'),
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayRiskReturnChart(results) {
+            const ctx = document.getElementById('risk-return-chart').getContext('2d');
+
+            if (riskReturnChart) riskReturnChart.destroy();
+
+            const data = Object.keys(results).map(strategyName => {
+                const result = results[strategyName];
+                return {
+                    x: Math.abs(result.max_drawdown_pct),
+                    y: result.total_return_pct,
+                    label: strategyName
+                };
+            });
+
+            riskReturnChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: '전략',
+                        data: data,
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgb(102, 126, 234)',
+                        borderWidth: 2,
+                        pointRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return data[context.dataIndex].label +
+                                           ': 수익률 ' + context.parsed.y.toFixed(2) + '%, ' +
+                                           'MDD ' + context.parsed.x.toFixed(2) + '%';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Max Drawdown (%)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Total Return (%)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayProfitChart(results) {
+            const ctx = document.getElementById('profit-chart').getContext('2d');
+
+            if (profitChart) profitChart.destroy();
+
+            const labels = Object.keys(results);
+            const profits = labels.map(strategy => results[strategy].total_return);
+
+            profitChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '최종 수익 (원)',
+                        data: profits,
+                        backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        borderColor: 'rgb(102, 126, 234)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                callback: function(value) {
+                                    return '₩' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function displayBestStrategyDetails(bestStrategy, results) {
+            if (!bestStrategy) return;
+
+            const result = results[bestStrategy.name];
+            const html = `
+                <div class="metric-grid">
+                    <div class="metric">
+                        <div class="metric-value ${result.total_return_pct >= 0 ? 'positive' : 'negative'}">
+                            ${result.total_return_pct.toFixed(2)}%
+                        </div>
+                        <div class="metric-label">총 수익률</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${result.win_rate.toFixed(1)}%</div>
+                        <div class="metric-label">승률</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${result.sharpe_ratio.toFixed(2)}</div>
+                        <div class="metric-label">샤프 비율</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${result.sortino_ratio.toFixed(2)}</div>
+                        <div class="metric-label">소르티노 비율</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value negative">${result.max_drawdown_pct.toFixed(2)}%</div>
+                        <div class="metric-label">최대 낙폭</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${result.total_trades}</div>
+                        <div class="metric-label">총 거래 횟수</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value positive">₩${result.avg_profit_per_trade.toLocaleString()}</div>
+                        <div class="metric-label">평균 수익/거래</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value negative">₩${result.avg_loss_per_trade.toLocaleString()}</div>
+                        <div class="metric-label">평균 손실/거래</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-value">${result.profit_factor.toFixed(2)}</div>
+                        <div class="metric-label">손익비</div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('best-strategy-details').innerHTML = html;
+        }
+
+        setDefaultDates();
+    </script>
+</body>
+</html>
