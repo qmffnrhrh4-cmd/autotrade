@@ -52,8 +52,8 @@ except ImportError:
     sys.exit(1)
 
 try:
-    from PyQt5.QtWidgets import QApplication, QEventLoop
-    from PyQt5.QtCore import QTimer
+    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtCore import QEventLoop, QTimer
     print("  ✅ PyQt5")
 except ImportError as e:
     print(f"  ❌ PyQt5 import 실패: {e}")
