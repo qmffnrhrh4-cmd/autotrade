@@ -89,7 +89,10 @@ def initialize_openapi_in_main_thread():
         openapi_context = Kiwoom()
         logger.info("✅ Kiwoom API instance created")
 
-        # 로그인 이벤트 핸들러를 전역 함수로 정의
+        # Qt 이벤트 처리하여 객체가 제대로 초기화되도록 함
+        logger.info("🔧 Processing Qt events...")
+        app.processEvents()
+
         return True
 
     except Exception as e:
