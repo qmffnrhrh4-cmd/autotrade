@@ -308,10 +308,6 @@ def main():
     def on_login(err_code):
         global connection_status, account_list
 
-        logger.info("")
-        logger.info(f"🔔 on_login callback triggered with err_code={err_code}")
-        logger.info("")
-
         if err_code == 0:
             connection_status = "connected"
             logger.info("")
@@ -353,49 +349,9 @@ def main():
     logger.info("")
 
     openapi_context.OnEventConnect.connect(on_login)
-    logger.info("✅ Event handler connected")
 
-    # CommConnect() 호출 (비동기로 로그인 창 띄움)
-    logger.info("📞 Calling CommConnect()...")
-    return_code = openapi_context.CommConnect()
-    logger.info(f"   CommConnect() returned: {return_code}")
-
-    # Qt 이벤트를 처리하는 별도 타이머 설정
-    from PyQt5.QtCore import QTimer
-
-    # 주기적으로 연결 상태 확인 (이벤트 핸들러가 안 불릴 경우 대비)
-    def check_connection_status():
-        global connection_status, account_list
-
-        if connection_status == "connecting":
-            try:
-                # GetConnectState() API로 연결 상태 확인
-                state = openapi_context.GetConnectState()
-                logger.info(f"🔍 Connection state check: {state}")
-
-                if state == 1:  # 1 = connected
-                    logger.info("✅ Connection detected via GetConnectState()")
-                    connection_status = "connected"
-
-                    # 계좌 목록 조회
-                    try:
-                        account_list = openapi_context.get_account_list()
-                        if account_list and len(account_list) > 0:
-                            logger.info(f"   계좌 목록: {account_list}")
-                        else:
-                            logger.warning("   계좌 목록이 비어있습니다")
-                            account_list = []
-                    except Exception as e:
-                        logger.warning(f"   계좌 목록 조회 실패: {e}")
-                        account_list = []
-            except Exception as e:
-                logger.debug(f"Connection check error: {e}")
-
-    # 5초마다 연결 상태 확인
-    status_timer = QTimer()
-    status_timer.timeout.connect(check_connection_status)
-    status_timer.start(5000)  # 5000ms = 5 seconds
-    logger.info("✅ Status check timer started (every 5 seconds)")
+    # CommConnect() 먼저 호출 (비동기로 로그인 창 띄움)
+    openapi_context.CommConnect()
 
     # Keep main thread alive with Qt event loop
     try:
@@ -404,8 +360,6 @@ def main():
         app = QApplication.instance()
         if app is not None:
             logger.info("🔄 Starting Qt event loop in main thread...")
-            logger.info("   This will process Kiwoom events and keep server running")
-            logger.info("")
             # Qt 이벤트 루프 실행 (GUI 표시에 필요)
             sys.exit(app.exec_())
         else:
