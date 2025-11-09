@@ -42,11 +42,12 @@ logger = logging.getLogger(__name__)
 openapi_context = None
 account_list = []
 connection_status = "not_started"  # not_started, connecting, connected, failed
+qt_app = None  # Qt Application must persist
 
 
 def initialize_openapi_in_main_thread():
     """Initialize OpenAPI in MAIN thread (Qt requirement)"""
-    global openapi_context, account_list, connection_status
+    global openapi_context, account_list, connection_status, qt_app
 
     try:
         # Qt 애플리케이션을 먼저 생성
@@ -56,9 +57,9 @@ def initialize_openapi_in_main_thread():
         logger.info("🔧 Initializing Qt Application...")
 
         # QApplication이 이미 있는지 확인
-        app = QApplication.instance()
-        if app is None:
-            app = QApplication(sys.argv)
+        qt_app = QApplication.instance()
+        if qt_app is None:
+            qt_app = QApplication(sys.argv)
             logger.info("✅ Qt Application created")
         else:
             logger.info("✅ Qt Application already exists")
@@ -91,7 +92,7 @@ def initialize_openapi_in_main_thread():
 
         # Qt 이벤트 처리하여 객체가 제대로 초기화되도록 함
         logger.info("🔧 Processing Qt events...")
-        app.processEvents()
+        qt_app.processEvents()
 
         return True
 
@@ -358,13 +359,10 @@ def main():
 
     # Keep main thread alive with Qt event loop
     try:
-        from PyQt5.QtWidgets import QApplication
-
-        app = QApplication.instance()
-        if app is not None:
+        if qt_app is not None:
             logger.info("🔄 Starting Qt event loop in main thread...")
             # Qt 이벤트 루프 실행 (GUI 표시에 필요)
-            sys.exit(app.exec_())
+            sys.exit(qt_app.exec_())
         else:
             # Qt 앱이 없으면 단순 대기
             logger.info("⚠️  Qt application not available, using simple loop")
