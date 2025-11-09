@@ -322,8 +322,11 @@ def main():
             # Get account list (로그인 성공 후에도 계좌 목록이 없을 수 있음)
             logger.info("🔍 Getting account list...")
             try:
-                account_list = openapi_context.get_account_list()
-                if account_list and len(account_list) > 0:
+                # breadum/kiwoom uses GetLoginInfo("ACCNO") or GetLoginInfo("ACCOUNT_CNT")
+                account_str = openapi_context.GetLoginInfo("ACCNO")
+                if account_str:
+                    # ACCNO returns semicolon-separated account numbers
+                    account_list = [acc.strip() for acc in account_str.split(';') if acc.strip()]
                     logger.info(f"   계좌 목록: {account_list}")
                 else:
                     logger.warning("   계좌 목록이 비어있습니다 (모의투자 또는 계좌 없음)")
