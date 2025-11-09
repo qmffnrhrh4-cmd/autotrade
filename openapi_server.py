@@ -223,6 +223,177 @@ def get_realtime_price(code):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/stock/<code>/comprehensive', methods=['GET'])
+def get_comprehensive_data(code):
+    """Get comprehensive stock data (20 types)"""
+    if not openapi_context:
+        return jsonify({'error': 'Not connected'}), 400
+
+    try:
+        from PyQt5.QtCore import QEventLoop, QTimer
+        from datetime import datetime, timedelta
+
+        # 데이터 수집 결과
+        result_data = {
+            'stock_code': code,
+            'timestamp': datetime.now().isoformat(),
+            'data': {}
+        }
+
+        # 1. 마스터 정보
+        try:
+            result_data['data']['01_master'] = {
+                'stock_name': openapi_context.GetMasterCodeName(code),
+                'current_price': openapi_context.GetMasterLastPrice(code),
+                'listed_stock_cnt': openapi_context.GetMasterListedStockCnt(code),
+            }
+        except Exception as e:
+            logger.error(f"Master info error: {e}")
+            result_data['data']['01_master'] = {'error': str(e)}
+
+        # TR 요청 함수
+        def request_tr_sync(rqname, trcode, inputs, timeout=5000):
+            """TR 동기 요청"""
+            received_data = {'result': None, 'completed': False}
+
+            def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+                if rq_name != rqname:
+                    return
+
+                try:
+                    cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
+                    data = {}
+
+                    if cnt == 0:
+                        # 단일 데이터
+                        data = extract_single_data(tr_code, rq_name)
+                    else:
+                        # 복수 데이터
+                        data = extract_multi_data(tr_code, rq_name, cnt)
+
+                    received_data['result'] = data
+                except Exception as e:
+                    received_data['result'] = {'error': str(e)}
+
+                received_data['completed'] = True
+                if event_loop.isRunning():
+                    event_loop.quit()
+
+            # 이벤트 핸들러 연결
+            openapi_context.OnReceiveTrData.connect(on_receive)
+
+            # 입력값 설정
+            for key, value in inputs.items():
+                openapi_context.SetInputValue(key, value)
+
+            # TR 요청
+            event_loop = QEventLoop()
+            ret = openapi_context.CommRqData(rqname, trcode, 0, "0101")
+
+            if ret != 0:
+                return {'error': f'Request failed: {ret}'}
+
+            # 타임아웃 설정
+            QTimer.singleShot(timeout, event_loop.quit)
+            event_loop.exec_()
+
+            # 이벤트 핸들러 연결 해제
+            try:
+                openapi_context.OnReceiveTrData.disconnect(on_receive)
+            except:
+                pass
+
+            return received_data['result'] if received_data['completed'] else {'error': 'Timeout'}
+
+        def extract_single_data(trcode, rqname):
+            """단일 데이터 추출"""
+            data = {}
+            fields = ['종목명', '현재가', '등락률', '거래량', '시가', '고가', '저가', '전일대비', '시가총액']
+
+            for field in fields:
+                try:
+                    value = openapi_context.GetCommData(trcode, rqname, 0, field).strip()
+                    if value:
+                        data[field] = value
+                except:
+                    pass
+
+            return data
+
+        def extract_multi_data(trcode, rqname, cnt):
+            """복수 데이터 추출"""
+            items = []
+            for i in range(min(cnt, 20)):
+                item = {}
+                fields = ['일자', '체결시간', '현재가', '거래량', '시가', '고가', '저가', '등락률']
+
+                for field in fields:
+                    try:
+                        value = openapi_context.GetCommData(trcode, rqname, i, field).strip()
+                        if value:
+                            item[field] = value
+                    except:
+                        pass
+
+                if item:
+                    items.append(item)
+
+            return {'items': items, 'count': cnt}
+
+        # 날짜 계산
+        today = datetime.now()
+        days_since_friday = (today.weekday() - 4) % 7
+        if days_since_friday == 0 and today.hour < 16:
+            days_since_friday = 7
+        last_friday = today - timedelta(days=days_since_friday)
+        target_date = last_friday.strftime('%Y%m%d')
+
+        # TR 목록
+        tr_list = [
+            {'name': '02_basic', 'trcode': 'opt10001', 'inputs': {'종목코드': code}},
+            {'name': '03_quote', 'trcode': 'opt10004', 'inputs': {'종목코드': code}},
+            {'name': '04_daily_chart', 'trcode': 'opt10081', 'inputs': {'종목코드': code, '기준일자': target_date, '수정주가구분': '1'}},
+            {'name': '05_minute_chart', 'trcode': 'opt10080', 'inputs': {'종목코드': code, '틱범위': '1', '수정주가구분': '1'}},
+            {'name': '06_volume', 'trcode': 'opt10002', 'inputs': {'종목코드': code}},
+            {'name': '07_conclusion', 'trcode': 'opt10003', 'inputs': {'종목코드': code}},
+            {'name': '08_market_info', 'trcode': 'opt10007', 'inputs': {'종목코드': code}},
+            {'name': '09_change_rate', 'trcode': 'opt10005', 'inputs': {'종목코드': code, '기준일자': target_date}},
+            {'name': '10_investor_trend', 'trcode': 'opt10059', 'inputs': {'일자': target_date, '종목코드': code, '금액수량구분': '1', '매매구분': '0', '단위구분': '1'}},
+            {'name': '11_investor_institution', 'trcode': 'opt10060', 'inputs': {'종목코드': code, '일자': target_date}},
+            {'name': '12_foreign_institution', 'trcode': 'opt10061', 'inputs': {'종목코드': code, '기준일자': target_date}},
+            {'name': '13_program_trading', 'trcode': 'opt10062', 'inputs': {'종목코드': code, '시간구분': '0'}},
+            {'name': '14_time_conclusion', 'trcode': 'opt10016', 'inputs': {'종목코드': code, '시간구분': '1'}},
+            {'name': '15_daily_trading_top', 'trcode': 'opt10063', 'inputs': {'종목코드': code, '조회구분': '1'}},
+            {'name': '16_monthly_investor', 'trcode': 'opt10064', 'inputs': {'종목코드': code, '시작일자': target_date, '끝일자': datetime.now().strftime('%Y%m%d')}},
+            {'name': '17_credit_balance', 'trcode': 'opt10013', 'inputs': {'종목코드': code, '기준일자': target_date}},
+        ]
+
+        # TR 요청 실행 (API 제한 준수)
+        for i, tr in enumerate(tr_list):
+            logger.info(f"Requesting {tr['name']}...")
+            data = request_tr_sync(tr['name'], tr['trcode'], tr['inputs'])
+            result_data['data'][tr['name']] = data
+
+            # API 제한 준수 (0.3초 대기, 마지막 요청 제외)
+            if i < len(tr_list) - 1:
+                time.sleep(0.3)
+
+        # 수집된 데이터 개수
+        success_count = len([k for k, v in result_data['data'].items() if v and 'error' not in v])
+        result_data['success_count'] = success_count
+        result_data['total_count'] = len(result_data['data'])
+
+        logger.info(f"Comprehensive data collected: {success_count}/{result_data['total_count']}")
+
+        return jsonify(result_data)
+
+    except Exception as e:
+        logger.error(f"Comprehensive data error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     """Shutdown server"""
