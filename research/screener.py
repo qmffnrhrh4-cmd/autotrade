@@ -54,6 +54,8 @@ class Screener:
             # 레버리지/인버스
             '레버리지', '인버스', '레버', '인버',
             'LEVERAGE', 'INVERSE',
+            # 지수
+            '지수', 'INDEX', 'KOSPI200', 'KOSDAQ150', 'KRX',
             # SPAC
             'SPAC', '스팩',
             # 기타
