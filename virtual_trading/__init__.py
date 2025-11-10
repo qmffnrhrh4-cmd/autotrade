@@ -8,6 +8,7 @@ from .performance_tracker import PerformanceTracker
 from .trade_logger import TradeLogger
 from .models import VirtualTradingDB
 from .manager import VirtualTradingManager
+from .scheduler import VirtualTradingScheduler
 
 __all__ = [
     'VirtualAccount',
@@ -16,4 +17,5 @@ __all__ = [
     'TradeLogger',
     'VirtualTradingDB',
     'VirtualTradingManager',
+    'VirtualTradingScheduler',
 ]

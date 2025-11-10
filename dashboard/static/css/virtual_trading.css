@@ -1,0 +1,400 @@
+/**
+ * Virtual Trading Styles
+ * 가상매매 스타일 및 애니메이션
+ */
+
+/* 전략 카드 */
+.strategy-card {
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.strategy-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.strategy-card.active {
+    border-color: #007aff;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+}
+
+.strategy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.strategy-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.badge-success {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.badge-danger {
+    background: #ffebee;
+    color: #c62828;
+}
+
+.badge-buy {
+    background: #e3f2fd;
+    color: #1976d2;
+}
+
+.badge-sell {
+    background: #fff3e0;
+    color: #e65100;
+}
+
+/* 전략 통계 */
+.strategy-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.stat-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+.stat-value {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.text-success {
+    color: #2e7d32;
+}
+
+.text-danger {
+    color: #c62828;
+}
+
+.strategy-description {
+    font-size: 13px;
+    color: #666;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* 지표 그리드 */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 24px;
+}
+
+.metric-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 16px;
+    transition: all 0.3s ease;
+}
+
+.metric-card:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.metric-card.profit {
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8f4 100%);
+}
+
+.metric-card.loss {
+    background: linear-gradient(135deg, #ffebee 0%, #fff5f5 100%);
+}
+
+.metric-label {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.metric-value {
+    font-size: 20px;
+    font-weight: 600;
+}
+
+/* 포지션 테이블 */
+.position-row {
+    transition: all 0.3s ease;
+}
+
+.position-row:hover {
+    background-color: #f8f9fa;
+}
+
+.position-row.profit {
+    border-left: 3px solid #2e7d32;
+}
+
+.position-row.loss {
+    border-left: 3px solid #c62828;
+}
+
+/* 가격 업데이트 애니메이션 */
+@keyframes priceFlash {
+    0% { background-color: #fff3cd; }
+    100% { background-color: transparent; }
+}
+
+.price-update-flash {
+    animation: priceFlash 0.5s ease;
+}
+
+/* 빈 상태 */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+}
+
+.empty-state p {
+    font-size: 16px;
+    margin-bottom: 24px;
+}
+
+/* 버튼 */
+.btn-primary {
+    background: #007aff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: #0051d5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 122, 255, 0.3);
+}
+
+.btn-small {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-danger {
+    background: #dc3545;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #c82333;
+}
+
+/* 테이블 스타일 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+table th {
+    background: #f8f9fa;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    font-size: 13px;
+    color: #666;
+    border-bottom: 2px solid #dee2e6;
+}
+
+table td {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 14px;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.text-center {
+    text-align: center;
+}
+
+/* 전략 상세 헤더 */
+.strategy-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.strategy-detail-header h2 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.strategy-actions {
+    display: flex;
+    gap: 12px;
+}
+
+/* 로딩 애니메이션 */
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-top-color: #007aff;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .strategy-stats {
+        grid-template-columns: 1fr;
+    }
+
+    .strategy-detail-header {
+        flex-direction: column;
+        gap: 16px;
+        align-items: flex-start;
+    }
+}
+
+/* 다크 모드 지원 */
+@media (prefers-color-scheme: dark) {
+    .strategy-card {
+        background: #1e1e1e;
+        border-color: #333;
+    }
+
+    .strategy-card.active {
+        background: linear-gradient(135deg, #1a2332 0%, #1e1e1e 100%);
+        border-color: #007aff;
+    }
+
+    .metric-card {
+        background: #2a2a2a;
+    }
+
+    .metric-card:hover {
+        background: #333;
+    }
+
+    table th {
+        background: #2a2a2a;
+        color: #aaa;
+    }
+
+    table td {
+        border-bottom-color: #333;
+    }
+
+    .position-row:hover {
+        background-color: #252525;
+    }
+}
+
+/* 페이드 인 애니메이션 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.strategy-card,
+.metric-card {
+    animation: fadeIn 0.3s ease;
+}
+
+/* 테이블 행 애니메이션 */
+.position-row,
+table tbody tr {
+    animation: fadeIn 0.3s ease;
+}
+
+/* 알림 스타일 */
+.toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: white;
+    border-radius: 8px;
+    padding: 16px 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.success {
+    border-left: 4px solid #2e7d32;
+}
+
+.toast.danger {
+    border-left: 4px solid #c62828;
+}
+
+.toast.info {
+    border-left: 4px solid #007aff;
+}
