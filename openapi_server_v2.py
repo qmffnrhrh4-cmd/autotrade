@@ -63,7 +63,8 @@ def process_tr_in_main_thread(request_id, tr_type, params):
             all_items = []
             prev_next_value = 0
             request_count = 0
-            max_requests = 10  # 최대 10회 연속 조회 (100개 × 10 = 1000개)
+            max_requests = 7  # 최대 7회 연속 조회 (100개 × 7 = 700개)
+                              # 키움 API 제한 고려하여 10회 대신 7회로 안정화
 
             logger.info(f"[{request_id}] {stock_code} {interval}분봉 연속 조회 시작 (최대 {max_requests}회)")
 
@@ -123,7 +124,20 @@ def process_tr_in_main_thread(request_id, tr_type, params):
                 ret = openapi_context.CommRqData('minute_qt', 'opt10080', prev_next_value, '0101')
 
                 if ret != 0:
-                    logger.error(f"[{request_id}] {request_count}회차 요청 실패: {ret}")
+                    error_messages = {
+                        -100: "사용자정보교환 실패",
+                        -101: "서버접속 실패",
+                        -102: "버전처리 실패",
+                        -200: "시세과부하",
+                        -201: "조회전문작성 실패",
+                        -300: "조회제한 초과 (TR 요청 제한)",
+                    }
+                    error_msg = error_messages.get(ret, f"알 수 없는 오류 ({ret})")
+                    logger.error(f"[{request_id}] {request_count}회차 요청 실패: {error_msg}")
+
+                    # -300 에러는 조회 제한이므로 이미 받은 데이터라도 반환
+                    if ret == -300 and len(all_items) > 0:
+                        logger.warning(f"[{request_id}] 조회 제한으로 중단, 이미 받은 {len(all_items)}개 데이터는 반환")
                     break
                 else:
                     # 타임아웃 설정
@@ -156,9 +170,11 @@ def process_tr_in_main_thread(request_id, tr_type, params):
                 except:
                     pass
 
-                # API 요청 제한 준수 (0.2초 대기)
+                # API 요청 제한 준수 (연속 조회 시 1초 대기 필수)
+                # 키움 API는 초당 5회 제한이 있으므로 안전하게 1초 대기
                 if prev_next_value == 2 and request_count < max_requests:
-                    time.sleep(0.2)
+                    logger.info(f"[{request_id}] API 제한 준수를 위해 1초 대기...")
+                    time.sleep(1.0)
 
             # 최종 결과 저장
             result_data = {
@@ -260,8 +276,9 @@ def get_minute_data(code, interval):
 
         logger.info(f"[{request_id}] {code} {interval}분봉 요청을 큐에 추가")
 
-        # 결과 대기 (polling) - 10회 연속 조회 고려하여 충분한 시간 확보
-        timeout = 30
+        # 결과 대기 (polling) - 10회 연속 조회 + 각 1초 대기 고려
+        # 최대 10회 × (10초 응답 + 1초 대기) = 110초, 안전하게 60초로 설정
+        timeout = 60
         start_time = time.time()
 
         while time.time() - start_time < timeout:
