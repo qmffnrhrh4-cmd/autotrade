@@ -1,0 +1,351 @@
+"""
+virtual_trading/manager.py
+가상매매 매니저 클래스
+
+가상매매 전략 실행, 포지션 관리, 자동 손절/익절, AI 분석 연동
+"""
+import logging
+from typing import Dict, List, Any, Optional
+from datetime import datetime
+from .models import VirtualTradingDB
+
+logger = logging.getLogger(__name__)
+
+
+class VirtualTradingManager:
+    """가상매매 매니저 클래스"""
+
+    def __init__(self, db_path: str = "data/virtual_trading.db"):
+        """
+        가상매매 매니저 초기화
+
+        Args:
+            db_path: SQLite 데이터베이스 파일 경로
+        """
+        self.db = VirtualTradingDB(db_path)
+        self.active_strategies: Dict[int, Dict[str, Any]] = {}
+        self.price_cache: Dict[str, float] = {}  # 종목코드 -> 현재가
+        logger.info("가상매매 매니저 초기화 완료")
+
+    def create_strategy(
+        self,
+        name: str,
+        description: str = "",
+        initial_capital: float = 10000000
+    ) -> int:
+        """
+        새로운 가상매매 전략 생성
+
+        Args:
+            name: 전략 이름
+            description: 전략 설명
+            initial_capital: 초기 자본
+
+        Returns:
+            생성된 전략 ID
+        """
+        strategy_id = self.db.create_strategy(name, description, initial_capital)
+        self.active_strategies[strategy_id] = {
+            'name': name,
+            'description': description,
+            'initial_capital': initial_capital,
+            'created_at': datetime.now().isoformat()
+        }
+        logger.info(f"가상매매 전략 생성: {name} (ID: {strategy_id})")
+        return strategy_id
+
+    def execute_buy(
+        self,
+        strategy_id: int,
+        stock_code: str,
+        stock_name: str,
+        quantity: int,
+        price: float,
+        stop_loss_percent: float = None,
+        take_profit_percent: float = None
+    ) -> Optional[int]:
+        """
+        가상매매 매수 주문 실행
+
+        Args:
+            strategy_id: 전략 ID
+            stock_code: 종목코드
+            stock_name: 종목명
+            quantity: 수량
+            price: 매수가
+            stop_loss_percent: 손절 비율 (예: 5.0 = -5%)
+            take_profit_percent: 익절 비율 (예: 10.0 = +10%)
+
+        Returns:
+            생성된 포지션 ID (실패시 None)
+        """
+        # 손절/익절가 계산
+        stop_loss_price = None
+        take_profit_price = None
+
+        if stop_loss_percent:
+            stop_loss_price = price * (1 - stop_loss_percent / 100)
+
+        if take_profit_percent:
+            take_profit_price = price * (1 + take_profit_percent / 100)
+
+        try:
+            position_id = self.db.open_position(
+                strategy_id=strategy_id,
+                stock_code=stock_code,
+                stock_name=stock_name,
+                quantity=quantity,
+                price=price,
+                stop_loss_price=stop_loss_price,
+                take_profit_price=take_profit_price
+            )
+
+            logger.info(
+                f"가상매매 매수 실행: {stock_name}({stock_code}) "
+                f"{quantity}주 @ {price:,}원 "
+                f"[손절: {stop_loss_price:,.0f}원, 익절: {take_profit_price:,.0f}원]"
+            )
+
+            return position_id
+
+        except Exception as e:
+            logger.error(f"가상매매 매수 실행 실패: {e}")
+            return None
+
+    def execute_sell(
+        self,
+        position_id: int,
+        sell_price: float,
+        reason: str = "manual"
+    ) -> Optional[float]:
+        """
+        가상매매 매도 주문 실행
+
+        Args:
+            position_id: 포지션 ID
+            sell_price: 매도가
+            reason: 매도 사유 (manual/stop_loss/take_profit)
+
+        Returns:
+            실현 수익 (실패시 None)
+        """
+        try:
+            profit = self.db.close_position(
+                position_id=position_id,
+                sell_price=sell_price
+            )
+
+            logger.info(
+                f"가상매매 매도 실행: Position #{position_id} "
+                f"@ {sell_price:,}원 [사유: {reason}] "
+                f"수익: {profit:+,.0f}원"
+            )
+
+            return profit
+
+        except Exception as e:
+            logger.error(f"가상매매 매도 실행 실패: {e}")
+            return None
+
+    def update_prices(self, price_updates: Dict[str, float]):
+        """
+        종목 현재가 업데이트
+
+        Args:
+            price_updates: {종목코드: 현재가} 딕셔너리
+        """
+        self.price_cache.update(price_updates)
+
+        # 모든 활성 포지션의 현재가 업데이트
+        positions = self.db.get_open_positions()
+        for position in positions:
+            stock_code = position['stock_code']
+            if stock_code in price_updates:
+                current_price = price_updates[stock_code]
+                self.db.update_position_price(position['id'], current_price)
+
+    def check_stop_loss_take_profit(self) -> List[Dict[str, Any]]:
+        """
+        모든 활성 포지션의 손절/익절 조건 체크
+
+        Returns:
+            실행된 매도 주문 리스트
+        """
+        executed_orders = []
+        positions = self.db.get_open_positions()
+
+        for position in positions:
+            stock_code = position['stock_code']
+            current_price = self.price_cache.get(stock_code, position['current_price'])
+
+            # 손절가 체크
+            if position['stop_loss_price'] and current_price <= position['stop_loss_price']:
+                profit = self.execute_sell(
+                    position_id=position['id'],
+                    sell_price=current_price,
+                    reason="stop_loss"
+                )
+
+                if profit is not None:
+                    executed_orders.append({
+                        'position_id': position['id'],
+                        'stock_code': stock_code,
+                        'stock_name': position['stock_name'],
+                        'type': 'stop_loss',
+                        'sell_price': current_price,
+                        'profit': profit
+                    })
+
+                    logger.warning(
+                        f"손절 실행: {position['stock_name']}({stock_code}) "
+                        f"@ {current_price:,}원 (손절가: {position['stop_loss_price']:,}원)"
+                    )
+
+            # 익절가 체크
+            elif position['take_profit_price'] and current_price >= position['take_profit_price']:
+                profit = self.execute_sell(
+                    position_id=position['id'],
+                    sell_price=current_price,
+                    reason="take_profit"
+                )
+
+                if profit is not None:
+                    executed_orders.append({
+                        'position_id': position['id'],
+                        'stock_code': stock_code,
+                        'stock_name': position['stock_name'],
+                        'type': 'take_profit',
+                        'sell_price': current_price,
+                        'profit': profit
+                    })
+
+                    logger.info(
+                        f"익절 실행: {position['stock_name']}({stock_code}) "
+                        f"@ {current_price:,}원 (익절가: {position['take_profit_price']:,}원)"
+                    )
+
+        return executed_orders
+
+    def get_strategy_summary(self, strategy_id: int = None) -> List[Dict[str, Any]]:
+        """
+        전략 요약 정보 조회
+
+        Args:
+            strategy_id: 전략 ID (None이면 모든 전략)
+
+        Returns:
+            전략 요약 리스트
+        """
+        strategies = self.db.get_all_strategies()
+
+        if strategy_id:
+            strategies = [s for s in strategies if s['id'] == strategy_id]
+
+        return strategies
+
+    def get_positions(self, strategy_id: int = None) -> List[Dict[str, Any]]:
+        """
+        포지션 조회
+
+        Args:
+            strategy_id: 전략 ID (None이면 모든 전략)
+
+        Returns:
+            포지션 리스트
+        """
+        positions = self.db.get_open_positions(strategy_id)
+
+        # 현재가 캐시로 업데이트
+        for position in positions:
+            stock_code = position['stock_code']
+            if stock_code in self.price_cache:
+                position['current_price'] = self.price_cache[stock_code]
+
+                # 수익률 재계산
+                value = position['quantity'] * position['current_price']
+                cost = position['quantity'] * position['avg_price']
+                position['profit'] = value - cost
+                position['profit_percent'] = (position['profit'] / cost * 100) if cost > 0 else 0
+
+        return positions
+
+    def get_trade_history(self, strategy_id: int = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """
+        거래 내역 조회
+
+        Args:
+            strategy_id: 전략 ID (None이면 모든 전략)
+            limit: 최대 조회 개수
+
+        Returns:
+            거래 내역 리스트
+        """
+        return self.db.get_trade_history(strategy_id, limit)
+
+    def get_performance_metrics(self, strategy_id: int) -> Dict[str, Any]:
+        """
+        전략 성과 지표 계산
+
+        Args:
+            strategy_id: 전략 ID
+
+        Returns:
+            성과 지표 딕셔너리
+        """
+        strategies = self.db.get_all_strategies()
+        strategy = next((s for s in strategies if s['id'] == strategy_id), None)
+
+        if not strategy:
+            return {}
+
+        positions = self.get_positions(strategy_id)
+        trades = self.get_trade_history(strategy_id)
+
+        # 포지션 평가금액 계산
+        position_value = sum(
+            p['quantity'] * p['current_price']
+            for p in positions
+        )
+
+        # 총 자산 = 현금 + 포지션 평가금액
+        total_assets = strategy['current_capital'] + position_value
+
+        # 미실현 손익
+        unrealized_profit = sum(p['profit'] for p in positions)
+
+        # 최대 손실 (MDD) 계산
+        max_drawdown = 0
+        peak = strategy['initial_capital']
+
+        for trade in reversed(trades):  # 과거부터 계산
+            if trade['side'] == 'sell':
+                current = strategy['initial_capital'] + trade['profit']
+                if current > peak:
+                    peak = current
+                drawdown = (peak - current) / peak * 100 if peak > 0 else 0
+                max_drawdown = max(max_drawdown, drawdown)
+
+        return {
+            'strategy_id': strategy_id,
+            'strategy_name': strategy['name'],
+            'initial_capital': strategy['initial_capital'],
+            'current_capital': strategy['current_capital'],
+            'position_value': position_value,
+            'total_assets': total_assets,
+            'total_profit': strategy['total_profit'],
+            'unrealized_profit': unrealized_profit,
+            'realized_profit': strategy['total_profit'],
+            'return_rate': strategy['return_rate'],
+            'win_rate': strategy['win_rate'],
+            'trade_count': strategy['trade_count'],
+            'win_count': strategy['win_count'],
+            'loss_count': strategy['loss_count'],
+            'max_drawdown': max_drawdown,
+            'position_count': len(positions)
+        }
+
+    def close(self):
+        """데이터베이스 연결 종료"""
+        if self.db:
+            self.db.close()
+            logger.info("가상매매 매니저 종료")

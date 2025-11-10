@@ -6,10 +6,14 @@ from .virtual_account import VirtualAccount
 from .virtual_trader import VirtualTrader
 from .performance_tracker import PerformanceTracker
 from .trade_logger import TradeLogger
+from .models import VirtualTradingDB
+from .manager import VirtualTradingManager
 
 __all__ = [
     'VirtualAccount',
     'VirtualTrader',
     'PerformanceTracker',
     'TradeLogger',
+    'VirtualTradingDB',
+    'VirtualTradingManager',
 ]
