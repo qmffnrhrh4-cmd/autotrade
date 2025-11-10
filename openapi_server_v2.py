@@ -68,50 +68,55 @@ def process_tr_in_main_thread(request_id, tr_type, params):
 
             logger.info(f"[{request_id}] {stock_code} {interval}분봉 연속 조회 시작 (최대 {max_requests}회)")
 
+            # 이벤트 핸들러는 루프 밖에서 한 번만 정의하고 연결
+            received_data = {'result': None, 'completed': False, 'event_loop': None}
+
+            def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+                if rq_name != 'minute_qt':
+                    return
+
+                try:
+                    cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
+                    items = []
+
+                    max_extract = min(cnt, 100)
+
+                    for i in range(max_extract):
+                        try:
+                            item = {
+                                '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
+                                '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                                '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
+                                '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
+                                '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
+                                '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
+                            }
+                            items.append(item)
+                        except:
+                            continue
+
+                    received_data['result'] = {
+                        'items': items,
+                        'count': cnt,
+                        'prev_next': int(prev_next) if prev_next else 0
+                    }
+                except Exception as e:
+                    received_data['result'] = {'error': str(e)}
+
+                received_data['completed'] = True
+                if received_data['event_loop'] and received_data['event_loop'].isRunning():
+                    received_data['event_loop'].quit()
+
+            # 이벤트 핸들러를 한 번만 연결 (연속 조회의 핵심!)
+            openapi_context.OnReceiveTrData.connect(on_receive)
+
             while request_count < max_requests:
                 request_count += 1
                 logger.info(f"[{request_id}] {request_count}회차 조회 (prev_next={prev_next_value})")
 
-                received_data = {'result': None, 'completed': False}
-
-                def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
-                    if rq_name != 'minute_qt':
-                        return
-
-                    try:
-                        cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
-                        items = []
-
-                        max_extract = min(cnt, 100)
-
-                        for i in range(max_extract):
-                            try:
-                                item = {
-                                    '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
-                                    '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
-                                    '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
-                                    '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
-                                    '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
-                                    '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
-                                }
-                                items.append(item)
-                            except:
-                                continue
-
-                        received_data['result'] = {
-                            'items': items,
-                            'count': cnt,
-                            'prev_next': int(prev_next) if prev_next else 0
-                        }
-                    except Exception as e:
-                        received_data['result'] = {'error': str(e)}
-
-                    received_data['completed'] = True
-                    if event_loop.isRunning():
-                        event_loop.quit()
-
-                # 이벤트 핸들러 연결
-                openapi_context.OnReceiveTrData.connect(on_receive)
+                # 매 시도마다 결과 초기화
+                received_data['result'] = None
+                received_data['completed'] = False
 
                 # 입력값 설정 (매 요청마다 설정 필요!)
                 openapi_context.SetInputValue('종목코드', stock_code)
@@ -120,6 +125,7 @@ def process_tr_in_main_thread(request_id, tr_type, params):
 
                 # TR 요청
                 event_loop = QEventLoop()
+                received_data['event_loop'] = event_loop
                 ret = openapi_context.CommRqData('minute_qt', 'opt10080', prev_next_value, '0101')
 
                 if ret != 0:
@@ -163,17 +169,17 @@ def process_tr_in_main_thread(request_id, tr_type, params):
                         logger.error(f"[{request_id}] {request_count}회차 타임아웃")
                         break
 
-                # 이벤트 핸들러 해제
-                try:
-                    openapi_context.OnReceiveTrData.disconnect(on_receive)
-                except:
-                    pass
-
                 # API 요청 제한 준수 (연속 조회 시 1초 대기)
                 # 키움 API는 초당 5회 제한 (0.2초 권장이지만 안전하게 1초)
                 if prev_next_value == 2 and request_count < max_requests:
                     logger.info(f"[{request_id}] API 제한 준수를 위해 1초 대기...")
                     time.sleep(1.0)
+
+            # 모든 시도가 끝난 후 이벤트 핸들러 해제
+            try:
+                openapi_context.OnReceiveTrData.disconnect(on_receive)
+            except:
+                pass
 
             # 최종 결과 저장
             result_data = {
