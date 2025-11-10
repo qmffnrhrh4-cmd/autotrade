@@ -363,10 +363,12 @@ def get_chart_data(stock_code: str):
 
             # Convert daily data to chart format and calculate indicators
             if daily_data:
-                print(f"🔄 Converting {len(daily_data[:100])} data points to chart format")
+                # 분봉은 1000개, 일봉은 200개로 제한 (분봉 1000개 ≈ 16시간, 일봉 200개 ≈ 7개월)
+                limit = 1000 if actual_timeframe in ['1', '3', '5', '10', '15', '30', '60'] else 200
+                print(f"🔄 Converting {len(daily_data[:limit])} data points to chart format (timeframe: {actual_timeframe})")
 
-                # Take last 100 days and reverse to get chronological order (oldest to newest)
-                recent_data = daily_data[:100]
+                # Take data and reverse to get chronological order (oldest to newest)
+                recent_data = daily_data[:limit]
                 recent_data.reverse()  # Reverse to get oldest first
 
                 # Prepare data for indicators
