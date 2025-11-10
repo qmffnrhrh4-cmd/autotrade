@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from scipy import stats
 import math
 
-from ..utils.logger import setup_logger
+from utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 

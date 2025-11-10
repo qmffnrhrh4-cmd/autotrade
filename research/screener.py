@@ -108,7 +108,7 @@ class Screener:
         # 최소 거래량 필터
         filtered = [
             stock for stock in volume_rank
-            if int(stock.get('volume', 0)) >= min_volume
+            if int(float(stock.get('volume', 0))) >= min_volume
         ]
         
         logger.info(f"거래량 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_volume:,}주)")
@@ -199,7 +199,7 @@ class Screener:
         # 최소 거래대금 필터
         filtered = [
             stock for stock in trading_rank
-            if int(stock.get('trading_value', 0)) >= min_value
+            if int(float(stock.get('trading_value', 0))) >= min_value
         ]
 
         logger.info(f"거래대금 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_value:,}원)")
@@ -229,7 +229,7 @@ class Screener:
         # 최소 순매수 금액 필터
         filtered = [
             stock for stock in foreign_rank
-            if int(stock.get('net_amount', 0)) >= min_net_amount
+            if int(float(stock.get('net_amount', 0))) >= min_net_amount
         ]
 
         logger.info(f"외국인 순매수 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_net_amount:,}백만원)")
@@ -258,7 +258,7 @@ class Screener:
         # 최소 순매수 금액 필터
         filtered = [
             stock for stock in inst_rank
-            if int(stock.get('net_amount', 0)) >= min_net_amount
+            if int(float(stock.get('net_amount', 0))) >= min_net_amount
         ]
 
         logger.info(f"기관 순매수 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_net_amount:,}백만원)")
@@ -300,8 +300,8 @@ class Screener:
             foreign_data = foreign_map[code]
             inst_data = inst_map[code]
 
-            foreign_amt = int(foreign_data.get('net_amount', 0))
-            inst_amt = int(inst_data.get('net_amount', 0))
+            foreign_amt = int(float(foreign_data.get('net_amount', 0)))
+            inst_amt = int(float(inst_data.get('net_amount', 0)))
 
             # 최소 금액 조건 체크
             if foreign_amt >= min_foreign_amount and inst_amt >= min_inst_amount:
@@ -346,7 +346,7 @@ class Screener:
         # 최소 순매도 금액 필터
         filtered = [
             stock for stock in foreign_rank
-            if int(stock.get('net_amount', 0)) >= min_net_amount
+            if int(float(stock.get('net_amount', 0))) >= min_net_amount
         ]
 
         logger.info(f"외국인 순매도 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_net_amount:,}백만원)")
@@ -375,7 +375,7 @@ class Screener:
         # 최소 순매도 금액 필터
         filtered = [
             stock for stock in inst_rank
-            if int(stock.get('net_amount', 0)) >= min_net_amount
+            if int(float(stock.get('net_amount', 0))) >= min_net_amount
         ]
 
         logger.info(f"기관 순매도 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_net_amount:,}백만원)")
@@ -457,7 +457,7 @@ class Screener:
         # 2단계: 복합 필터 적용
         filtered = []
         for stock in candidates:
-            volume = int(stock.get('volume', 0))
+            volume = int(float(stock.get('volume', 0)))
             price = int(stock.get('current_price', 0))
             change_rate = float(stock.get('change_rate', 0))
             
@@ -621,7 +621,7 @@ class Screener:
             }
         
         prices = [int(s.get('current_price', 0)) for s in stocks]
-        volumes = [int(s.get('volume', 0)) for s in stocks]
+        volumes = [int(float(s.get('volume', 0))) for s in stocks]
         rates = [float(s.get('change_rate', 0)) for s in stocks]
         
         summary = {
