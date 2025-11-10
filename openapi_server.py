@@ -244,16 +244,16 @@ def get_minute_data(code, interval):
 
         logger.info(f"📊 {code} {interval}분봉 조회 요청")
 
-        # TR 요청 함수
-        def request_tr_sync(rqname, trcode, inputs, timeout=10000):
-            """TR 동기 요청"""
+        # TR 요청 함수 (연속 조회 지원)
+        def request_tr_sync(rqname, trcode, inputs, timeout=10000, prev_next=0):
+            """TR 동기 요청 (prev_next: 0=조회, 2=연속조회)"""
             received_data = {'result': None, 'completed': False}
 
-            def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+            def on_receive(scr_no, rq_name, tr_code, record_name, prev_next_received):
                 if rq_name != rqname:
                     return
 
-                logger.info(f"  📥 OnReceiveTrData - rqname: '{rq_name}', prev_next: {prev_next}")
+                logger.info(f"  📥 OnReceiveTrData - rqname: '{rq_name}', prev_next: {prev_next_received}")
 
                 try:
                     # ✅ breadum/kiwoom은 rqname 사용 (test_stock_comprehensive_20.py 참고)
@@ -287,8 +287,14 @@ def get_minute_data(code, interval):
                                 logger.error(traceback.format_exc())
                             continue
 
-                    received_data['result'] = {'items': items, 'count': cnt, 'total_received': len(items)}
-                    logger.info(f"  ✅ 최종: {len(items)}개 캔들 추출 완료")
+                    # prev_next 값도 함께 반환
+                    received_data['result'] = {
+                        'items': items,
+                        'count': cnt,
+                        'total_received': len(items),
+                        'prev_next': int(prev_next_received) if prev_next_received else 0
+                    }
+                    logger.info(f"  ✅ 최종: {len(items)}개 캔들 추출 완료 (prev_next={prev_next_received})")
                 except Exception as e:
                     logger.error(f"  ❌ 데이터 추출 오류: {e}")
                     import traceback
@@ -306,9 +312,9 @@ def get_minute_data(code, interval):
             for key, value in inputs.items():
                 openapi_context.SetInputValue(key, value)
 
-            # TR 요청
+            # TR 요청 (prev_next: 0=조회, 2=연속)
             event_loop = QEventLoop()
-            ret = openapi_context.CommRqData(rqname, trcode, 0, "0101")
+            ret = openapi_context.CommRqData(rqname, trcode, prev_next, "0101")
 
             if ret != 0:
                 return {'error': f'Request failed: {ret}'}
@@ -325,28 +331,52 @@ def get_minute_data(code, interval):
 
             return received_data['result'] if received_data['completed'] else {'error': 'Timeout'}
 
-        # opt10080: 분봉 조회
-        minute_data = request_tr_sync(
-            'minute_chart',
-            'opt10080',
-            {
-                '종목코드': code,
-                '틱범위': str(interval),
-                '수정주가구분': '1'
-            }
-        )
+        # opt10080: 분봉 조회 (연속 조회 지원)
+        all_items = []
+        prev_next = 0
+        request_count = 0
+        max_requests = 10  # 최대 10회 연속 조회
+
+        while request_count < max_requests:
+            request_count += 1
+            logger.info(f"  🔄 분봉 조회 {request_count}회차 (prev_next={prev_next})")
+
+            minute_data = request_tr_sync(
+                'minute_chart',
+                'opt10080',
+                {
+                    '종목코드': code,
+                    '틱범위': str(interval),
+                    '수정주가구분': '1'
+                },
+                prev_next=prev_next
+            )
+
+            if minute_data and 'items' in minute_data:
+                items = minute_data['items']
+                all_items.extend(items)
+                logger.info(f"  ✅ {request_count}회차: {len(items)}개 추가 (누적: {len(all_items)}개)")
+
+                # prev_next 확인
+                next_flag = minute_data.get('prev_next', 0)
+                if next_flag == 0:
+                    logger.info(f"  🏁 연속 조회 완료 (prev_next=0)")
+                    break
+                else:
+                    prev_next = 2  # 다음 조회는 연속조회 플래그
+                    time.sleep(0.25)  # API 호출 제한 (초당 5회)
+            else:
+                logger.warning(f"  ⚠️ {request_count}회차 조회 실패")
+                break
 
         result = {
             'stock_code': code,
             'interval': interval,
             'timestamp': datetime.now().isoformat(),
-            'data': minute_data
+            'data': {'items': all_items, 'count': len(all_items), 'total_received': len(all_items)}
         }
 
-        if minute_data and 'items' in minute_data:
-            logger.info(f"✅ {code} {interval}분봉 {len(minute_data['items'])}개 조회 완료")
-        else:
-            logger.warning(f"⚠️ {code} {interval}분봉 조회 실패 또는 데이터 없음")
+        logger.info(f"✅ {code} {interval}분봉 최종 {len(all_items)}개 조회 완료")
 
         return jsonify(result)
 
