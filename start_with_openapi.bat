@@ -31,9 +31,9 @@ if exist "C:\Users\USER\anaconda3\envs\kiwoom32\python.exe" (
     exit /b 1
 )
 
-REM Step 2: Check if openapi_server.py exists
-if not exist "openapi_server.py" (
-    echo ERROR: openapi_server.py not found in current directory
+REM Step 2: Check if openapi_server_v2.py exists
+if not exist "openapi_server_v2.py" (
+    echo ERROR: openapi_server_v2.py not found in current directory
     echo Current directory: %CD%
     pause
     exit /b 1
@@ -67,7 +67,7 @@ echo Please LOGIN when the Kiwoom login window appears
 echo.
 
 REM Start OpenAPI server in separate window (NOT minimized so you can see login window)
-start "Kiwoom OpenAPI Server" "%PYTHON32%" openapi_server.py
+start "Kiwoom OpenAPI Server v2 (Qt Main Thread)" "%PYTHON32%" openapi_server_v2.py
 
 echo Waiting 3 seconds for server to initialize...
 timeout /t 3 /nobreak >nul
