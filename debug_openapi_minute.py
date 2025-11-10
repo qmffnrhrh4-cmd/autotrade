@@ -59,7 +59,7 @@ def test_openapi_minute():
         ('000660', 'SK하이닉스'),
     ]
 
-    intervals = [1, 5, 15, 30, 60]
+    intervals = [1, 3, 5, 10, 15, 30, 60]
 
     for stock_code, stock_name in test_stocks:
         print(f"\n📊 {stock_code} ({stock_name})")
