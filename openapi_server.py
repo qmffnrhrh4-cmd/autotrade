@@ -45,6 +45,11 @@ account_list = []
 connection_status = "not_started"  # not_started, connecting, connected, failed
 qt_app = None  # Qt Application must persist
 
+# TR 요청을 메인 스레드에서 실행하기 위한 헬퍼
+import threading
+tr_request_lock = threading.Lock()
+tr_request_result = {}  # request_id -> {'completed': bool, 'result': any}
+
 
 def initialize_openapi_in_main_thread():
     """Initialize OpenAPI in MAIN thread (Qt requirement)"""
@@ -603,7 +608,8 @@ def run_flask_in_thread():
         port=5001,
         debug=False,
         use_reloader=False,
-        threaded=True
+        threaded=False,  # ❗ Qt 메인 스레드 문제 방지
+        processes=1
     )
 
 
