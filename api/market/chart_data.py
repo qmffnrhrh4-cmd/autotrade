@@ -87,11 +87,11 @@ class ChartDataAPI:
                 try:
                     standardized_data.append({
                         'date': item.get('dt', ''),
-                        'open': int(item.get('open_pric', 0)),
-                        'high': int(item.get('high_pric', 0)),
-                        'low': int(item.get('low_pric', 0)),
-                        'close': int(item.get('cur_prc', 0)),
-                        'volume': int(item.get('trde_qty', 0))
+                        'open': int(float(item.get('open_pric', 0))),
+                        'high': int(float(item.get('high_pric', 0))),
+                        'low': int(float(item.get('low_pric', 0))),
+                        'close': int(float(item.get('cur_prc', 0))),
+                        'volume': int(float(item.get('trde_qty', 0)))
                     })
                 except (ValueError, TypeError):
                     continue
@@ -188,11 +188,11 @@ class ChartDataAPI:
                                 standardized_data.append({
                                     'date': item.get('dt', ''),
                                     'time': item.get('tm', ''),
-                                    'open': int(item.get('open_pric', 0)),
-                                    'high': int(item.get('high_pric', 0)),
-                                    'low': int(item.get('low_pric', 0)),
-                                    'close': int(item.get('cur_prc', 0)),
-                                    'volume': int(item.get('trde_qty', 0)),
+                                    'open': int(float(item.get('open_pric', 0))),
+                                    'high': int(float(item.get('high_pric', 0))),
+                                    'low': int(float(item.get('low_pric', 0))),
+                                    'close': int(float(item.get('cur_prc', 0))),
+                                    'volume': int(float(item.get('trde_qty', 0))),
                                     'source': 'nxt_chart'
                                 })
                             except (ValueError, TypeError) as e:
@@ -246,11 +246,11 @@ class ChartDataAPI:
                         standardized_data.append({
                             'date': item.get('dt', ''),
                             'time': item.get('tm', ''),
-                            'open': int(item.get('open_pric', 0)),
-                            'high': int(item.get('high_pric', 0)),
-                            'low': int(item.get('low_pric', 0)),
-                            'close': int(item.get('cur_prc', 0)),
-                            'volume': int(item.get('trde_qty', 0)),
+                            'open': int(float(item.get('open_pric', 0))),
+                            'high': int(float(item.get('high_pric', 0))),
+                            'low': int(float(item.get('low_pric', 0))),
+                            'close': int(float(item.get('cur_prc', 0))),
+                            'volume': int(float(item.get('trde_qty', 0))),
                             'source': 'nxt_chart_fallback' if is_nxt else 'regular_chart'
                         })
                     except (ValueError, TypeError) as e:

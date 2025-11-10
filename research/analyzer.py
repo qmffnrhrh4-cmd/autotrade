@@ -83,15 +83,15 @@ class Analyzer:
         analysis_data = {
             'stock_code': stock_code,
             'stock_name': price_info.get('stock_name', ''),
-            'current_price': int(price_info.get('current_price', 0)),
+            'current_price': int(float(price_info.get('current_price', 0))),
             'change_rate': float(price_info.get('change_rate', 0)),
-            'volume': int(price_info.get('volume', 0)),
-            'trading_value': int(price_info.get('trading_value', 0)),
-            'open_price': int(price_info.get('open_price', 0)),
-            'high_price': int(price_info.get('high_price', 0)),
-            'low_price': int(price_info.get('low_price', 0)),
-            'prev_close': int(price_info.get('prev_close', 0)),
-            'market_cap': int(stock_info.get('market_cap', 0)) if stock_info else 0,
+            'volume': int(float(price_info.get('volume', 0))),
+            'trading_value': int(float(price_info.get('trading_value', 0))),
+            'open_price': int(float(price_info.get('open_price', 0))),
+            'high_price': int(float(price_info.get('high_price', 0))),
+            'low_price': int(float(price_info.get('low_price', 0))),
+            'prev_close': int(float(price_info.get('prev_close', 0))),
+            'market_cap': int(float(stock_info.get('market_cap', 0))) if stock_info else 0,
             'per': float(stock_info.get('per', 0)) if stock_info else 0,
             'pbr': float(stock_info.get('pbr', 0)) if stock_info else 0,
             'eps': float(stock_info.get('eps', 0)) if stock_info else 0,
@@ -121,7 +121,7 @@ class Analyzer:
         deposit = self.fetcher.get_deposit(account_number)
 
         if deposit:
-            available = int(deposit.get('ord_alow_amt', 0))
+            available = int(float(deposit.get('ord_alow_amt', 0)))
             logger.info(f"주문 가능 현금: {available:,}원")
             return available
         else:
@@ -156,15 +156,15 @@ class Analyzer:
             price_info = self.fetcher.get_current_price(stock_code)
             if not price_info:
                 return 0
-            price = int(price_info.get('current_price', 0))
-        
+            price = int(float(price_info.get('current_price', 0)))
+
         if price == 0:
             return 0
-        
+
         # 매수 가능 수량 계산
         # 수수료: 0.015% (매수), 세금: 0.3% (매도 시만)
         commission_rate = 0.00015
-        buyable_quantity = int(available_cash / (price * (1 + commission_rate)))
+        buyable_quantity = int(float(available_cash / (price * (1 + commission_rate))))
         
         logger.info(f"{stock_code} 매수 가능 수량: {buyable_quantity}주 @ {price:,}원")
         return buyable_quantity
@@ -240,7 +240,7 @@ class Analyzer:
         
         # 종가 리스트 추출
         closes = [float(d.get('close', 0)) for d in daily_data]
-        volumes = [int(d.get('volume', 0)) for d in daily_data]
+        volumes = [int(float(d.get('volume', 0))) for d in daily_data]
         
         technical = {}
         
@@ -513,7 +513,7 @@ class Analyzer:
         """
         # 예수금 조회
         deposit = self.fetcher.get_deposit(account_number)
-        cash = int(deposit.get('deposit_available', 0)) if deposit else 0
+        cash = int(float(deposit.get('deposit_available', 0))) if deposit else 0
         
         # 보유 종목 조회
         holdings = self.fetcher.get_holdings(account_number)

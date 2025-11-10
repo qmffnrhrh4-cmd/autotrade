@@ -939,7 +939,7 @@ class ScannerPipeline:
                 self.duplicate_filter_cache.add(cache_key)
                 filtered.append(candidate)
 
-        old_keys = {k for k in self.duplicate_filter_cache if int(k.split('_')[1]) < (current_time // 300) - 5}
+        old_keys = {k for k in self.duplicate_filter_cache if int(float(k.split('_')[1])) < (current_time // 300) - 5}
         self.duplicate_filter_cache -= old_keys
 
         if len(candidates) != len(filtered):
