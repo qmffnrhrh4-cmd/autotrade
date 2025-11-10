@@ -1165,6 +1165,30 @@
                 .catch(error => console.error('Error:', error));
         }
 
+        function refreshAccount() {
+            fetch('/api/account')
+                .then(response => response.json())
+                .then(data => {
+                    // Update account stats
+                    document.getElementById('total-assets').textContent = (data.total_assets || 0).toLocaleString() + '원';
+                    document.getElementById('stock-count').textContent = (data.open_positions || 0);
+
+                    // Calculate and display profit percentage
+                    const profitPercent = data.profit_loss_percent || 0;
+                    document.getElementById('total-return').textContent = profitPercent.toFixed(2) + '%';
+
+                    // Update daily profit (same as total profit for now)
+                    const profitLoss = data.profit_loss || 0;
+                    const profitColor = profitLoss >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                    const dailyProfitElement = document.getElementById('daily-profit');
+                    dailyProfitElement.textContent = (profitLoss >= 0 ? '+' : '') + profitLoss.toLocaleString() + '원';
+                    dailyProfitElement.style.color = profitColor;
+
+                    console.log('Account data loaded:', data);
+                })
+                .catch(error => console.error('Error loading account:', error));
+        }
+
         function runPortfolioOptimization() {
             showToast('AI 포트폴리오 최적화를 실행 중...', 'info');
             // Implement optimization API call
@@ -1536,9 +1560,14 @@
             initCharts();
 
             // Load initial data
+            refreshAccount();
             refreshVirtualTrading();
             refreshPortfolio();
             loadPerformanceMetrics();
+
+            // Refresh periodically
+            setInterval(refreshAccount, 5000);  // Every 5 seconds
+            setInterval(refreshPortfolio, 5000);
         });
     </script>
 </body>
