@@ -192,6 +192,11 @@ class ScannerPipeline:
             candidates = self.screener.screen_stocks(**filter_params)
             print(f"📍 screener.screen_stocks() 결과: {len(candidates) if candidates else 0}개 종목")
 
+            # ETF/레버리지/인버스/SPAC 제외 필터
+            print("📍 ETF/레버리지/SPAC 필터링 중...")
+            candidates = self.screener.filter_exclude_etf_and_derivatives(candidates)
+            print(f"📍 ETF 필터 후: {len(candidates) if candidates else 0}개 종목")
+
             # 거래량 기준 정렬
             candidates = sorted(
                 candidates,
