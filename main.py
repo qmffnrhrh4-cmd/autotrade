@@ -820,6 +820,23 @@ class AutoTradingBot:
 
                 scoring_result = candidate_scores[candidate.code]
 
+                # OpenAPI 종합 데이터 조회
+                openapi_features = {}
+                if self.openapi_client and self.openapi_client.is_connected:
+                    try:
+                        print(f"   📊 OpenAPI 데이터 조회 중...")
+                        comprehensive_data = self.openapi_client.get_comprehensive_data(candidate.code)
+                        if comprehensive_data:
+                            openapi_features = self.openapi_client.extract_openapi_features(comprehensive_data)
+                            success_count = comprehensive_data.get('success_count', 0)
+                            total_count = comprehensive_data.get('total_count', 0)
+                            print(f"   ✅ OpenAPI 데이터: {success_count}/{total_count} 수집")
+                        else:
+                            print(f"   ⚠️  OpenAPI 데이터 조회 실패")
+                    except Exception as e:
+                        logger.warning(f"OpenAPI data fetch failed for {candidate.code}: {e}")
+                        print(f"   ⚠️  OpenAPI 데이터 조회 오류: {e}")
+
                 stock_data = {
                     'stock_code': candidate.code,
                     'stock_name': candidate.name,
@@ -830,6 +847,7 @@ class AutoTradingBot:
                     'foreign_net_buy': candidate.foreign_net_buy,
                     'bid_ask_ratio': candidate.bid_ask_ratio,
                     'institutional_trend': getattr(candidate, 'institutional_trend', None),
+                    **openapi_features  # OpenAPI 데이터 병합
                 }
 
                 score_info = {
