@@ -314,6 +314,193 @@ class KiwoomOpenAPIClient:
         result = self._request('GET', f'/realtime/price/{stock_code}')
         return result if result else {}
 
+    def get_comprehensive_data(self, stock_code: str) -> Dict[str, Any]:
+        """
+        종목 종합 데이터 조회 (20가지)
+
+        Args:
+            stock_code: 종목코드 (6자리)
+
+        Returns:
+            종합 데이터 딕셔너리
+            {
+                'stock_code': str,
+                'timestamp': str,
+                'success_count': int,
+                'total_count': int,
+                'data': {
+                    '01_master': {...},
+                    '02_basic': {...},
+                    '03_quote': {...},
+                    ...
+                }
+            }
+        """
+        if not self.is_connected:
+            logger.warning("OpenAPI 연결 안 됨")
+            return {}
+
+        logger.info(f"📊 종합 데이터 조회: {stock_code}")
+
+        # Timeout을 120초로 설정 (17개 TR * 0.3초 대기 + 여유)
+        result = self._request('GET', f'/stock/{stock_code}/comprehensive', timeout=120)
+
+        if result:
+            success_count = result.get('success_count', 0)
+            total_count = result.get('total_count', 0)
+            logger.info(f"✅ 종합 데이터 수신: {success_count}/{total_count}")
+            return result
+        else:
+            logger.error(f"❌ 종합 데이터 조회 실패: {stock_code}")
+            return {}
+
+    def extract_openapi_features(self, comprehensive_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        종합 데이터에서 스코어링/AI에 필요한 특징 추출
+
+        Args:
+            comprehensive_data: get_comprehensive_data() 결과
+
+        Returns:
+            추출된 특징 딕셔너리
+        """
+        features = {}
+
+        if not comprehensive_data or 'data' not in comprehensive_data:
+            return features
+
+        data = comprehensive_data.get('data', {})
+
+        # 1. 마스터 정보
+        master = data.get('01_master', {})
+        if master and 'error' not in master:
+            features['stock_name'] = master.get('stock_name', '')
+            features['listed_stock_cnt'] = master.get('listed_stock_cnt', 0)
+
+        # 2. 주식기본정보
+        basic = data.get('02_basic', {})
+        if basic and 'error' not in basic:
+            features['current_price_openapi'] = self._parse_int(basic.get('현재가'))
+            features['volume_openapi'] = self._parse_int(basic.get('거래량'))
+            features['change_rate_openapi'] = self._parse_float(basic.get('등락률'))
+            features['market_cap'] = self._parse_int(basic.get('시가총액'))
+
+        # 3. 호가잔량
+        quote = data.get('03_quote', {})
+        if quote and 'error' not in quote and 'items' in quote:
+            items = quote.get('items', [])
+            if items:
+                # 호가 데이터가 있으면 매수/매도 강도 계산 가능
+                features['has_quote_data'] = True
+
+        # 4. 일봉차트
+        daily_chart = data.get('04_daily_chart', {})
+        if daily_chart and 'error' not in daily_chart and 'items' in daily_chart:
+            items = daily_chart.get('items', [])
+            if len(items) >= 2:
+                # 최근 2일 데이터로 추세 분석
+                today = items[0]
+                yesterday = items[1]
+                features['daily_trend'] = 'up' if self._parse_int(today.get('현재가')) > self._parse_int(yesterday.get('현재가')) else 'down'
+                features['daily_volatility'] = self._calculate_volatility(items[:5])
+
+        # 5. 분봉차트
+        minute_chart = data.get('05_minute_chart', {})
+        if minute_chart and 'error' not in minute_chart and 'items' in minute_chart:
+            items = minute_chart.get('items', [])
+            if items:
+                features['minute_data_count'] = len(items)
+                features['recent_price_action'] = self._analyze_price_action(items[:10])
+
+        # 6. 투자자별 매매동향
+        investor_trend = data.get('10_investor_trend', {})
+        if investor_trend and 'error' not in investor_trend and 'items' in investor_trend:
+            items = investor_trend.get('items', [])
+            if items:
+                latest = items[0]
+                features['institutional_net_buy_openapi'] = self._parse_int(latest.get('기관순매수'))
+                features['foreign_net_buy_openapi'] = self._parse_int(latest.get('외인순매수'))
+
+        # 7. 프로그램매매
+        program_trading = data.get('13_program_trading', {})
+        if program_trading and 'error' not in program_trading and 'items' in program_trading:
+            items = program_trading.get('items', [])
+            if items:
+                total_buy = sum(self._parse_int(item.get('매수량')) for item in items)
+                total_sell = sum(self._parse_int(item.get('매도량')) for item in items)
+                features['program_net_buy'] = total_buy - total_sell
+
+        return features
+
+    def _parse_int(self, value: Any) -> int:
+        """문자열을 정수로 변환 (부호, 공백 처리)"""
+        if value is None:
+            return 0
+        try:
+            # '+', '-', ' ' 제거 후 변환
+            cleaned = str(value).replace('+', '').replace('-', '').replace(' ', '').strip()
+            if not cleaned:
+                return 0
+            # 부호 처리
+            sign = -1 if str(value).strip().startswith('-') else 1
+            return int(cleaned) * sign
+        except:
+            return 0
+
+    def _parse_float(self, value: Any) -> float:
+        """문자열을 실수로 변환"""
+        if value is None:
+            return 0.0
+        try:
+            cleaned = str(value).replace('+', '').replace(' ', '').strip()
+            if not cleaned:
+                return 0.0
+            return float(cleaned)
+        except:
+            return 0.0
+
+    def _calculate_volatility(self, candles: List[Dict]) -> float:
+        """캔들 데이터로 변동성 계산"""
+        if not candles or len(candles) < 2:
+            return 0.0
+
+        try:
+            prices = [self._parse_int(c.get('현재가')) for c in candles if c.get('현재가')]
+            if len(prices) < 2:
+                return 0.0
+
+            avg_price = sum(prices) / len(prices)
+            variance = sum((p - avg_price) ** 2 for p in prices) / len(prices)
+            volatility = (variance ** 0.5) / avg_price * 100 if avg_price > 0 else 0.0
+            return round(volatility, 2)
+        except:
+            return 0.0
+
+    def _analyze_price_action(self, candles: List[Dict]) -> str:
+        """최근 가격 움직임 분석"""
+        if not candles or len(candles) < 3:
+            return 'neutral'
+
+        try:
+            prices = [self._parse_int(c.get('현재가')) for c in candles[:5] if c.get('현재가')]
+            if len(prices) < 3:
+                return 'neutral'
+
+            # 상승 추세인지 확인
+            up_count = sum(1 for i in range(len(prices)-1) if prices[i] > prices[i+1])
+            if up_count >= len(prices) * 0.6:
+                return 'strong_up'
+            elif up_count >= len(prices) * 0.4:
+                return 'weak_up'
+            elif up_count <= len(prices) * 0.2:
+                return 'strong_down'
+            elif up_count <= len(prices) * 0.4:
+                return 'weak_down'
+            else:
+                return 'neutral'
+        except:
+            return 'neutral'
+
     def __enter__(self):
         """Context manager 진입"""
         if not self.is_connected:
