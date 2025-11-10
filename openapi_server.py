@@ -262,8 +262,11 @@ def get_minute_data(code, interval):
 
                     logger.info(f"  📊 GetRepeatCnt: {cnt}개")
 
-                    # 복수 데이터 추출
-                    for i in range(cnt):
+                    # 복수 데이터 추출 (제한: 100개 - GetCommData 버퍼 이슈 방지)
+                    max_extract = min(cnt, 100)
+                    logger.info(f"  📦 추출 제한: {max_extract}개 (전체 {cnt}개 중)")
+
+                    for i in range(max_extract):
                         # opt10080 분봉차트 기본 출력 필드만 사용
                         try:
                             # ✅ breadum/kiwoom: GetCommData(trcode, rqname, index, field) - 4개 파라미터
@@ -345,7 +348,7 @@ def get_minute_data(code, interval):
         all_items = []
         prev_next = 0
         request_count = 0
-        max_requests = 10  # 최대 10회 연속 조회
+        max_requests = 5  # 최대 5회 연속 조회 (한 번에 100개씩 = 최대 500개)
 
         while request_count < max_requests:
             request_count += 1
