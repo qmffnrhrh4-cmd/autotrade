@@ -934,27 +934,31 @@
                             <div class="card-header">
                                 <h3 class="card-title">
                                     <i class="fas fa-shield-alt"></i>
-                                    자동 손절/익절
+                                    자동 손절/익절 시스템
                                 </h3>
-                                <button class="btn btn-outline btn-sm">
-                                    <i class="fas fa-cog"></i>
-                                    설정
-                                </button>
                             </div>
                             <div id="auto-stop-loss-content">
-                                <div style="margin-top: 1rem;">
-                                    <div style="margin-bottom: 1.5rem;">
-                                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">손절 비율 (%)</label>
-                                        <input type="number" class="form-input" value="-5" min="-100" max="0" style="width: 100%; padding: 0.75rem; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--radius-md); color: var(--text-primary);">
+                                <div class="empty-state">
+                                    <i class="fas fa-brain"></i>
+                                    <h3>AI 기반 동적 관리</h3>
+                                    <p style="margin-top: 1rem; line-height: 1.6;">
+                                        손절/익절은 AI가 시장 상황과 종목 특성을 분석하여<br>
+                                        자동으로 최적의 레벨을 설정하고 관리합니다.
+                                    </p>
+                                    <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: left;">
+                                        <div style="margin-bottom: 0.75rem;">
+                                            <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            ATR 기반 동적 손절가 계산
+                                        </div>
+                                        <div style="margin-bottom: 0.75rem;">
+                                            <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            Trailing Stop 자동 조정
+                                        </div>
+                                        <div>
+                                            <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            부분 익절 자동 실행
+                                        </div>
                                     </div>
-                                    <div style="margin-bottom: 1.5rem;">
-                                        <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">익절 비율 (%)</label>
-                                        <input type="number" class="form-input" value="10" min="0" max="100" style="width: 100%; padding: 0.75rem; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--radius-md); color: var(--text-primary);">
-                                    </div>
-                                    <button class="btn btn-primary" style="width: 100%;">
-                                        <i class="fas fa-save"></i>
-                                        설정 저장
-                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -993,61 +997,54 @@
                 <div class="tab-content" id="settings">
                     <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
                         <i class="fas fa-cog" style="color: var(--color-primary);"></i>
-                        설정
+                        시스템 정보
                     </h2>
 
-                    <div class="grid grid-2">
-                        <div class="glass-card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-sliders-h"></i>
-                                    매매 설정
-                                </h3>
-                            </div>
-                            <div style="margin-top: 1rem;">
-                                <div style="margin-bottom: 1.5rem;">
-                                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">최대 투자 금액</label>
-                                    <input type="number" class="form-input" placeholder="10000000" style="width: 100%; padding: 0.75rem; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--radius-md); color: var(--text-primary);">
-                                </div>
-                                <div style="margin-bottom: 1.5rem;">
-                                    <label style="display: block; margin-bottom: 0.5rem; color: var(--text-secondary);">최대 보유 종목 수</label>
-                                    <input type="number" class="form-input" placeholder="10" style="width: 100%; padding: 0.75rem; background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--radius-md); color: var(--text-primary);">
-                                </div>
-                                <button class="btn btn-primary" style="width: 100%;">
-                                    <i class="fas fa-save"></i>
-                                    설정 저장
-                                </button>
-                            </div>
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-robot"></i>
+                                자동 매매 시스템
+                            </h3>
                         </div>
-
-                        <div class="glass-card">
-                            <div class="card-header">
-                                <h3 class="card-title">
-                                    <i class="fas fa-bell"></i>
-                                    알림 설정
-                                </h3>
-                            </div>
-                            <div style="margin-top: 1rem;">
-                                <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>매매 알림</span>
-                                    <label class="switch">
-                                        <input type="checkbox" checked>
-                                        <span class="slider"></span>
-                                    </label>
+                        <div style="margin-top: 1.5rem;">
+                            <div class="empty-state">
+                                <i class="fas fa-magic" style="font-size: 3rem; color: var(--color-primary);"></i>
+                                <h3>완전 자동화 시스템</h3>
+                                <p style="margin-top: 1rem; line-height: 1.6;">
+                                    이 시스템은 AI 기반으로 완전 자동화되어 운영됩니다.<br>
+                                    별도의 설정 없이 최적의 매매 전략을 자동으로 실행합니다.
+                                </p>
+                                <div style="margin-top: 2rem; padding: 1.5rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: left;">
+                                    <h4 style="margin-bottom: 1rem; color: var(--color-primary);">
+                                        <i class="fas fa-check-circle"></i> 자동 기능
+                                    </h4>
+                                    <ul style="list-style: none; padding: 0;">
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            AI 기반 종목 스크리닝 및 선정
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            동적 손절/익절 자동 관리
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            포트폴리오 자동 최적화
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            리스크 자동 관리 및 조절
+                                        </li>
+                                        <li style="padding: 0.5rem 0;">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            매매 전략 자동 학습 및 개선
+                                        </li>
+                                    </ul>
                                 </div>
-                                <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>수익률 알림</span>
-                                    <label class="switch">
-                                        <input type="checkbox" checked>
-                                        <span class="slider"></span>
-                                    </label>
-                                </div>
-                                <div style="margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                                    <span>AI 추천 알림</span>
-                                    <label class="switch">
-                                        <input type="checkbox">
-                                        <span class="slider"></span>
-                                    </label>
+                                <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md);">
+                                    <i class="fas fa-info-circle" style="color: var(--color-primary);"></i>
+                                    <span style="margin-left: 0.5rem;">시스템은 24시간 자동으로 운영되며, 사용자의 개입 없이 최적의 성과를 추구합니다.</span>
                                 </div>
                             </div>
                         </div>
