@@ -390,8 +390,8 @@ class KiwoomOpenAPIClient:
 
         logger.info(f"📊 분봉 데이터 조회: {stock_code} ({interval}분)")
 
-        # Timeout을 10초로 설정 (분봉 1개 TR)
-        result = self._request('GET', f'/stock/{stock_code}/minute/{interval}', timeout=10)
+        # Timeout을 150초로 설정 (연속 조회 10회 × ~12초 = 120초 + 여유)
+        result = self._request('GET', f'/stock/{stock_code}/minute/{interval}', timeout=150)
 
         if result and 'data' in result:
             data = result.get('data', {})
