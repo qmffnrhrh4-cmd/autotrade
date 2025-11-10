@@ -344,6 +344,37 @@ class VirtualTradingManager:
             'position_count': len(positions)
         }
 
+    def delete_strategy(self, strategy_id: int) -> bool:
+        """
+        가상매매 전략 삭제
+
+        Args:
+            strategy_id: 삭제할 전략 ID
+
+        Returns:
+            삭제 성공 여부
+        """
+        try:
+            # 활성 포지션이 있는지 확인
+            positions = self.get_positions(strategy_id)
+            if positions:
+                logger.warning(f"전략 {strategy_id}에 {len(positions)}개의 활성 포지션이 있어 삭제할 수 없습니다")
+                return False
+
+            # 전략 삭제 (DB에서)
+            self.db.delete_strategy(strategy_id)
+
+            # 활성 전략 목록에서 제거
+            if strategy_id in self.active_strategies:
+                del self.active_strategies[strategy_id]
+
+            logger.info(f"가상매매 전략 {strategy_id} 삭제 완료")
+            return True
+
+        except Exception as e:
+            logger.error(f"전략 삭제 실패: {e}")
+            return False
+
     def close(self):
         """데이터베이스 연결 종료"""
         if self.db:

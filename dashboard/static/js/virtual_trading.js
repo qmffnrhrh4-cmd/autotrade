@@ -165,9 +165,18 @@ class VirtualTradingManager {
                  onclick="virtualTrading.selectStrategy(${strategy.id})">
                 <div class="strategy-header">
                     <h3>${strategy.name}</h3>
-                    <span class="badge ${strategy.return_rate >= 0 ? 'badge-success' : 'badge-danger'}">
-                        ${strategy.return_rate >= 0 ? '+' : ''}${strategy.return_rate.toFixed(2)}%
-                    </span>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="badge ${strategy.return_rate >= 0 ? 'badge-success' : 'badge-danger'}">
+                            ${strategy.return_rate >= 0 ? '+' : ''}${strategy.return_rate.toFixed(2)}%
+                        </span>
+                        <button
+                            class="btn-small btn-danger"
+                            onclick="event.stopPropagation(); virtualTrading.deleteStrategy(${strategy.id}, '${strategy.name}')"
+                            title="전략 삭제"
+                            style="padding: 4px 8px; font-size: 11px;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
                 <div class="strategy-stats">
                     <div class="stat-item">
@@ -693,6 +702,40 @@ class VirtualTradingManager {
         } catch (error) {
             console.error('Failed to create strategy:', error);
             this.showNotification('전략 생성 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * 전략 삭제
+     */
+    async deleteStrategy(strategyId, strategyName) {
+        if (!confirm(`"${strategyName}" 전략을 삭제하시겠습니까?\n\n⚠️ 이 작업은 되돌릴 수 없습니다.\n(활성 포지션이 있는 경우 삭제할 수 없습니다)`)) {
+            return;
+        }
+
+        try {
+            const response = await this.fetchWithTimeout(`/api/virtual-trading/strategies/${strategyId}`, {
+                method: 'DELETE'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('전략 삭제 완료', data.message, 'success');
+
+                // 현재 선택된 전략이 삭제된 경우 초기화
+                if (this.currentStrategy === strategyId) {
+                    this.currentStrategy = null;
+                }
+
+                // 전략 목록 새로고침
+                this.loadStrategies();
+            } else {
+                this.showNotification('전략 삭제 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to delete strategy:', error);
+            this.showNotification('전략 삭제 실패', error.message, 'danger');
         }
     }
 
