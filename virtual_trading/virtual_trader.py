@@ -124,7 +124,7 @@ class VirtualTrader:
         # 기본 전략들 생성
         self._create_default_strategies()
 
-        logger.info(f"💰 가상 트레이더 초기화 완료 (계좌당 {initial_cash:,}원, Data Enricher 활성화)")
+        logger.info(f"💰 가상 트레이더 초기화 완료 (계좌당 {initial_cash:,}원, 데이터 강화 활성화)")
 
     def _create_default_strategies(self):
         """

@@ -479,7 +479,7 @@ class DynamicRiskManager:
 
             max_consecutive_losses = 3
             if self.consecutive_losses >= max_consecutive_losses:
-                logger.warning(f"⚠️ 연속 손실 {self.consecutive_losses}회 발생 - 거래 일시 정지 권고")
+                logger.warning(f"⚠️  연속 손실 {self.consecutive_losses}회 발생 - 거래 일시 정지 권고")
 
         logger.info(
             f"손익 업데이트: {profit_loss:+,.0f}원 "
