@@ -28,7 +28,7 @@ from strategy import PortfolioManager
 from utils.activity_monitor import get_monitor
 from utils.alert_manager import get_alert_manager
 from utils.data_cache import get_api_cache
-from virtual_trading import VirtualTrader, TradeLogger, VirtualTradingManager
+from virtual_trading import VirtualTrader, TradeLogger, VirtualTradingManager, VirtualTradingScheduler
 
 logger = get_logger()
 
@@ -85,6 +85,7 @@ class AutoTradingBot:
         self.virtual_trader = None
         self.trade_logger = None
         self.virtual_trading_manager = None
+        self.virtual_trading_scheduler = None
 
         self.monitor = get_monitor()
         self.alert_manager = get_alert_manager()
@@ -362,12 +363,22 @@ class AutoTradingBot:
                 self.virtual_trading_manager = VirtualTradingManager()
                 logger.info("가상매매 매니저 초기화 완료")
 
+                # 가상매매 스케줄러 초기화 및 시작
+                if self.data_fetcher and self.virtual_trading_manager:
+                    self.virtual_trading_scheduler = VirtualTradingScheduler(
+                        virtual_manager=self.virtual_trading_manager,
+                        data_fetcher=self.data_fetcher
+                    )
+                    self.virtual_trading_scheduler.start()
+                    logger.info("가상매매 스케줄러 시작 완료 (실시간 업데이트, 자동 손절/익절)")
+
                 logger.info("가상매매 시스템 초기화 완료")
             except Exception as e:
                 logger.warning(f"가상매매 시스템 초기화 실패: {e}")
                 self.virtual_trader = None
                 self.trade_logger = None
                 self.virtual_trading_manager = None
+                self.virtual_trading_scheduler = None
 
             self._initialize_control_file()
             self._restore_state()

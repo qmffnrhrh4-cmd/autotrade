@@ -615,6 +615,9 @@
             font-size: 0.95rem;
         }
     </style>
+
+    <!-- Virtual Trading Styles -->
+    <link rel="stylesheet" href="/static/css/virtual_trading.css">
 </head>
 <body>
     <div class="bg-overlay"></div>
@@ -928,7 +931,7 @@
                                     가상매매 전략
                                 </h3>
                             </div>
-                            <div id="virtual-trading-strategies" style="margin-top: 1.5rem;">
+                            <div id="virtual-strategies-list" style="margin-top: 1.5rem;">
                                 <!-- Strategy list will be populated by API -->
                             </div>
                         </div>
@@ -941,7 +944,7 @@
                                     성과 통계
                                 </h3>
                             </div>
-                            <div id="virtual-trading-stats" style="margin-top: 1.5rem;">
+                            <div id="virtual-strategy-detail" style="margin-top: 1.5rem;">
                                 <!-- Statistics will be populated by API -->
                             </div>
                         </div>
@@ -956,23 +959,25 @@
                             </h3>
                         </div>
                         <div style="overflow-x: auto; margin-top: 1.5rem;">
-                            <table class="data-table">
+                            <table class="data-table" id="virtual-positions-table">
                                 <thead>
                                     <tr>
-                                        <th>전략</th>
-                                        <th>종목명</th>
                                         <th>종목코드</th>
+                                        <th>종목명</th>
                                         <th>보유량</th>
                                         <th>평균단가</th>
                                         <th>현재가</th>
                                         <th>평가금액</th>
-                                        <th>수익률</th>
-                                        <th>매수일시</th>
+                                        <th>손익</th>
+                                        <th>손익률</th>
+                                        <th>손절가</th>
+                                        <th>익절가</th>
+                                        <th>작업</th>
                                     </tr>
                                 </thead>
-                                <tbody id="virtual-trading-positions">
+                                <tbody>
                                     <tr>
-                                        <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                        <td colspan="11" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                             <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
                                             가상매매 보유 종목이 없습니다
                                         </td>
@@ -991,20 +996,20 @@
                             </h3>
                         </div>
                         <div style="overflow-x: auto; margin-top: 1.5rem;">
-                            <table class="data-table">
+                            <table class="data-table" id="virtual-trades-table">
                                 <thead>
                                     <tr>
                                         <th>시간</th>
-                                        <th>전략</th>
                                         <th>구분</th>
+                                        <th>종목코드</th>
                                         <th>종목명</th>
                                         <th>수량</th>
                                         <th>가격</th>
-                                        <th>수익금</th>
-                                        <th>수익률</th>
+                                        <th>거래금액</th>
+                                        <th>손익</th>
                                     </tr>
                                 </thead>
-                                <tbody id="virtual-trading-history">
+                                <tbody>
                                     <tr>
                                         <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                             <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
@@ -2367,5 +2372,8 @@
             setInterval(refreshVirtualTrading, 10000);  // Every 10 seconds
         });
     </script>
+
+    <!-- Virtual Trading JavaScript -->
+    <script src="/static/js/virtual_trading.js"></script>
 </body>
 </html>
