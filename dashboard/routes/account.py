@@ -370,8 +370,8 @@ def get_positions():
                         print(f"Error getting exit thresholds for {code}: {e}")
 
                 positions.append({
-                    'code': code,
-                    'name': name,
+                    'stock_code': code,  # v6.0.1: 일관성을 위해 'code' → 'stock_code'
+                    'stock_name': name,  # v6.0.1: 일관성을 위해 'name' → 'stock_name'
                     'quantity': quantity,
                     'avg_price': avg_price,
                     'current_price': current_price,
@@ -722,8 +722,8 @@ def get_optimization_summary():
                 hold_count += 1
 
             actions.append({
-                'code': code,
-                'name': name,
+                'stock_code': code,  # v6.0.1: 일관성을 위해 'code' → 'stock_code'
+                'stock_name': name,  # v6.0.1: 일관성을 위해 'name' → 'stock_name'
                 'action': analysis.action,
                 'reason': analysis.reason,
                 'pnl_percent': pnl_percent

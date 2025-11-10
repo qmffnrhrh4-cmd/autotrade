@@ -1448,8 +1448,8 @@
                     <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                             <div>
-                                <div style="font-weight: 600; font-size: 1.1rem;">${pos.name}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);">${pos.code}</div>
+                                <div style="font-weight: 600; font-size: 1.1rem;">${pos.stock_name}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">${pos.stock_code}</div>
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-weight: 600; color: ${profitColor};">
@@ -1665,7 +1665,7 @@
                         <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); border-left: 3px solid ${actionColor};">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <div style="font-weight: 600;">${action.name} (${action.code})</div>
+                                    <div style="font-weight: 600;">${action.stock_name} (${action.stock_code})</div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">${action.reason}</div>
                                 </div>
                                 <div style="text-align: right;">
@@ -1994,7 +1994,7 @@
                 .then(positions => {
                     const positionsMap = {};
                     positions.forEach(pos => {
-                        positionsMap[pos.code] = pos;
+                        positionsMap[pos.stock_code] = pos;  // v6.0.1: Fixed - use stock_code instead of code
                     });
 
                     tbody.innerHTML = holdings.map(h => {
