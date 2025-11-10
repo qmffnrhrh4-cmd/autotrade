@@ -16,3 +16,8 @@ def settings_page():
 @pages_bp.route('/backtest')
 def backtest_page():
     return render_template('backtest.html')
+
+
+@pages_bp.route('/chart')
+def chart_page():
+    return render_template('chart_analysis.html')
