@@ -250,12 +250,15 @@ def get_minute_data(code, interval):
         logger.info(f"📊 {code} {interval}분봉 조회 요청")
 
         # TR 요청 함수 (연속 조회 지원)
-        def request_tr_sync(rqname, trcode, inputs, timeout=10000, prev_next=0):
+        def request_tr_sync(rqname, trcode, inputs, timeout=10000, prev_next=0, unique_id=None):
             """TR 동기 요청 (prev_next: 0=조회, 2=연속조회)"""
             received_data = {'result': None, 'completed': False}
 
             def on_receive(scr_no, rq_name, tr_code, record_name, prev_next_received):
-                if rq_name != rqname:
+                # unique_id를 사용하여 정확히 일치하는지 확인
+                if unique_id and not rq_name.startswith(rqname):
+                    return
+                elif not unique_id and rq_name != rqname:
                     return
 
                 logger.info(f"  📥 OnReceiveTrData - rqname: '{rq_name}', prev_next: {prev_next_received}")
@@ -355,19 +358,27 @@ def get_minute_data(code, interval):
         request_count = 0
         max_requests = 5  # 최대 5회 연속 조회 (한 번에 100개씩 = 최대 500개)
 
+        # ✅ 동시 요청 구분을 위한 unique ID 생성
+        import uuid
+        unique_id = str(uuid.uuid4())[:8]
+        rqname_unique = f'minute_{unique_id}'
+
+        logger.info(f"  🔑 Unique request name: {rqname_unique}")
+
         while request_count < max_requests:
             request_count += 1
             logger.info(f"  🔄 분봉 조회 {request_count}회차 (prev_next={prev_next})")
 
             minute_data = request_tr_sync(
-                'minute_chart',
+                rqname_unique,
                 'opt10080',
                 {
                     '종목코드': code,
                     '틱범위': str(interval),
                     '수정주가구분': '1'
                 },
-                prev_next=prev_next
+                prev_next=prev_next,
+                unique_id=unique_id
             )
 
             if minute_data and 'items' in minute_data:
