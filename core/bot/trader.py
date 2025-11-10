@@ -55,7 +55,7 @@ class TradeExecutor:
         self.max_retries = max_retries
         self.market_status = {}
 
-        logger.info(f"TradeExecutor 초기화: 분할주문={enable_split_orders}, 재시도={max_retries}회")
+        logger.info(f"거래 실행자 초기화: 분할주문={enable_split_orders}, 재시도={max_retries}회")
 
     def set_market_status(self, market_status: Dict[str, Any]):
         """시장 상태 설정"""
@@ -114,7 +114,7 @@ class TradeExecutor:
                 )
 
         except Exception as e:
-            logger.error(f"매수 실행 실패: {e}", exc_info=True)
+            logger.error(f"거래 기록 실패: {e}")
             return False
 
     def _execute_single_buy(

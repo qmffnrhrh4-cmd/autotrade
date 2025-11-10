@@ -154,7 +154,7 @@ class ScannerPipeline:
 
         self._load_learning_data()
 
-        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료 (Enhanced v2.0)")
+        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료 (개선 v2.0)")
 
     def should_run_fast_scan(self) -> bool:
         """Fast Scan 실행 여부 확인"""

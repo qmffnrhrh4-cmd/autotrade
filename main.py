@@ -56,7 +56,7 @@ class AutoTradingBot:
 
     def __init__(self):
         logger.info("="*80)
-        logger.info("AutoTrade Pro - Advanced AI Trading System")
+        logger.info("오토트레이드 프로 - 고급 AI 트레이딩 시스템")
         logger.info("="*80)
 
         self.config = get_config()
@@ -104,7 +104,7 @@ class AutoTradingBot:
         self._check_test_mode()
         self._initialize_components()
 
-        logger.info("AutoTrade Pro initialization complete")
+        logger.info("오토트레이드 프로 초기화 완료")
 
     def _check_test_mode(self):
         try:
@@ -119,29 +119,29 @@ class AutoTradingBot:
                 current_weekday = weekday_kr[now.weekday()]
 
                 logger.info("="*80)
-                logger.info("Test Mode Activated")
-                logger.info(f"Current Time: {now.strftime('%Y-%m-%d %H:%M:%S')} ({current_weekday})")
-                logger.info(f"Using Data From: {self.test_date}")
+                logger.info("테스트 모드 활성화됨")
+                logger.info(f"현재 시간: {now.strftime('%Y-%m-%d %H:%M:%S')} ({current_weekday})")
+                logger.info(f"사용 데이터: {self.test_date}")
                 logger.info("="*80)
             else:
-                logger.info("Real-time Trading Mode")
+                logger.info("실시간 매매 모드")
                 self.test_mode_active = False
 
         except Exception as e:
-            logger.warning(f"Test mode check failed: {e}")
+            logger.warning(f"테스트 모드 확인 실패: {e}")
             self.test_mode_active = False
 
     def _initialize_components(self):
         try:
-            logger.info("Initializing database...")
+            logger.info("데이터베이스 초기화 중...")
             self.db_session = get_db_session()
-            logger.info("Database initialized")
+            logger.info("데이터베이스 초기화 완료")
 
-            logger.info("Initializing REST API client...")
+            logger.info("REST API 클라이언트 초기화 중...")
             self.client = KiwoomRESTClient()
-            logger.info("REST API client initialized")
+            logger.info("REST API 클라이언트 초기화 완료")
 
-            logger.info("Initializing OpenAPI client...")
+            logger.info("OpenAPI 클라이언트 초기화 중...")
             try:
                 from core.openapi_client import KiwoomOpenAPIClient
 
@@ -152,7 +152,7 @@ class AutoTradingBot:
                     response = requests.get('http://127.0.0.1:5001/health', timeout=2)
                     if response.status_code == 200:
                         server_already_running = True
-                        logger.info("✅ OpenAPI server already running (started externally)")
+                        logger.info("✅ OpenAPI 서버 이미 실행 중 (외부에서 시작됨)")
                 except:
                     pass
 
@@ -169,24 +169,24 @@ class AutoTradingBot:
                         time.sleep(5)
 
                     if self.openapi_client.connect():
-                        logger.info("OpenAPI client initialized")
+                        logger.info("OpenAPI 클라이언트 초기화 완료")
                         accounts = self.openapi_client.get_account_list()
                         if accounts:
-                            logger.info(f"Accounts: {accounts}")
+                            logger.info(f"계좌 목록: {accounts}")
                         connected = True
                         break
 
                 if not connected:
                     if server_already_running:
-                        logger.warning("OpenAPI server running but not connected after retries")
-                        logger.warning("Server may still be initializing or waiting for login")
-                        logger.warning("Check the OpenAPI server window (minimized in taskbar)")
-                        logger.warning("Continuing with REST API only...")
+                        logger.warning("OpenAPI 서버 실행 중이지만 재시도 후에도 연결 불가")
+                        logger.warning("서버가 초기화 중이거나 로그인 대기 중일 수 있습니다")
+                        logger.warning("OpenAPI 서버 창을 확인하세요 (작업 표시줄에 최소화됨)")
+                        logger.warning("REST API만으로 계속 진행합니다...")
                         self.openapi_client = None
                     else:
-                        logger.warning("OpenAPI server not running - attempting to start...")
+                        logger.warning("OpenAPI 서버 미실행 - 시작 시도 중...")
                         server_started = self._start_openapi_server()
-                        logger.info(f"Server start result: {server_started}")
+                        logger.info(f"서버 시작 결과: {server_started}")
                         if server_started:
                             logger.info("")
                             logger.info("="*80)
@@ -220,7 +220,7 @@ class AutoTradingBot:
                                     break
                                 else:
                                     if retry < max_retries - 1:
-                                        logger.info(f"   아직 준비되지 않음... {retry_delay}초 후 재시도")
+                                        logger.info(f"   준비 중... {retry_delay}초 후 재시도")
 
                             if not retry_connected:
                                 logger.warning("")
@@ -241,13 +241,13 @@ class AutoTradingBot:
                                 logger.warning("")
                                 self.openapi_client = None
                         else:
-                            logger.warning("OpenAPI server start failed - using REST API only")
+                            logger.warning("OpenAPI 서버 시작 실패 - REST API만 사용합니다")
                             self.openapi_client = None
             except Exception as e:
-                logger.warning(f"OpenAPI client not available: {e}")
+                logger.warning(f"OpenAPI 클라이언트 사용 불가: {e}")
                 self.openapi_client = None
 
-            logger.info("Initializing WebSocket...")
+            logger.info("WebSocket 초기화 중...")
             try:
                 if self.client.token:
                     self.websocket_manager = WebSocketManager(
@@ -260,9 +260,9 @@ class AutoTradingBot:
                             stock_code = data.get('item', '')
                             values = data.get('values', {})
                             price = int(values.get('10', '0'))
-                            logger.debug(f"Real-time price: {stock_code} = {price:,}")
+                            logger.debug(f"실시간 가격: {stock_code} = {price:,}")
                         except Exception as e:
-                            logger.error(f"Price data processing error: {e}")
+                            logger.error(f"가격 데이터 처리 오류: {e}")
 
                     self.websocket_manager.register_callback('0B', on_price_update)
 
@@ -272,29 +272,29 @@ class AutoTradingBot:
                             asyncio.set_event_loop(loop)
                             connected = loop.run_until_complete(self.websocket_manager.connect())
                             if connected:
-                                logger.info("WebSocket auto-connected")
+                                logger.info("WebSocket 자동 연결 완료")
                         except Exception as e:
-                            logger.error(f"WebSocket connection error: {e}")
+                            logger.error(f"WebSocket 연결 오류: {e}")
 
                     ws_thread = threading.Thread(target=start_websocket, daemon=True)
                     ws_thread.start()
 
-                    logger.info("WebSocket initialized")
+                    logger.info("WebSocket 초기화 완료")
                 else:
                     self.websocket_manager = None
-                    logger.info("WebSocket disabled - no token")
+                    logger.info("WebSocket 비활성화 - 토큰 없음")
             except Exception as e:
-                logger.warning(f"WebSocket initialization failed: {e}")
+                logger.warning(f"WebSocket 초기화 실패: {e}")
                 self.websocket_manager = None
 
-            logger.info("Initializing API modules...")
+            logger.info("API 모듈 초기화 중...")
             self.account_api = AccountAPI(self.client)
             self.market_api = MarketAPI(self.client)
             self.order_api = OrderAPI(self.client)
             self.data_fetcher = DataFetcher(self.client)
-            logger.info("API modules initialized")
+            logger.info("API 모듈 초기화 완료")
 
-            logger.info("Initializing AI analyzer...")
+            logger.info("AI 분석기 초기화 중...")
             try:
                 from config import GEMINI_API_KEY
 
@@ -302,9 +302,9 @@ class AutoTradingBot:
                     from ai.gemini_analyzer import GeminiAnalyzer
                     self.analyzer = GeminiAnalyzer()
                     if self.analyzer.initialize():
-                        logger.info("Gemini AI analyzer initialized")
+                        logger.info("Gemini AI 분석기 초기화 완료")
                     else:
-                        logger.warning("Gemini initialization failed - using Mock")
+                        logger.warning("Gemini 초기화 실패 - Mock 분석기 사용 중")
                         from ai.mock_analyzer import MockAnalyzer
                         self.analyzer = MockAnalyzer()
                         self.analyzer.initialize()
@@ -312,54 +312,54 @@ class AutoTradingBot:
                     from ai.mock_analyzer import MockAnalyzer
                     self.analyzer = MockAnalyzer()
                     self.analyzer.initialize()
-                    logger.info("Mock AI analyzer initialized")
+                    logger.info("Mock AI 분석기 초기화 완료")
 
             except Exception as e:
-                logger.error(f"AI analyzer initialization failed: {e}")
+                logger.error(f"AI 분석기 초기화 실패: {e}")
                 from ai.mock_analyzer import MockAnalyzer
                 self.analyzer = MockAnalyzer()
                 self.analyzer.initialize()
-                logger.warning("Using Mock analyzer")
+                logger.warning("Mock 분석기 사용 중")
 
-            logger.info("Initializing scanner pipeline...")
+            logger.info("스캐닝 파이프라인 초기화 중...")
             screener = Screener(self.client)
             self.scanner = ScannerPipeline(
                 market_api=self.market_api,
                 screener=screener,
                 ai_analyzer=self.analyzer
             )
-            logger.info("Scanner pipeline initialized")
+            logger.info("스캐닝 파이프라인 초기화 완료")
 
-            logger.info("Initializing scoring system...")
+            logger.info("점수 계산 시스템 초기화 중...")
             self.scoring_system = ScoringSystem(market_api=self.market_api)
-            logger.info("Scoring system initialized")
+            logger.info("점수 계산 시스템 초기화 완료")
 
-            logger.info("Initializing risk manager...")
+            logger.info("리스크 관리자 초기화 중...")
             initial_capital = self._get_initial_capital()
             self.dynamic_risk_manager = DynamicRiskManager(initial_capital=initial_capital)
-            logger.info("Risk manager initialized")
+            logger.info("리스크 관리자 초기화 완료")
 
-            logger.info("Initializing portfolio manager...")
+            logger.info("포트폴리오 관리자 초기화 중...")
             self.portfolio_manager = PortfolioManager(self.client)
-            logger.info("Portfolio manager initialized")
+            logger.info("포트폴리오 관리자 초기화 완료")
 
-            logger.info("Initializing virtual trading system...")
+            logger.info("가상매매 시스템 초기화 중...")
             try:
                 virtual_initial_cash = 10_000_000
-                logger.info(f"Virtual trading initial capital: {virtual_initial_cash:,}")
+                logger.info(f"가상매매 초기 자본금: {virtual_initial_cash:,}원")
 
                 self.virtual_trader = VirtualTrader(initial_cash=virtual_initial_cash)
                 self.trade_logger = TradeLogger()
 
                 loaded_count = self.trade_logger.load_historical_trades(days=7)
                 if loaded_count > 0:
-                    logger.info(f"Loaded {loaded_count} historical trades")
+                    logger.info(f"{loaded_count}건의 과거 거래 기록 로드됨")
 
                 self.virtual_trader.load_all_states()
 
-                logger.info("Virtual trading system initialized")
+                logger.info("가상매매 시스템 초기화 완료")
             except Exception as e:
-                logger.warning(f"Virtual trading initialization failed: {e}")
+                logger.warning(f"가상매매 시스템 초기화 실패: {e}")
                 self.virtual_trader = None
                 self.trade_logger = None
 
@@ -367,12 +367,12 @@ class AutoTradingBot:
             self._restore_state()
 
             self.is_initialized = True
-            logger.info("All components initialized successfully")
+            logger.info("모든 컴포넌트 초기화 성공")
 
             self.monitor.log_activity('system', 'AutoTrade Pro started', level='success')
 
         except Exception as e:
-            logger.error(f"Component initialization failed: {e}", exc_info=True)
+            logger.error(f"컴포넌트 초기화 실패: {e}", exc_info=True)
             raise
 
     def _get_initial_capital(self) -> int:
@@ -384,11 +384,11 @@ class AutoTradingBot:
                 deposit_total = int(str(deposit.get('entr', '0')).replace(',', ''))
                 holdings_value = sum(int(str(h.get('eval_amt', 0)).replace(',', '')) for h in holdings) if holdings else 0
                 capital = deposit_total + holdings_value if (deposit_total + holdings_value) > 0 else 10_000_000
-                logger.info(f"Initial capital: {capital:,} (deposit: {deposit_total:,}, stocks: {holdings_value:,})")
+                logger.info(f"초기 자본금: {capital:,}원 (예수금: {deposit_total:,}원, 주식: {holdings_value:,}원)")
                 return capital
             return 10_000_000
         except Exception as e:
-            logger.warning(f"Failed to get initial capital: {e}")
+            logger.warning(f"초기 자본금 조회 실패: {e}")
             return 10_000_000
 
     def _initialize_control_file(self):
@@ -401,7 +401,7 @@ class AutoTradingBot:
             import json
             with open(self.control_file, 'w') as f:
                 json.dump(default_state, f, indent=2)
-            logger.info("Control file created")
+            logger.info("제어 파일 생성됨")
 
     def _restore_state(self):
         try:
@@ -409,9 +409,9 @@ class AutoTradingBot:
                 import json
                 with open(self.state_file, 'r') as f:
                     state = json.load(f)
-                logger.info(f"State restored: {len(state.get('positions', {}))} positions")
+                logger.info(f"상태 복원됨: {len(state.get('positions', {}))}개 포지션")
         except Exception as e:
-            logger.warning(f"State restoration failed: {e}")
+            logger.warning(f"상태 복원 실패: {e}")
 
     def _start_openapi_server(self):
         """OpenAPI 서버 자동 시작 (Windows 32비트 Python 환경)"""
@@ -421,8 +421,8 @@ class AutoTradingBot:
             import os
 
             if platform.system() != 'Windows':
-                logger.warning("OpenAPI server auto-start only supported on Windows")
-                logger.info("Please start manually: conda activate kiwoom32 && python openapi_server.py")
+                logger.warning("OpenAPI 서버 자동 시작은 Windows에서만 지원됩니다")
+                logger.info("수동으로 시작하세요: conda activate kiwoom32 && python openapi_server.py")
                 return False
 
             logger.info("="*80)
@@ -431,7 +431,7 @@ class AutoTradingBot:
 
             server_script = os.path.join(os.path.dirname(__file__), 'openapi_server.py')
             if not os.path.exists(server_script):
-                logger.error(f"OpenAPI server script not found: {server_script}")
+                logger.error(f"OpenAPI 서버 스크립트를 찾을 수 없습니다: {server_script}")
                 return False
 
             # 32비트 Python 환경 검색
@@ -445,14 +445,14 @@ class AutoTradingBot:
             for path in conda_paths:
                 if os.path.exists(path):
                     python_exe = path
-                    logger.info(f"✅ Found 32-bit Python: {path}")
+                    logger.info(f"✅ 32비트 Python 발견: {path}")
                     break
 
             if not python_exe:
-                logger.error("❌ 32-bit Python (kiwoom32) not found")
-                logger.error(f"   Searched paths:")
+                logger.error("❌ 32비트 Python (kiwoom32)을 찾을 수 없습니다")
+                logger.error(f"   검색 경로:")
                 for path in conda_paths:
-                    logger.error(f"   - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
+                    logger.error(f"   - {path}: {'존재함' if os.path.exists(path) else '없음'}")
                 logger.info("")
                 logger.info("수동으로 실행하세요:")
                 logger.info("  1. 새 터미널을 엽니다")
@@ -461,16 +461,16 @@ class AutoTradingBot:
                 logger.info("")
                 return False
 
-            logger.info(f"🚀 Starting OpenAPI server...")
+            logger.info(f"🚀 OpenAPI 서버 시작 중...")
             logger.info(f"   Python: {python_exe}")
-            logger.info(f"   Script: {server_script}")
+            logger.info(f"   스크립트: {server_script}")
 
             # 서버가 이미 실행 중인지 확인
             try:
                 import requests
                 response = requests.get('http://127.0.0.1:5001/health', timeout=1)
                 if response.status_code == 200:
-                    logger.info("✅ OpenAPI server already running!")
+                    logger.info("✅ OpenAPI 서버가 이미 실행 중입니다!")
                     return True
             except:
                 pass
@@ -491,7 +491,7 @@ class AutoTradingBot:
                     stderr=subprocess.DEVNULL
                 )
 
-            logger.info(f"✅ OpenAPI server process started (PID: {process.pid})")
+            logger.info(f"✅ OpenAPI 서버 프로세스 시작됨 (PID: {process.pid})")
             logger.info("")
             logger.info("⚠️  중요 안내:")
             logger.info("   - 새로운 콘솔 창이 열렸습니다 (OpenAPI 서버)")
@@ -504,28 +504,28 @@ class AutoTradingBot:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to start OpenAPI server: {e}")
+            logger.error(f"OpenAPI 서버 시작 실패: {e}")
             import traceback
             traceback.print_exc()
             return False
 
     def start(self):
         if not self.is_initialized:
-            logger.error("Bot not initialized")
-            print("Error: Bot not initialized")
+            logger.error("봇이 초기화되지 않았습니다")
+            print("오류: 봇이 초기화되지 않았습니다")
             return
 
         print("\n" + "="*80)
-        print("AutoTrade Pro - Main Loop Started")
+        print("오토트레이드 프로 - 메인 루프 시작됨")
         print("="*80)
         logger.info("="*80)
-        logger.info("AutoTrade Pro execution started")
+        logger.info("오토트레이드 프로 실행 시작")
         logger.info("="*80)
 
         self.is_running = True
 
         try:
-            logger.info("Starting dashboard server...")
+            logger.info("대시보드 서버 시작 중...")
             from dashboard.app import run_dashboard
             import threading
 
@@ -534,45 +534,45 @@ class AutoTradingBot:
                 daemon=True
             )
             dashboard_thread.start()
-            logger.info("Dashboard server started on http://0.0.0.0:5000")
+            logger.info("대시보드 서버 시작됨: http://0.0.0.0:5000")
             print("📊 Dashboard: http://localhost:5000")
 
             self._main_loop()
         except KeyboardInterrupt:
-            logger.info("Interrupted by user")
-            print("\nInterrupted by user")
+            logger.info("사용자가 중단함")
+            print("\n사용자가 중단함")
         except Exception as e:
-            logger.error(f"Main loop error: {e}", exc_info=True)
-            print(f"\nMain loop error: {e}")
+            logger.error(f"메인 루프 오류: {e}", exc_info=True)
+            print(f"\n메인 루프 오류: {e}")
             import traceback
             traceback.print_exc()
         finally:
             self.stop()
 
     def stop(self):
-        logger.info("Stopping AutoTrade Pro...")
+        logger.info("오토트레이드 프로 중단 중...")
         self.is_running = False
 
         if self.virtual_trader:
             try:
-                logger.info("Saving virtual trading state...")
+                logger.info("가상매매 상태 저장 중...")
                 self.virtual_trader.save_all_states()
-                logger.info("Virtual trading state saved")
+                logger.info("가상매매 상태 저장 완료")
             except Exception as e:
-                logger.warning(f"Failed to save virtual trading state: {e}")
+                logger.warning(f"가상매매 상태 저장 실패: {e}")
 
         if self.trade_logger:
             try:
                 self.trade_logger.print_summary()
             except Exception as e:
-                logger.warning(f"Failed to print trade summary: {e}")
+                logger.warning(f"거래 요약 출력 실패: {e}")
 
         if self.websocket_manager:
             try:
                 asyncio.run(self.websocket_manager.disconnect())
-                logger.info("WebSocket disconnected")
+                logger.info("WebSocket 연결 해제됨")
             except Exception as e:
-                logger.warning(f"WebSocket disconnection failed: {e}")
+                logger.warning(f"WebSocket 연결 해제 실패: {e}")
 
         if self.db_session:
             self.db_session.close()
@@ -580,7 +580,7 @@ class AutoTradingBot:
         if self.client:
             self.client.close()
 
-        logger.info("AutoTrade Pro stopped")
+        logger.info("오토트레이드 프로 중단 완료")
 
     def _main_loop(self):
         cycle_count = 0
@@ -590,7 +590,7 @@ class AutoTradingBot:
             else:
                 sleep_seconds = getattr(self.config.main_cycle, 'sleep_seconds', 60)
         except Exception as e:
-            logger.warning(f"Config load failed, using default: {e}")
+            logger.warning(f"설정 로드 실패, 기본값 사용: {e}")
             sleep_seconds = 60
 
         while self.is_running:
@@ -634,8 +634,8 @@ class AutoTradingBot:
                 self._print_statistics()
 
             except Exception as e:
-                logger.error(f"Main loop error: {e}", exc_info=True)
-                print(f"Main loop error: {e}")
+                logger.error(f"메인 루프 오류: {e}", exc_info=True)
+                print(f"메인 루프 오류: {e}")
                 import traceback
                 traceback.print_exc()
 
@@ -649,7 +649,7 @@ class AutoTradingBot:
                 self.pause_buy = control.get('pause_buy', False)
                 self.pause_sell = control.get('pause_sell', False)
         except Exception as e:
-            logger.warning(f"Control file read failed: {e}")
+            logger.warning(f"제어 파일 읽기 실패: {e}")
 
     def _check_trading_hours(self) -> bool:
         from research.analyzer import Analyzer
@@ -659,14 +659,14 @@ class AutoTradingBot:
         self.market_status = market_status
 
         if not market_status['is_trading_hours']:
-            logger.info(f"Not trading hours: {market_status['market_status']}")
-            logger.info("Test mode activated - executing real API calls")
+            logger.info(f"거래 시간 외: {market_status['market_status']}")
+            logger.info("테스트 모드 활성화 - 실제 API 호출 실행")
             self.market_status['is_trading_hours'] = True
             self.market_status['is_test_mode'] = True
-            self.market_status['market_type'] = 'Test Mode'
+            self.market_status['market_type'] = '테스트 모드'
 
         if market_status.get('is_test_mode'):
-            logger.info(f"Test Mode: {market_status['market_status']}")
+            logger.info(f"테스트 모드: {market_status['market_status']}")
         elif market_status.get('can_cancel_only'):
             logger.info(f"{market_status['market_type']}: {market_status['market_status']}")
         elif market_status.get('order_type_limit') == 'limit_only':
@@ -690,22 +690,22 @@ class AutoTradingBot:
             total_capital = deposit_total + stock_value
             self.dynamic_risk_manager.update_capital(total_capital)
 
-            logger.info(f"Account: deposit={deposit_total:,}, cash={cash:,}, stocks={stock_value:,}, total={total_capital:,}, positions={len(holdings)}")
+            logger.info(f"계좌: 예수금={deposit_total:,}원, 현금={cash:,}원, 주식={stock_value:,}원, 합계={total_capital:,}원, 포지션={len(holdings)}개")
 
         except Exception as e:
-            logger.error(f"Account info update failed: {e}")
+            logger.error(f"계좌 정보 업데이트 실패: {e}")
 
     def _check_sell_signals(self):
-        logger.info("Checking sell signals...")
+        logger.info("매도 신호 확인 중...")
 
         if self.market_status.get('is_test_mode'):
-            logger.info("Test mode: executing sell logic with actual holdings")
+            logger.info("테스트 모드: 실제 보유 종목으로 매도 로직 실행")
 
         try:
             holdings = self.account_api.get_holdings()
 
             if not holdings:
-                logger.info("No holdings")
+                logger.info("보유 종목 없음")
                 return
 
             for holding in holdings:
@@ -719,7 +719,7 @@ class AutoTradingBot:
                 quantity = int(holding.get('rmnd_qty', 0))
                 buy_price = int(holding.get('avg_prc', 0))
 
-                logger.info(f"Holding: {stock_name}({stock_code}) {quantity}@{current_price:,}")
+                logger.info(f"보유: {stock_name}({stock_code}) {quantity}주@{current_price:,}원")
 
                 profit_loss = (current_price - buy_price) * quantity
                 profit_loss_rate = ((current_price - buy_price) / buy_price) * 100 if buy_price > 0 else 0
@@ -740,43 +740,43 @@ class AutoTradingBot:
 
                 if current_price >= thresholds['take_profit']:
                     should_sell = True
-                    sell_reason = f"Take profit ({thresholds['take_profit']:,})"
+                    sell_reason = f"익절 ({thresholds['take_profit']:,}원)"
                 elif current_price <= thresholds['stop_loss']:
                     should_sell = True
-                    sell_reason = f"Stop loss ({thresholds['stop_loss']:,})"
+                    sell_reason = f"손절 ({thresholds['stop_loss']:,}원)"
 
                 if should_sell:
-                    logger.info(f"Sell signal: {stock_name} - {sell_reason}")
+                    logger.info(f"매도 신호: {stock_name} - {sell_reason}")
                     self._execute_sell(stock_code, stock_name, quantity, current_price, profit_loss, profit_loss_rate, sell_reason)
 
         except Exception as e:
-            logger.error(f"Sell check failed: {e}")
+            logger.error(f"매도 신호 확인 실패: {e}")
 
     def _run_scanning_pipeline(self):
         try:
             can_add = self.portfolio_manager.can_add_position()
             positions = self.portfolio_manager.get_positions()
             if not can_add:
-                logger.info("Maximum positions reached")
+                logger.info("최대 포지션 도달")
                 return
 
             current_positions = len(positions)
             should_open = self.dynamic_risk_manager.should_open_position(current_positions)
 
             if not should_open:
-                logger.info("Risk manager: cannot open position")
+                logger.info("리스크 관리자: 포지션 진입 불가")
                 return
 
-            logger.info("Starting market scan...")
+            logger.info("시장 스캔 시작...")
             print("\n" + "="*80)
-            print("Market Scanning Pipeline")
+            print("시장 스캔 파이프라인")
             print("="*80)
 
             candidates = self.scanner.scan_market()
 
             if not candidates:
-                print("Scan complete: No candidates")
-                logger.info("Scan complete: No candidates")
+                print("스캔 완료: 후보 종목 없음")
+                logger.info("스캔 완료: 후보 종목 없음")
                 return
 
             candidate_scores = {}
@@ -811,12 +811,12 @@ class AutoTradingBot:
             for rank, c in enumerate(top5, 1):
                 score_result = candidate_scores[c.code]
                 percentage = (c.final_score / 440) * 100
-                print(f"   {rank}. {c.name} - {c.final_score:.0f} points ({percentage:.0f}%)")
+                print(f"   {rank}. {c.name} - {c.final_score:.0f}점 ({percentage:.0f}%)")
 
             portfolio_info = "No positions"
 
             for idx, candidate in enumerate(top5[:3], 1):
-                print(f"\n[{idx}/3] {candidate.name}")
+                print(f"\n[{idx}/3] {candidate.name} ({candidate.code})")
 
                 scoring_result = candidate_scores[candidate.code]
 
@@ -834,7 +834,7 @@ class AutoTradingBot:
                         else:
                             print(f"   ⚠️  OpenAPI 데이터 조회 실패")
                     except Exception as e:
-                        logger.warning(f"OpenAPI data fetch failed for {candidate.code}: {e}")
+                        logger.warning(f"OpenAPI 데이터 조회 실패 ({candidate.code}): {e}")
                         print(f"   ⚠️  OpenAPI 데이터 조회 오류: {e}")
 
                 stock_data = {
@@ -910,7 +910,7 @@ class AutoTradingBot:
                 )
 
                 if buy_approved:
-                    print(f"Buy criteria met - Executing order")
+                    print(f"매수 조건 충족 - 주문 실행 중")
 
                     self._execute_buy(candidate, scoring_result)
 
@@ -954,25 +954,25 @@ class AutoTradingBot:
                             self.virtual_trader.process_buy_signal(stock_data, ai_analysis_data, market_data)
                             print(f"   Virtual trading: Signal processed")
                         except Exception as e:
-                            logger.warning(f"Virtual trading failed: {e}")
+                            logger.warning(f"가상매매 실패: {e}")
 
                     break
                 else:
-                    reason_text = f"AI={ai_signal}, score={scoring_result.total_score:.0f}"
-                    print(f"Buy criteria not met ({reason_text})")
+                    reason_text = f"AI={ai_signal}, 점수={scoring_result.total_score:.0f}"
+                    print(f"매수 조건 미충족 ({reason_text})")
 
-            print("Scan strategy complete")
+            print("스캔 전략 완료")
 
         except Exception as e:
-            logger.error(f"Scan strategy failed: {e}", exc_info=True)
-            print(f"Scan strategy error: {e}")
+            logger.error(f"스캔 전략 실패: {e}", exc_info=True)
+            print(f"스캔 전략 오류: {e}")
             import traceback
             traceback.print_exc()
 
     def _execute_buy(self, candidate, scoring_result):
         try:
             if self.market_status.get('can_cancel_only'):
-                logger.warning(f"{self.market_status['market_type']}: Cannot place new buy order")
+                logger.warning(f"{self.market_status['market_type']}: 신규 매수 주문 불가")
                 return
 
             stock_code = candidate.code
@@ -984,7 +984,7 @@ class AutoTradingBot:
 
             available_cash = int(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', '')) if deposit else 0
 
-            logger.debug(f"Available cash: {available_cash:,}")
+            logger.debug(f"사용 가능 현금: {available_cash:,}원")
 
             quantity = self.dynamic_risk_manager.calculate_position_size(
                 stock_price=current_price,
@@ -992,14 +992,14 @@ class AutoTradingBot:
             )
 
             if quantity == 0:
-                logger.warning("Buy quantity 0")
+                logger.warning("매수 수량 0")
                 return
 
             total_amount = current_price * quantity
 
             logger.info(
-                f"{stock_name} buy order: {quantity}@{current_price:,} "
-                f"(total {total_amount:,})"
+                f"{stock_name} 매수 주문: {quantity}주 @ {current_price:,}원 "
+                f"(합계 {total_amount:,}원)"
             )
 
             from utils.trading_date import is_nxt_hours
@@ -1009,16 +1009,16 @@ class AutoTradingBot:
                 now = datetime.now()
                 if now.hour == 8:
                     order_type = '61'
-                    logger.info("Pre-market order: Type 61")
+                    logger.info("장 시작 전 시간외: Type 61")
                 else:
                     order_type = '81'
-                    logger.info("After-market order: Type 81")
+                    logger.info("장 마감 후 시간외: Type 81")
             else:
                 order_type = '0'
-                logger.info("Regular market order: Type 0")
+                logger.info("일반 지정가 주문: Type 0")
 
             if self.market_status.get('is_test_mode'):
-                logger.info(f"Test mode: AI review complete -> Real buy API call")
+                logger.info(f"테스트 모드: AI 검토 완료 -> 실제 매수 API 호출")
                 logger.info(f"   Stock: {stock_name}, AI score: {candidate.ai_score}, Total score: {scoring_result.total_score}")
 
             order_result = self.order_api.buy(
@@ -1048,7 +1048,7 @@ class AutoTradingBot:
                 self.db_session.add(trade)
                 self.db_session.commit()
 
-                logger.info(f"{stock_name} buy success (order: {order_no})")
+                logger.info(f"{stock_name} 매수 성공 (주문번호: {order_no})")
 
                 self.alert_manager.alert_position_opened(
                     stock_code=stock_code,
@@ -1064,17 +1064,17 @@ class AutoTradingBot:
                 )
 
         except Exception as e:
-            logger.error(f"Buy execution failed: {e}", exc_info=True)
+            logger.error(f"매수 실행 실패: {e}", exc_info=True)
 
     def _execute_sell(self, stock_code, stock_name, quantity, price, profit_loss, profit_loss_rate, reason):
         try:
             if self.market_status.get('can_cancel_only'):
-                logger.warning(f"{self.market_status['market_type']}: Cannot place new sell order")
+                logger.warning(f"{self.market_status['market_type']}: 신규 매도 주문 불가")
                 return
 
             logger.info(
-                f"{stock_name} sell order: {quantity}@{price:,} "
-                f"(P/L: {profit_loss:+,}, {profit_loss_rate:+.2f}%)"
+                f"{stock_name} 매도 주문: {quantity}주 @ {price:,}원 "
+                f"(손익: {profit_loss:+,}원, {profit_loss_rate:+.2f}%)"
             )
 
             from utils.trading_date import is_nxt_hours
@@ -1084,16 +1084,16 @@ class AutoTradingBot:
                 now = datetime.now()
                 if now.hour == 8:
                     order_type = '61'
-                    logger.info("Pre-market sell: Type 61")
+                    logger.info("장 시작 전 시간외 매도: Type 61")
                 else:
                     order_type = '81'
-                    logger.info("After-market sell: Type 81")
+                    logger.info("장 마감 후 시간외 매도: Type 81")
             else:
                 order_type = '0'
-                logger.info("Regular market sell: Type 0")
+                logger.info("일반 시장 매도: Type 0")
 
             if self.market_status.get('is_test_mode'):
-                logger.info(f"Test mode: Sell condition met -> Real sell API call")
+                logger.info(f"테스트 모드: 매도 조건 충족 -> 실제 매도 API 호출")
                 logger.info(f"   Stock: {stock_name}, Reason: {reason}, P/L: {profit_loss:+,} ({profit_loss_rate:+.2f}%)")
 
             order_result = self.order_api.sell(
@@ -1122,7 +1122,7 @@ class AutoTradingBot:
                 self.db_session.commit()
 
                 log_level = 'success' if profit_loss >= 0 else 'warning'
-                logger.info(f"{stock_name} sell success (order: {order_no})")
+                logger.info(f"{stock_name} 매도 성공 (주문번호: {order_no})")
 
                 self.alert_manager.alert_position_closed(
                     stock_code=stock_code,
@@ -1140,7 +1140,7 @@ class AutoTradingBot:
                 )
 
         except Exception as e:
-            logger.error(f"Sell execution failed: {e}", exc_info=True)
+            logger.error(f"매도 실행 실패: {e}", exc_info=True)
 
     def _save_portfolio_snapshot(self):
         try:
@@ -1160,7 +1160,7 @@ class AutoTradingBot:
             self.db_session.commit()
 
         except Exception as e:
-            logger.error(f"Portfolio snapshot save failed: {e}")
+            logger.error(f"포트폴리오 스냅샷 저장 실패: {e}")
 
     def _get_virtual_trading_prices(self) -> dict:
         try:
@@ -1186,13 +1186,13 @@ class AutoTradingBot:
                         if price_info.get('is_nxt_hours'):
                             logger.debug(f"NXT real-time price: {stock_code} {price_info['current_price']:,}")
                 except Exception as e:
-                    logger.warning(f"Price fetch failed ({stock_code}): {e}")
+                    logger.warning(f"가격 조회 실패 ({stock_code}): {e}")
                     continue
 
             return price_data
 
         except Exception as e:
-            logger.error(f"Virtual trading price fetch failed: {e}")
+            logger.error(f"가상매매 가격 조회 실패: {e}")
             return {}
 
     def _print_statistics(self):
@@ -1210,60 +1210,60 @@ class AutoTradingBot:
             print(f"{'='*80}\n")
 
         except Exception as e:
-            logger.error(f"Statistics print failed: {e}")
+            logger.error(f"통계 출력 실패: {e}")
 
     def run_self_test(self) -> bool:
         logger.info("="*80)
-        logger.info("Running Self-Test")
+        logger.info("자체 테스트 실행 중")
         logger.info("="*80)
 
         tests_passed = 0
         tests_failed = 0
 
         try:
-            logger.info("Test 1: REST API Connection")
+            logger.info("테스트 1: REST API 연결")
             if self.client and self.client.token:
-                logger.info("PASS: REST API connected")
+                logger.info("통과: REST API 연결됨")
                 tests_passed += 1
             else:
-                logger.error("FAIL: REST API not connected")
+                logger.error("실패: REST API 미연결")
                 tests_failed += 1
         except Exception as e:
-            logger.error(f"FAIL: REST API test error: {e}")
+            logger.error(f"실패: REST API 테스트 오류: {e}")
             tests_failed += 1
 
         try:
-            logger.info("Test 2: Account API")
+            logger.info("테스트 2: 계좌 API")
             deposit = self.account_api.get_deposit()
             if deposit:
-                logger.info("PASS: Account API functional")
+                logger.info("통과: 계좌 API 작동")
                 tests_passed += 1
             else:
-                logger.error("FAIL: Account API not functional")
+                logger.error("실패: 계좌 API 미작동")
                 tests_failed += 1
         except Exception as e:
-            logger.error(f"FAIL: Account API test error: {e}")
+            logger.error(f"실패: 계좌 API 테스트 오류: {e}")
             tests_failed += 1
 
         try:
-            logger.info("Test 3: Market API")
+            logger.info("테스트 3: 시장 API")
             test_code = "005930"
             price_info = self.market_api.get_stock_price(test_code)
             if price_info and price_info.get('current_price', 0) > 0:
-                logger.info(f"PASS: Market API functional (Samsung: {price_info['current_price']:,})")
+                logger.info(f"통과: 시장 API 작동 (삼성: {price_info['current_price']:,}원)")
                 tests_passed += 1
             else:
-                logger.error("FAIL: Market API not functional")
+                logger.error("실패: 시장 API 미작동")
                 tests_failed += 1
         except Exception as e:
-            logger.error(f"FAIL: Market API test error: {e}")
+            logger.error(f"실패: 시장 API 테스트 오류: {e}")
             tests_failed += 1
 
         try:
-            logger.info("Test 4: AI Analyzer")
+            logger.info("테스트 4: AI 분석기")
             test_data = {
                 'stock_code': '005930',
-                'stock_name': 'Samsung Electronics',
+                'stock_name': '삼성전자',
                 'current_price': 70000,
                 'volume': 1000000,
                 'change_rate': 2.0,
@@ -1275,20 +1275,20 @@ class AutoTradingBot:
             }
             result = self.analyzer.analyze_stock(test_data, score_info=test_score_info)
             if result and result.get('signal'):
-                logger.info(f"PASS: AI Analyzer functional (signal: {result['signal']})")
+                logger.info(f"통과: AI 분석기 작동 (신호: {result['signal']})")
                 tests_passed += 1
             else:
-                logger.error("FAIL: AI Analyzer not functional")
+                logger.error("실패: AI 분석기 미작동")
                 tests_failed += 1
         except Exception as e:
-            logger.error(f"FAIL: AI Analyzer test error: {e}")
+            logger.error(f"실패: AI 분석기 테스트 오류: {e}")
             tests_failed += 1
 
         try:
-            logger.info("Test 5: Scoring System")
+            logger.info("테스트 5: 점수 계산 시스템")
             test_data = {
                 'stock_code': '005930',
-                'stock_name': 'Samsung Electronics',
+                'stock_name': '삼성전자',
                 'current_price': 70000,
                 'volume': 1000000,
                 'change_rate': 2.0,
@@ -1298,36 +1298,36 @@ class AutoTradingBot:
             }
             score_result = self.scoring_system.calculate_score(test_data)
             if score_result and score_result.total_score >= 0:
-                logger.info(f"PASS: Scoring System functional (score: {score_result.total_score:.0f}/440)")
+                logger.info(f"통과: 점수 계산 시스템 작동 (점수: {score_result.total_score:.0f}/440)")
                 tests_passed += 1
             else:
-                logger.error("FAIL: Scoring System not functional")
+                logger.error("실패: 점수 계산 시스템 미작동")
                 tests_failed += 1
         except Exception as e:
-            logger.error(f"FAIL: Scoring System test error: {e}")
+            logger.error(f"실패: 점수 계산 시스템 테스트 오류: {e}")
             tests_failed += 1
 
         try:
-            logger.info("Test 6: Database")
+            logger.info("테스트 6: 데이터베이스")
             if self.db_session:
-                logger.info("PASS: Database connected")
+                logger.info("통과: 데이터베이스 연결됨")
                 tests_passed += 1
             else:
-                logger.error("FAIL: Database not connected")
+                logger.error("실패: 데이터베이스 미연결")
                 tests_failed += 1
         except Exception as e:
-            logger.error(f"FAIL: Database test error: {e}")
+            logger.error(f"실패: 데이터베이스 테스트 오류: {e}")
             tests_failed += 1
 
         logger.info("="*80)
-        logger.info(f"Self-Test Results: {tests_passed} passed, {tests_failed} failed")
+        logger.info(f"자체 테스트 결과: {tests_passed}개 통과, {tests_failed}개 실패")
         logger.info("="*80)
 
         return tests_failed == 0
 
 
 def signal_handler(signum, frame):
-    logger.info("Signal received - shutting down")
+    logger.info("신호 수신 - 종료 중")
     sys.exit(0)
 
 
@@ -1339,7 +1339,7 @@ def main():
 
     # 셀프 테스트 건너뛰기 (시간 절약)
     print("\n" + "="*80)
-    print("Starting Trading Bot (Self-Test Skipped)")
+    print("매매 봇 시작 (자체 테스트 스킵)")
     print("="*80)
 
     bot.start()
