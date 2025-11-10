@@ -253,12 +253,11 @@ def get_minute_data(code, interval):
                 if rq_name != rqname:
                     return
 
-                # 실제 레코드명 로깅 (중요!)
-                logger.info(f"  📥 OnReceiveTrData - record_name: '{record_name}', prev_next: {prev_next}")
+                logger.info(f"  📥 OnReceiveTrData - rqname: '{rq_name}', prev_next: {prev_next}")
 
                 try:
-                    # ⚠️ 중요: GetCommData의 두 번째 인자는 record_name이어야 함!
-                    cnt = openapi_context.GetRepeatCnt(tr_code, record_name)
+                    # ✅ breadum/kiwoom은 rqname 사용 (test_stock_comprehensive_20.py 참고)
+                    cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
                     items = []
 
                     logger.info(f"  📊 GetRepeatCnt: {cnt}개")
@@ -268,12 +267,12 @@ def get_minute_data(code, interval):
                         # opt10080 분봉차트 기본 출력 필드만 사용
                         try:
                             item = {
-                                '체결시간': openapi_context.GetCommData(tr_code, record_name, i, "체결시간").strip(),
-                                '현재가': openapi_context.GetCommData(tr_code, record_name, i, "현재가").strip(),
-                                '시가': openapi_context.GetCommData(tr_code, record_name, i, "시가").strip(),
-                                '고가': openapi_context.GetCommData(tr_code, record_name, i, "고가").strip(),
-                                '저가': openapi_context.GetCommData(tr_code, record_name, i, "저가").strip(),
-                                '거래량': openapi_context.GetCommData(tr_code, record_name, i, "거래량").strip(),
+                                '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
+                                '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                                '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
+                                '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
+                                '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
+                                '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
                             }
 
                             # 첫 5개와 마지막 2개만 샘플 로그 출력
