@@ -58,7 +58,7 @@ realtime_chart_manager = None
 # Import all route blueprints
 from .routes import (
     account_bp, trading_bp, market_bp,
-    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp
+    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp
 )
 
 # Import AI routes registration function (v5.7.5: modularized AI routes)
@@ -75,6 +75,7 @@ from .routes.system import (
     set_unified_settings as system_set_unified_settings
 )
 from .routes.backtest import set_bot_instance as backtest_set_bot
+from .routes.virtual_trading import init_virtual_trading_manager
 
 # Register all blueprints
 app.register_blueprint(account_bp)
@@ -86,6 +87,7 @@ app.register_blueprint(system_bp)
 app.register_blueprint(pages_bp)
 app.register_blueprint(alerts_bp)  # v5.7.5: 알림 시스템
 app.register_blueprint(backtest_bp)  # 백테스팅 시스템
+app.register_blueprint(virtual_trading_bp)  # 가상매매 시스템
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
@@ -163,6 +165,13 @@ def run_dashboard(bot=None, host: str = '0.0.0.0', port: int = 5000, debug: bool
             system_set_config_manager(config_manager)
         if unified_settings:
             system_set_unified_settings(unified_settings)
+
+    # Initialize virtual trading manager
+    try:
+        init_virtual_trading_manager()
+        print("✅ Virtual trading manager initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize virtual trading manager: {e}")
 
     # Initialize real-time minute chart manager if WebSocket is available
     if bot_instance and hasattr(bot_instance, 'websocket_manager') and bot_instance.websocket_manager:

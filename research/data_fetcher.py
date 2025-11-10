@@ -273,15 +273,43 @@ class DataFetcher:
         body = {
             "stock_code": stock_code
         }
-        
+
+        # 키움증권 REST API로 호가 조회 (KA10005 - 주식 호가 조회)
         response = self.client.request(
-            api_id="DOSK_0003",
+            api_id="KA10005",
             body=body,
-            path="/api/dostk/inquire/orderbook"
+            path="/api/v1/market/orderbook"
         )
-        
+
         if response and response.get('return_code') == 0:
-            orderbook = response.get('output', {})
+            output = response.get('output', {})
+
+            # 키움증권 API 응답 형식을 표준 형식으로 변환
+            orderbook = {
+                'bids': [],  # 매수 호가
+                'asks': []   # 매도 호가
+            }
+
+            # 매도 호가 10개
+            for i in range(1, 11):
+                ask_price = output.get(f'askp{i}', 0)
+                ask_qty = output.get(f'askp_rsqn{i}', 0)
+                if ask_price and ask_qty:
+                    orderbook['asks'].append({
+                        'price': int(ask_price),
+                        'quantity': int(ask_qty)
+                    })
+
+            # 매수 호가 10개
+            for i in range(1, 11):
+                bid_price = output.get(f'bidp{i}', 0)
+                bid_qty = output.get(f'bidp_rsqn{i}', 0)
+                if bid_price and bid_qty:
+                    orderbook['bids'].append({
+                        'price': int(bid_price),
+                        'quantity': int(bid_qty)
+                    })
+
             logger.info(f"{stock_code} 호가 조회 완료")
             return orderbook
         else:

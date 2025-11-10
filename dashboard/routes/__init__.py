@@ -13,6 +13,7 @@ from .system import system_bp
 from .pages import pages_bp
 from .alerts import alerts_bp
 from .backtest import backtest_bp
+from .virtual_trading import virtual_trading_bp
 
 __all__ = [
     'account_bp',
@@ -23,7 +24,8 @@ __all__ = [
     'system_bp',
     'pages_bp',
     'alerts_bp',
-    'backtest_bp'
+    'backtest_bp',
+    'virtual_trading_bp'
 ]
 
 
@@ -36,3 +38,6 @@ def register_routes(app):
     app.register_blueprint(portfolio_bp)
     app.register_blueprint(system_bp)
     app.register_blueprint(pages_bp)
+    app.register_blueprint(alerts_bp)
+    app.register_blueprint(backtest_bp)
+    app.register_blueprint(virtual_trading_bp)
