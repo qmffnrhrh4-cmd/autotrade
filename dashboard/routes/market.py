@@ -655,3 +655,141 @@ def get_realtime_chart_status():
             'success': False,
             'error': str(e)
         })
+
+
+# ============================================================================
+# AI CHART ANALYSIS ENDPOINT
+# ============================================================================
+
+@market_bp.route('/api/chart/ai_analysis/<stock_code>')
+def get_ai_chart_analysis(stock_code: str):
+    """Get AI-powered chart analysis with key points"""
+    try:
+        if not _bot_instance:
+            return jsonify({
+                'success': False,
+                'error': 'Trading bot not initialized'
+            })
+
+        timeframe = request.args.get('timeframe', 'D')
+
+        # Get chart data first
+        from research import DataFetcher
+        data_fetcher = DataFetcher(_bot_instance.client)
+
+        # Fetch recent data
+        daily_data = data_fetcher.get_daily_price(stock_code, days=60)
+
+        if not daily_data or len(daily_data) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No chart data available'
+            })
+
+        # Analyze chart patterns and signals
+        analysis_points = []
+
+        # Simple trend analysis
+        recent_prices = [item.get('close', 0) for item in daily_data[-20:]]
+        if len(recent_prices) >= 20:
+            trend_start = recent_prices[0]
+            trend_end = recent_prices[-1]
+            trend_change = ((trend_end - trend_start) / trend_start) * 100
+
+            if trend_change > 10:
+                analysis_points.append({
+                    'type': 'trend',
+                    'signal': 'bullish',
+                    'description': f'강한 상승 추세 ({trend_change:.1f}% 상승)',
+                    'date': daily_data[-1].get('date'),
+                    'price': recent_prices[-1],
+                    'confidence': 'high'
+                })
+            elif trend_change < -10:
+                analysis_points.append({
+                    'type': 'trend',
+                    'signal': 'bearish',
+                    'description': f'강한 하락 추세 ({abs(trend_change):.1f}% 하락)',
+                    'date': daily_data[-1].get('date'),
+                    'price': recent_prices[-1],
+                    'confidence': 'high'
+                })
+
+        # Volume analysis
+        recent_volumes = [item.get('volume', 0) for item in daily_data[-20:]]
+        if len(recent_volumes) >= 20:
+            avg_volume = sum(recent_volumes[:-1]) / len(recent_volumes[:-1])
+            current_volume = recent_volumes[-1]
+
+            if current_volume > avg_volume * 2:
+                analysis_points.append({
+                    'type': 'volume',
+                    'signal': 'breakout',
+                    'description': f'거래량 급증 (평균 대비 {(current_volume/avg_volume):.1f}배)',
+                    'date': daily_data[-1].get('date'),
+                    'price': recent_prices[-1],
+                    'confidence': 'high'
+                })
+
+        # Support/Resistance levels
+        all_prices = [item.get('close', 0) for item in daily_data]
+        support = min(recent_prices[-20:])
+        resistance = max(recent_prices[-20:])
+        current_price = recent_prices[-1]
+
+        if abs(current_price - support) / support < 0.02:
+            analysis_points.append({
+                'type': 'support',
+                'signal': 'support_test',
+                'description': f'지지선 테스트 ({support:,.0f}원)',
+                'date': daily_data[-1].get('date'),
+                'price': support,
+                'confidence': 'medium'
+            })
+
+        if abs(current_price - resistance) / resistance < 0.02:
+            analysis_points.append({
+                'type': 'resistance',
+                'signal': 'resistance_test',
+                'description': f'저항선 테스트 ({resistance:,.0f}원)',
+                'date': daily_data[-1].get('date'),
+                'price': resistance,
+                'confidence': 'medium'
+            })
+
+        # Summary
+        summary = {
+            'trend': 'neutral',
+            'strength': 'medium',
+            'recommendation': 'hold',
+            'key_levels': {
+                'support': support,
+                'resistance': resistance,
+                'current': current_price
+            }
+        }
+
+        if trend_change > 5:
+            summary['trend'] = 'bullish'
+            summary['recommendation'] = 'buy'
+        elif trend_change < -5:
+            summary['trend'] = 'bearish'
+            summary['recommendation'] = 'sell'
+
+        return jsonify({
+            'success': True,
+            'stock_code': stock_code,
+            'timeframe': timeframe,
+            'analysis_points': analysis_points,
+            'summary': summary,
+            'timestamp': datetime.now().isoformat()
+        })
+
+    except Exception as e:
+        print(f"AI Chart Analysis error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })

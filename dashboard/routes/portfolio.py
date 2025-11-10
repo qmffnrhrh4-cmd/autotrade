@@ -178,3 +178,131 @@ def get_risk_analysis():
     except Exception as e:
         print(f"Risk analysis API error: {e}")
         return jsonify({'success': False, 'message': str(e)})
+
+
+@portfolio_bp.route('/api/performance/metrics')
+def get_performance_metrics():
+    """Get comprehensive performance metrics"""
+    try:
+        from database import get_db_session, Trade
+        from sqlalchemy import func
+        import statistics
+
+        session = get_db_session()
+        if not session:
+            return jsonify({
+                'success': False,
+                'message': 'Database not available'
+            })
+
+        # Get completed trades from last 30 days
+        thirty_days_ago = datetime.now().timestamp() - (30 * 24 * 60 * 60)
+
+        trades = session.query(Trade).filter(
+            Trade.sell_time.isnot(None),
+            Trade.profit_loss.isnot(None),
+            Trade.buy_time >= datetime.fromtimestamp(thirty_days_ago)
+        ).all()
+
+        if not trades:
+            # Return default metrics
+            return jsonify({
+                'success': True,
+                'metrics': {
+                    'avg_return': 0.0,
+                    'win_rate': 0.0,
+                    'max_drawdown': 0.0,
+                    'sharpe_ratio': 0.0,
+                    'daily_trades': 0.0,
+                    'total_trades': 0,
+                    'winning_trades': 0,
+                    'losing_trades': 0,
+                    'total_profit': 0,
+                    'total_loss': 0,
+                    'avg_profit': 0.0,
+                    'avg_loss': 0.0,
+                    'profit_factor': 0.0
+                },
+                'period': '최근 30일',
+                'has_data': False
+            })
+
+        # Calculate metrics
+        total_trades = len(trades)
+        winning_trades = [t for t in trades if t.profit_loss > 0]
+        losing_trades = [t for t in trades if t.profit_loss <= 0]
+
+        win_count = len(winning_trades)
+        loss_count = len(losing_trades)
+        win_rate = (win_count / total_trades * 100) if total_trades > 0 else 0
+
+        # Returns
+        returns = [t.profit_loss_pct for t in trades if t.profit_loss_pct is not None]
+        avg_return = statistics.mean(returns) if returns else 0.0
+
+        # Profits and Losses
+        total_profit = sum(t.profit_loss for t in winning_trades) if winning_trades else 0
+        total_loss = abs(sum(t.profit_loss for t in losing_trades)) if losing_trades else 0
+        avg_profit = total_profit / win_count if win_count > 0 else 0
+        avg_loss = total_loss / loss_count if loss_count > 0 else 0
+
+        # Profit Factor
+        profit_factor = total_profit / total_loss if total_loss > 0 else 0.0
+
+        # Maximum Drawdown
+        cumulative_returns = []
+        cumulative = 0
+        for t in trades:
+            cumulative += t.profit_loss_pct if t.profit_loss_pct else 0
+            cumulative_returns.append(cumulative)
+
+        max_drawdown = 0.0
+        if cumulative_returns:
+            peak = cumulative_returns[0]
+            for value in cumulative_returns:
+                if value > peak:
+                    peak = value
+                drawdown = (peak - value)
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+
+        # Sharpe Ratio (simplified)
+        sharpe_ratio = 0.0
+        if returns and len(returns) > 1:
+            mean_return = statistics.mean(returns)
+            std_return = statistics.stdev(returns)
+            sharpe_ratio = (mean_return / std_return) * (252 ** 0.5) if std_return > 0 else 0.0
+
+        # Daily trade frequency
+        days_with_trades = len(set(t.buy_time.date() for t in trades))
+        daily_trades = total_trades / days_with_trades if days_with_trades > 0 else 0
+
+        return jsonify({
+            'success': True,
+            'metrics': {
+                'avg_return': round(avg_return, 2),
+                'win_rate': round(win_rate, 1),
+                'max_drawdown': round(max_drawdown, 2),
+                'sharpe_ratio': round(sharpe_ratio, 2),
+                'daily_trades': round(daily_trades, 1),
+                'total_trades': total_trades,
+                'winning_trades': win_count,
+                'losing_trades': loss_count,
+                'total_profit': int(total_profit),
+                'total_loss': int(total_loss),
+                'avg_profit': int(avg_profit),
+                'avg_loss': int(avg_loss),
+                'profit_factor': round(profit_factor, 2)
+            },
+            'period': '최근 30일',
+            'has_data': True
+        })
+
+    except Exception as e:
+        print(f"Performance metrics error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        })

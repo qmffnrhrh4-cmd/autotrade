@@ -638,6 +638,10 @@
                     <span id="trading-status">시스템 대기 중</span>
                 </div>
 
+                <a href="/chart" class="theme-toggle" style="text-decoration: none; display: flex; align-items: center; justify-content: center;" title="AI 차트 분석">
+                    <i class="fas fa-chart-candlestick"></i>
+                </a>
+
                 <button class="theme-toggle" onclick="toggleTheme()">
                     <i class="fas fa-moon"></i>
                 </button>
@@ -756,6 +760,21 @@
                             </div>
                             <div class="chart-container">
                                 <canvas id="portfolio-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Metrics Section -->
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-trophy"></i>
+                                성과 지표 (최근 30일)
+                            </h3>
+                        </div>
+                        <div id="performanceMetrics">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <i class="fas fa-spinner fa-spin"></i> 성과 지표 로딩 중...
                             </div>
                         </div>
                     </div>
@@ -1356,6 +1375,145 @@
             }
         }
 
+        // ==================== Performance Metrics ====================
+        async function loadPerformanceMetrics() {
+            try {
+                const response = await fetch('/api/performance/metrics');
+                const data = await response.json();
+
+                if (!data.success) {
+                    document.getElementById('performanceMetrics').innerHTML = `
+                        <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            데이터를 불러올 수 없습니다.
+                        </div>
+                    `;
+                    return;
+                }
+
+                const metrics = data.metrics;
+
+                // Create metrics table HTML
+                let metricsHTML = '';
+
+                if (!data.has_data) {
+                    metricsHTML = `
+                        <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            <i class="fas fa-info-circle"></i> 아직 거래 데이터가 없습니다.
+                        </div>
+                    `;
+                } else {
+                    metricsHTML = `
+                        <div class="grid grid-3" style="gap: 1.5rem; padding: 1.5rem;">
+                            <div style="background: var(--bg-glass); padding: 1.5rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-success);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">평균 수익률</span>
+                                    <i class="fas fa-chart-line" style="color: var(--color-success);"></i>
+                                </div>
+                                <div style="font-size: 2rem; font-weight: 700; color: ${metrics.avg_return >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                    ${metrics.avg_return >= 0 ? '+' : ''}${metrics.avg_return}%
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    총 ${metrics.total_trades}회 거래
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-glass); padding: 1.5rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-info);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">승률</span>
+                                    <i class="fas fa-percentage" style="color: var(--color-info);"></i>
+                                </div>
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--color-info);">
+                                    ${metrics.win_rate}%
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    승: ${metrics.winning_trades} / 패: ${metrics.losing_trades}
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-glass); padding: 1.5rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-danger);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">MDD</span>
+                                    <i class="fas fa-arrow-down" style="color: var(--color-danger);"></i>
+                                </div>
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--color-danger);">
+                                    ${metrics.max_drawdown}%
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    최대 낙폭
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-glass); padding: 1.5rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-primary);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">샤프 비율</span>
+                                    <i class="fas fa-balance-scale" style="color: var(--color-primary);"></i>
+                                </div>
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--color-primary);">
+                                    ${metrics.sharpe_ratio}
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    위험 대비 수익
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-glass); padding: 1.5rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-warning);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">일 거래 횟수</span>
+                                    <i class="fas fa-calendar-day" style="color: var(--color-warning);"></i>
+                                </div>
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--color-warning);">
+                                    ${metrics.daily_trades}회
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    평균 일일 거래
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-glass); padding: 1.5rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-secondary);">
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.9rem;">손익 비율</span>
+                                    <i class="fas fa-chart-bar" style="color: var(--color-secondary);"></i>
+                                </div>
+                                <div style="font-size: 2rem; font-weight: 700; color: var(--color-secondary);">
+                                    ${metrics.profit_factor}
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                                    평균 수익/손실
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="padding: 1.5rem; border-top: 1px solid var(--border-glass);">
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                                <div style="background: var(--bg-glass); padding: 1rem; border-radius: var(--radius-md);">
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 수익</div>
+                                    <div style="font-size: 1.3rem; font-weight: 600; color: var(--color-success);">
+                                        +${metrics.total_profit.toLocaleString()}원
+                                    </div>
+                                </div>
+                                <div style="background: var(--bg-glass); padding: 1rem; border-radius: var(--radius-md);">
+                                    <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 손실</div>
+                                    <div style="font-size: 1.3rem; font-weight: 600; color: var(--color-danger);">
+                                        -${metrics.total_loss.toLocaleString()}원
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                document.getElementById('performanceMetrics').innerHTML = metricsHTML;
+
+            } catch (error) {
+                console.error('Error loading performance metrics:', error);
+                document.getElementById('performanceMetrics').innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--color-danger);">
+                        <i class="fas fa-exclamation-triangle"></i> 오류 발생: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
         // ==================== Socket.IO ====================
         const socket = io();
 
@@ -1380,6 +1538,7 @@
             // Load initial data
             refreshVirtualTrading();
             refreshPortfolio();
+            loadPerformanceMetrics();
         });
     </script>
 </body>

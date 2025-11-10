@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 차트 분석 - AutoTrade Pro</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
+    <!-- Toastify -->
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+    <style>
+        /* CSS Variables */
+        :root {
+            --bg-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-overlay: rgba(10, 14, 39, 0.85);
+            --bg-card: rgba(30, 33, 57, 0.7);
+            --bg-card-hover: rgba(30, 33, 57, 0.9);
+            --bg-glass: rgba(255, 255, 255, 0.05);
+            --bg-glass-hover: rgba(255, 255, 255, 0.1);
+
+            --text-primary: #ffffff;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+
+            --border-color: rgba(148, 163, 184, 0.1);
+            --border-glass: rgba(255, 255, 255, 0.18);
+
+            --color-primary: #667eea;
+            --color-secondary: #764ba2;
+            --color-success: #10b981;
+            --color-danger: #ef4444;
+            --color-warning: #f59e0b;
+            --color-info: #06b6d4;
+
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+            --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.2);
+
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+        }
+
+        .bg-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-overlay);
+            backdrop-filter: blur(10px);
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .header-title h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .back-button {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            padding: 0.75rem 1.5rem;
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .back-button:hover {
+            background: var(--bg-glass-hover);
+            transform: translateY(-2px);
+        }
+
+        /* Search Section */
+        .search-section {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            margin-bottom: 2rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .search-box {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .search-input {
+            flex: 1;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            color: var(--text-primary);
+            font-size: 1rem;
+        }
+
+        .search-button {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: var(--radius-md);
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .search-button:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .timeframe-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .timeframe-btn {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-md);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .timeframe-btn:hover, .timeframe-btn.active {
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+            color: white;
+            border-color: transparent;
+        }
+
+        /* Chart Section */
+        .chart-container {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        #chart {
+            width: 100%;
+            height: 600px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: var(--radius-md);
+        }
+
+        /* AI Analysis Panel */
+        .ai-panel {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-md);
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-glass);
+        }
+
+        .ai-header i {
+            color: var(--color-primary);
+        }
+
+        .ai-summary {
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--bg-glass);
+            border-radius: var(--radius-md);
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .summary-label {
+            color: var(--text-muted);
+        }
+
+        .summary-value {
+            font-weight: 600;
+        }
+
+        .trend-bullish {
+            color: var(--color-success);
+        }
+
+        .trend-bearish {
+            color: var(--color-danger);
+        }
+
+        .trend-neutral {
+            color: var(--text-muted);
+        }
+
+        .analysis-points {
+            margin-top: 1.5rem;
+        }
+
+        .analysis-point {
+            background: var(--bg-glass);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 1rem;
+            border-left: 3px solid var(--color-primary);
+        }
+
+        .point-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+
+        .point-type {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: var(--radius-sm);
+            background: var(--bg-glass);
+            text-transform: uppercase;
+        }
+
+        .point-confidence {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .point-description {
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        .error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid var(--color-danger);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            color: var(--color-danger);
+            margin-bottom: 1rem;
+        }
+
+        /* Stock Info */
+        .stock-info {
+            background: var(--bg-glass);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            margin-bottom: 1rem;
+        }
+
+        .stock-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stock-price {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--color-primary);
+        }
+
+        @media (max-width: 1200px) {
+            .chart-container {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-overlay"></div>
+
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-content">
+                <div class="header-title">
+                    <i class="fas fa-chart-line" style="font-size: 2rem; color: var(--color-primary);"></i>
+                    <h1>AI 차트 분석</h1>
+                </div>
+                <a href="/" class="back-button">
+                    <i class="fas fa-arrow-left"></i>
+                    <span>대시보드로</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <div class="search-box">
+                <input type="text" id="stockSearch" class="search-input" placeholder="종목코드 또는 종목명 입력 (예: 005930, 삼성전자)">
+                <button class="search-button" onclick="loadChart()">
+                    <i class="fas fa-search"></i> 분석 시작
+                </button>
+            </div>
+            <div class="timeframe-buttons">
+                <button class="timeframe-btn active" data-timeframe="D" onclick="changeTimeframe('D')">일봉</button>
+                <button class="timeframe-btn" data-timeframe="W" onclick="changeTimeframe('W')">주봉</button>
+                <button class="timeframe-btn" data-timeframe="M" onclick="changeTimeframe('M')">월봉</button>
+                <button class="timeframe-btn" data-timeframe="60" onclick="changeTimeframe('60')">60분</button>
+                <button class="timeframe-btn" data-timeframe="30" onclick="changeTimeframe('30')">30분</button>
+                <button class="timeframe-btn" data-timeframe="5" onclick="changeTimeframe('5')">5분</button>
+            </div>
+        </div>
+
+        <!-- Chart & AI Analysis -->
+        <div class="chart-container">
+            <!-- Chart -->
+            <div class="chart-card">
+                <div class="chart-header">
+                    <div class="stock-info" id="stockInfo" style="display: none;">
+                        <div class="stock-name" id="stockName">-</div>
+                        <div class="stock-price" id="stockPrice">-</div>
+                    </div>
+                </div>
+                <div id="chart"></div>
+            </div>
+
+            <!-- AI Analysis Panel -->
+            <div class="ai-panel">
+                <div class="ai-header">
+                    <i class="fas fa-brain fa-2x"></i>
+                    <h2>AI 분석 결과</h2>
+                </div>
+
+                <div id="aiAnalysis">
+                    <p class="loading">종목을 검색하여 AI 분석을 시작하세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chart = null;
+        let candlestickSeries = null;
+        let currentStockCode = null;
+        let currentTimeframe = 'D';
+        let markers = [];
+
+        // Initialize chart
+        function initChart() {
+            const chartElement = document.getElementById('chart');
+            chart = LightweightCharts.createChart(chartElement, {
+                width: chartElement.clientWidth,
+                height: 600,
+                layout: {
+                    background: { color: 'rgba(0, 0, 0, 0.2)' },
+                    textColor: '#d1d4dc',
+                },
+                grid: {
+                    vertLines: { color: 'rgba(197, 203, 206, 0.1)' },
+                    horzLines: { color: 'rgba(197, 203, 206, 0.1)' },
+                },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                },
+                rightPriceScale: {
+                    borderColor: 'rgba(197, 203, 206, 0.2)',
+                },
+                timeScale: {
+                    borderColor: 'rgba(197, 203, 206, 0.2)',
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+            });
+
+            candlestickSeries = chart.addCandlestickSeries({
+                upColor: '#26a69a',
+                downColor: '#ef5350',
+                borderUpColor: '#26a69a',
+                borderDownColor: '#ef5350',
+                wickUpColor: '#26a69a',
+                wickDownColor: '#ef5350',
+            });
+
+            // Responsive
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ width: chartElement.clientWidth });
+            });
+        }
+
+        // Change timeframe
+        function changeTimeframe(timeframe) {
+            currentTimeframe = timeframe;
+
+            // Update button states
+            document.querySelectorAll('.timeframe-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-timeframe="${timeframe}"]`).classList.add('active');
+
+            // Reload chart if stock is selected
+            if (currentStockCode) {
+                loadChart();
+            }
+        }
+
+        // Load chart and AI analysis
+        async function loadChart() {
+            const searchInput = document.getElementById('stockSearch').value.trim();
+            if (!searchInput) {
+                showToast('종목코드 또는 종목명을 입력하세요.', 'warning');
+                return;
+            }
+
+            // Extract stock code (handle formats like "005930" or "005930 삼성전자")
+            currentStockCode = searchInput.split(' ')[0].padStart(6, '0');
+
+            showLoading();
+
+            try {
+                // Load chart data
+                const chartResponse = await fetch(`/api/chart/${currentStockCode}?timeframe=${currentTimeframe}`);
+                const chartData = await chartResponse.json();
+
+                if (!chartData.success) {
+                    showError(chartData.error || '차트 데이터를 불러올 수 없습니다.');
+                    return;
+                }
+
+                // Update chart
+                if (chartData.data && chartData.data.length > 0) {
+                    candlestickSeries.setData(chartData.data);
+                    chart.timeScale().fitContent();
+                }
+
+                // Update stock info
+                document.getElementById('stockInfo').style.display = 'block';
+                document.getElementById('stockName').textContent = chartData.name || currentStockCode;
+                document.getElementById('stockPrice').textContent =
+                    chartData.current_price ? `${Number(chartData.current_price).toLocaleString()}원` : '-';
+
+                // Load AI analysis
+                await loadAIAnalysis();
+
+            } catch (error) {
+                console.error('Chart loading error:', error);
+                showError('차트를 불러오는 중 오류가 발생했습니다.');
+            }
+        }
+
+        // Load AI analysis
+        async function loadAIAnalysis() {
+            try {
+                const response = await fetch(`/api/chart/ai_analysis/${currentStockCode}?timeframe=${currentTimeframe}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    showError(data.error || 'AI 분석을 불러올 수 없습니다.');
+                    return;
+                }
+
+                displayAIAnalysis(data);
+                addAIMarkersToChart(data.analysis_points);
+
+            } catch (error) {
+                console.error('AI analysis error:', error);
+                showError('AI 분석 중 오류가 발생했습니다.');
+            }
+        }
+
+        // Display AI analysis
+        function displayAIAnalysis(data) {
+            const summary = data.summary;
+            const points = data.analysis_points;
+
+            let html = `
+                <div class="ai-summary">
+                    <div class="summary-item">
+                        <span class="summary-label">추세:</span>
+                        <span class="summary-value trend-${summary.trend}">${getTrendText(summary.trend)}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">추천:</span>
+                        <span class="summary-value">${getRecommendationText(summary.recommendation)}</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">지지선:</span>
+                        <span class="summary-value">${Number(summary.key_levels.support).toLocaleString()}원</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">저항선:</span>
+                        <span class="summary-value">${Number(summary.key_levels.resistance).toLocaleString()}원</span>
+                    </div>
+                </div>
+
+                <div class="analysis-points">
+                    <h3 style="margin-bottom: 1rem; color: var(--text-secondary);">주요 분석 포인트</h3>
+            `;
+
+            if (points && points.length > 0) {
+                points.forEach(point => {
+                    html += `
+                        <div class="analysis-point">
+                            <div class="point-header">
+                                <span class="point-type">${point.type}</span>
+                                <span class="point-confidence">신뢰도: ${point.confidence}</span>
+                            </div>
+                            <div class="point-description">${point.description}</div>
+                        </div>
+                    `;
+                });
+            } else {
+                html += `<p class="loading">특이사항 없음</p>`;
+            }
+
+            html += `</div>`;
+
+            document.getElementById('aiAnalysis').innerHTML = html;
+        }
+
+        // Add AI markers to chart
+        function addAIMarkersToChart(points) {
+            if (!points || points.length === 0) return;
+
+            const chartMarkers = points.map(point => {
+                const color = point.signal === 'bullish' ? '#26a69a' :
+                              point.signal === 'bearish' ? '#ef5350' : '#06b6d4';
+
+                return {
+                    time: point.date,
+                    position: point.signal === 'bullish' ? 'belowBar' : 'aboveBar',
+                    color: color,
+                    shape: point.signal === 'bullish' ? 'arrowUp' : 'arrowDown',
+                    text: point.type.toUpperCase()
+                };
+            });
+
+            candlestickSeries.setMarkers(chartMarkers);
+        }
+
+        // Helper functions
+        function getTrendText(trend) {
+            const trends = {
+                'bullish': '상승',
+                'bearish': '하락',
+                'neutral': '중립'
+            };
+            return trends[trend] || trend;
+        }
+
+        function getRecommendationText(rec) {
+            const recs = {
+                'buy': '매수 ✓',
+                'sell': '매도 ✗',
+                'hold': '관망 -'
+            };
+            return recs[rec] || rec;
+        }
+
+        function showLoading() {
+            document.getElementById('aiAnalysis').innerHTML = '<p class="loading">AI 분석 중...</p>';
+        }
+
+        function showError(message) {
+            document.getElementById('aiAnalysis').innerHTML =
+                `<div class="error"><i class="fas fa-exclamation-triangle"></i> ${message}</div>`;
+        }
+
+        function showToast(message, type = 'info') {
+            const colors = {
+                'success': '#10b981',
+                'error': '#ef4444',
+                'warning': '#f59e0b',
+                'info': '#06b6d4'
+            };
+
+            Toastify({
+                text: message,
+                duration: 3000,
+                gravity: "top",
+                position: "right",
+                style: {
+                    background: colors[type] || colors.info,
+                }
+            }).showToast();
+        }
+
+        // Enter key handler
+        document.getElementById('stockSearch').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                loadChart();
+            }
+        });
+
+        // Initialize on load
+        window.addEventListener('DOMContentLoaded', () => {
+            initChart();
+        });
+    </script>
+</body>
+</html>

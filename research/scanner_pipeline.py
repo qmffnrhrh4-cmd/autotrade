@@ -223,9 +223,9 @@ class ScannerPipeline:
                 candidate = StockCandidate(
                     code=stock['code'],
                     name=stock['name'],
-                    price=stock['price'],
-                    volume=stock['volume'],
-                    rate=stock['rate'],
+                    price=int(float(stock['price'])),
+                    volume=int(float(stock['volume'])),
+                    rate=float(stock['rate']),
                     fast_scan_time=scan_time,
                 )
 
