@@ -236,15 +236,38 @@ def get_chart_data(stock_code: str):
                                 # Convert OpenAPI format to internal format
                                 daily_data = []
                                 for item in openapi_minute_data:
-                                    # OpenAPI 형식: {'일자': '20231201', '체결시간': '153000', '현재가': '70000', ...}
+                                    # OpenAPI 형식: {'체결시간': 'YYYYMMDDHHMMSS', '현재가': '70000', ...}
+                                    time_str = item.get('체결시간', '').strip()
+
+                                    # 체결시간에서 일자/시간 분리
+                                    if len(time_str) >= 14:
+                                        # YYYYMMDDHHMMSS 형식
+                                        date = time_str[:8]
+                                        time = time_str[8:14]
+                                    elif len(time_str) >= 8:
+                                        # YYYYMMDD 형식 (시간 없음)
+                                        date = time_str[:8]
+                                        time = ''
+                                    else:
+                                        # 날짜 정보 없음
+                                        date = ''
+                                        time = time_str
+
+                                    # 가격 데이터는 부호 제거 ('+', '-' 제거)
+                                    current_price = item.get('현재가', '0').replace('+', '').replace('-', '').strip()
+                                    open_price = item.get('시가', '0').replace('+', '').replace('-', '').strip()
+                                    high_price = item.get('고가', '0').replace('+', '').replace('-', '').strip()
+                                    low_price = item.get('저가', '0').replace('+', '').replace('-', '').strip()
+                                    volume = item.get('거래량', '0').strip()
+
                                     daily_data.append({
-                                        'date': item.get('일자', ''),
-                                        'time': item.get('체결시간', ''),
-                                        'open': item.get('시가', 0),
-                                        'high': item.get('고가', 0),
-                                        'low': item.get('저가', 0),
-                                        'close': item.get('현재가', 0),
-                                        'volume': item.get('거래량', 0)
+                                        'date': date,
+                                        'time': time,
+                                        'open': int(open_price) if open_price else 0,
+                                        'high': int(high_price) if high_price else 0,
+                                        'low': int(low_price) if low_price else 0,
+                                        'close': int(current_price) if current_price else 0,
+                                        'volume': int(volume) if volume else 0
                                     })
                                 minute_data_available = True
                                 actual_timeframe = timeframe

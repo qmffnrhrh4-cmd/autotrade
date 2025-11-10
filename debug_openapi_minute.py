@@ -82,9 +82,11 @@ def test_openapi_minute():
                     if items:
                         print(f"   ✅ {interval}분봉: {len(items)}개 캔들")
 
-                        # 첫 번째 캔들 샘플 출력
+                        # 첫 번째 캔들 전체 출력 (디버깅용)
                         first = items[0]
-                        print(f"      샘플: {first.get('일자')} {first.get('체결시간')} - 종가 {first.get('현재가')}")
+                        print(f"      첫 번째 캔들 전체 데이터:")
+                        for key, value in first.items():
+                            print(f"        {key}: {value}")
 
                         # JSON 저장
                         save_json(data, f"minute_{stock_code}_{interval}min")
