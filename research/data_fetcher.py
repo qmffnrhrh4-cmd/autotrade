@@ -271,46 +271,49 @@ class DataFetcher:
             }
         """
         body = {
-            "stock_code": stock_code
+            "stk_cd": stock_code
         }
 
-        # 키움증권 REST API로 호가 조회 (KA10005 - 주식 호가 조회)
+        # 키움증권 REST API로 호가 조회 (ka10004 - 주식호가요청)
         response = self.client.request(
-            api_id="KA10005",
+            api_id="ka10004",
             body=body,
-            path="/api/v1/market/orderbook"
+            path="mrkcond"
         )
 
         if response and response.get('return_code') == 0:
             output = response.get('output', {})
 
             # 키움증권 API 응답 형식을 표준 형식으로 변환
+            # ka10004 응답 필드: sel_1bid~sel_10bid (매도), buy_1bid~buy_10bid (매수)
             orderbook = {
                 'bids': [],  # 매수 호가
                 'asks': []   # 매도 호가
             }
 
-            # 매도 호가 10개
+            # 매도 호가 10개 (sel_1bid ~ sel_10bid)
             for i in range(1, 11):
-                ask_price = output.get(f'askp{i}', 0)
-                ask_qty = output.get(f'askp_rsqn{i}', 0)
+                ask_price = output.get(f'sel_{i}bid', 0)
+                # 잔량 필드명 추정 (sel_1req 또는 sel_1qty)
+                ask_qty = output.get(f'sel_{i}req', 0) or output.get(f'sel_{i}qty', 0)
                 if ask_price and ask_qty:
                     orderbook['asks'].append({
                         'price': int(ask_price),
                         'quantity': int(ask_qty)
                     })
 
-            # 매수 호가 10개
+            # 매수 호가 10개 (buy_1bid ~ buy_10bid)
             for i in range(1, 11):
-                bid_price = output.get(f'bidp{i}', 0)
-                bid_qty = output.get(f'bidp_rsqn{i}', 0)
+                bid_price = output.get(f'buy_{i}bid', 0)
+                # 잔량 필드명 추정 (buy_1req 또는 buy_1qty)
+                bid_qty = output.get(f'buy_{i}req', 0) or output.get(f'buy_{i}qty', 0)
                 if bid_price and bid_qty:
                     orderbook['bids'].append({
                         'price': int(bid_price),
                         'quantity': int(bid_qty)
                     })
 
-            logger.info(f"{stock_code} 호가 조회 완료")
+            logger.info(f"{stock_code} 호가 조회 완료 (매도: {len(orderbook['asks'])}호가, 매수: {len(orderbook['bids'])}호가)")
             return orderbook
         else:
             logger.error(f"호가 조회 실패: {response.get('return_msg')}")
