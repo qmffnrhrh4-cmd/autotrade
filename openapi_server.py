@@ -257,10 +257,11 @@ def get_minute_data(code, interval):
                     cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
                     items = []
 
-                    # 복수 데이터 추출 (최대 100개)
-                    for i in range(min(cnt, 100)):
+                    # 복수 데이터 추출
+                    for i in range(cnt):
                         item = {}
-                        fields = ['일자', '체결시간', '현재가', '거래량', '시가', '고가', '저가', '등락률']
+                        # opt10080 분봉차트 출력 필드
+                        fields = ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', '종목정보', '수정주가이벤트', '전일종가']
 
                         for field in fields:
                             try:
@@ -273,8 +274,10 @@ def get_minute_data(code, interval):
                         if item:
                             items.append(item)
 
-                    received_data['result'] = {'items': items, 'count': cnt}
+                    received_data['result'] = {'items': items, 'count': cnt, 'total_received': len(items)}
+                    logger.info(f"  GetRepeatCnt: {cnt}, 실제 추출: {len(items)}개")
                 except Exception as e:
+                    logger.error(f"  데이터 추출 오류: {e}")
                     received_data['result'] = {'error': str(e)}
 
                 received_data['completed'] = True
