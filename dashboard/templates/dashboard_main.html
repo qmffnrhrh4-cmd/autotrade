@@ -885,6 +885,8 @@
                                     <th>보유량</th>
                                     <th>평균단가</th>
                                     <th>현재가</th>
+                                    <th>손절가</th>
+                                    <th>익절가</th>
                                     <th>평가금액</th>
                                     <th>수익률</th>
                                     <th>액션</th>
@@ -892,7 +894,7 @@
                             </thead>
                             <tbody id="portfolio-table-body">
                                 <tr>
-                                    <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                    <td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                                         <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
                                         보유 종목이 없습니다
                                     </td>
@@ -948,15 +950,32 @@
                                     <div style="margin-top: 1.5rem; padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: left;">
                                         <div style="margin-bottom: 0.75rem;">
                                             <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            ATR 기반 동적 손절가 계산
+                                            <strong>ATR 기반 동적 손절가</strong> - 변동성에 따라 자동 조정
                                         </div>
                                         <div style="margin-bottom: 0.75rem;">
                                             <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            Trailing Stop 자동 조정
+                                            <strong>Trailing Stop</strong> - 수익 구간에서 자동 추적
+                                        </div>
+                                        <div style="margin-bottom: 0.75rem;">
+                                            <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            <strong>부분 익절</strong> - 목표 도달 시 일부 매도로 수익 확정
+                                        </div>
+                                        <div style="margin-bottom: 0.75rem;">
+                                            <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            <strong>부분 매수</strong> - 하락 시 평단가 낮추기 자동 실행
                                         </div>
                                         <div>
                                             <i class="fas fa-check" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            부분 익절 자동 실행
+                                            <strong>호가 분석 매매</strong> - 최적 가격으로 매수/매도 체결
+                                        </div>
+                                    </div>
+                                    <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-left: 3px solid var(--color-info); border-radius: var(--radius-md); font-size: 0.9rem;">
+                                        <i class="fas fa-info-circle" style="color: var(--color-info);"></i>
+                                        <strong style="margin-left: 0.5rem;">스마트 주문 전략:</strong>
+                                        <div style="margin-top: 0.75rem; margin-left: 1.5rem; line-height: 1.6;">
+                                            • 매수: 호가창 분석으로 매수 벽 아래 낮은 가격에 체결<br>
+                                            • 매도: 매도 벽 위 높은 가격에 체결하여 수익 극대화<br>
+                                            • 시장가 사용 안함 - 항상 유리한 지정가 주문
                                         </div>
                                     </div>
                                 </div>
@@ -1434,7 +1453,7 @@
             if (!holdings || holdings.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
                             보유 종목이 없습니다
                         </td>
@@ -1443,36 +1462,106 @@
                 return;
             }
 
-            tbody.innerHTML = holdings.map(h => {
-                const profitLossPercent = h.profit_loss_percent || 0;
-                const profitLoss = h.profit_loss || 0;
-                const value = h.value || 0;
+            // 손절가/익절가를 얻기 위해 /api/positions 데이터도 가져오기
+            fetch('/api/positions')
+                .then(response => response.json())
+                .then(positions => {
+                    const positionsMap = {};
+                    positions.forEach(pos => {
+                        positionsMap[pos.code] = pos;
+                    });
 
-                return `
-                    <tr>
-                        <td>${h.stock_name || '-'}</td>
-                        <td>${h.stock_code || '-'}</td>
-                        <td>${h.quantity?.toLocaleString() || 0}</td>
-                        <td>${h.avg_price?.toLocaleString() || 0}원</td>
-                        <td>${h.current_price?.toLocaleString() || 0}원</td>
-                        <td>${value.toLocaleString()}원</td>
-                        <td>
-                            <div style="color: ${profitLossPercent >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: 600;">
-                                ${(profitLossPercent >= 0 ? '+' : '')}${profitLossPercent.toFixed(2)}%
-                            </div>
-                            <div style="font-size: 0.85rem; color: ${profitLoss >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
-                                ${(profitLoss >= 0 ? '+' : '')}${profitLoss.toLocaleString()}원
-                            </div>
-                        </td>
-                        <td>
-                            <button class="btn btn-sm btn-danger" onclick="sellStock('${h.stock_code}')">
-                                <i class="fas fa-minus-circle"></i>
-                                매도
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                    tbody.innerHTML = holdings.map(h => {
+                        const profitLossPercent = h.profit_loss_percent || 0;
+                        const profitLoss = h.profit_loss || 0;
+                        const value = h.value || 0;
+
+                        // 손절가/익절가 가져오기
+                        const position = positionsMap[h.stock_code];
+                        let stopLoss = '-';
+                        let takeProfit = '-';
+
+                        if (position) {
+                            if (position.optimization) {
+                                // AI 최적화 손절가/익절가 사용
+                                stopLoss = position.optimization.optimized_stop_loss ?
+                                    position.optimization.optimized_stop_loss.toLocaleString() + '원' : '-';
+                                takeProfit = position.optimization.optimized_take_profit ?
+                                    position.optimization.optimized_take_profit.toLocaleString() + '원' : '-';
+                            } else if (position.stop_loss_price) {
+                                // 기본 손절가 사용
+                                stopLoss = position.stop_loss_price.toLocaleString() + '원';
+                                // 익절가는 손절가의 2배 이익 가정
+                                const avgPrice = h.avg_price || 0;
+                                const stopLossDiff = avgPrice - position.stop_loss_price;
+                                takeProfit = (avgPrice + stopLossDiff * 2).toLocaleString() + '원';
+                            }
+                        }
+
+                        return `
+                            <tr>
+                                <td>${h.stock_name || '-'}</td>
+                                <td>${h.stock_code || '-'}</td>
+                                <td>${h.quantity?.toLocaleString() || 0}</td>
+                                <td>${h.avg_price?.toLocaleString() || 0}원</td>
+                                <td>${h.current_price?.toLocaleString() || 0}원</td>
+                                <td style="color: var(--color-danger); font-weight: 500;">${stopLoss}</td>
+                                <td style="color: var(--color-success); font-weight: 500;">${takeProfit}</td>
+                                <td>${value.toLocaleString()}원</td>
+                                <td>
+                                    <div style="color: ${profitLossPercent >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: 600;">
+                                        ${(profitLossPercent >= 0 ? '+' : '')}${profitLossPercent.toFixed(2)}%
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: ${profitLoss >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                        ${(profitLoss >= 0 ? '+' : '')}${profitLoss.toLocaleString()}원
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" onclick="sellStock('${h.stock_code}')">
+                                        <i class="fas fa-minus-circle"></i>
+                                        매도
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                })
+                .catch(error => {
+                    console.error('Error loading positions for stop loss:', error);
+                    // 에러 발생 시 기본 표시
+                    tbody.innerHTML = holdings.map(h => {
+                        const profitLossPercent = h.profit_loss_percent || 0;
+                        const profitLoss = h.profit_loss || 0;
+                        const value = h.value || 0;
+
+                        return `
+                            <tr>
+                                <td>${h.stock_name || '-'}</td>
+                                <td>${h.stock_code || '-'}</td>
+                                <td>${h.quantity?.toLocaleString() || 0}</td>
+                                <td>${h.avg_price?.toLocaleString() || 0}원</td>
+                                <td>${h.current_price?.toLocaleString() || 0}원</td>
+                                <td style="color: var(--color-danger); font-weight: 500;">계산중</td>
+                                <td style="color: var(--color-success); font-weight: 500;">계산중</td>
+                                <td>${value.toLocaleString()}원</td>
+                                <td>
+                                    <div style="color: ${profitLossPercent >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: 600;">
+                                        ${(profitLossPercent >= 0 ? '+' : '')}${profitLossPercent.toFixed(2)}%
+                                    </div>
+                                    <div style="font-size: 0.85rem; color: ${profitLoss >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                        ${(profitLoss >= 0 ? '+' : '')}${profitLoss.toLocaleString()}원
+                                    </div>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-danger" onclick="sellStock('${h.stock_code}')">
+                                        <i class="fas fa-minus-circle"></i>
+                                        매도
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                });
         }
 
         function updateBacktestDisplay(result) {
