@@ -5,6 +5,7 @@ Handles account balance, positions, and detailed holdings
 from flask import Blueprint, jsonify
 from typing import Dict, Any
 from datetime import datetime
+from research.data_fetcher import is_nxt_hours
 
 account_bp = Blueprint('account', __name__)
 
@@ -53,20 +54,32 @@ def get_account():
 
             # v5.4.2: 주식 현재가치 계산 (장외 시간 대응)
             # eval_amt이 0인 경우 (장외 시간) 수량 × 현재가로 직접 계산
+            # v5.17: NXT 시간대에는 실시간 현재가 조회
+            in_nxt = is_nxt_hours()
             stock_value = 0
             if holdings:
                 for h in holdings:
+                    quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))
+                    cur_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
+
+                    # NXT 시간대일 때는 실시간 현재가 조회
+                    if in_nxt and _bot_instance and hasattr(_bot_instance, 'data_fetcher'):
+                        try:
+                            code = str(h.get('stk_cd', '')).strip().replace('_NX', '').replace('A', '')
+                            price_info = _bot_instance.data_fetcher.get_current_price(code)
+                            if price_info and price_info.get('current_price'):
+                                cur_price = price_info['current_price']
+                        except Exception as e:
+                            print(f"[NXT] 현재가 조회 실패: {e}")
+
                     eval_amt = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
-                    if eval_amt > 0:
+                    if eval_amt > 0 and not in_nxt:
                         # API에서 평가금액이 정상적으로 오는 경우 (장중)
                         stock_value += eval_amt
                     else:
-                        # 장외 시간 등으로 eval_amt이 0인 경우, 직접 계산
-                        quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))
-                        cur_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
+                        # 장외 시간 또는 NXT 시간대는 직접 계산
                         calculated_value = quantity * cur_price
                         stock_value += calculated_value
-                        # Note: After-hours calculation (eval_amt=0)
 
             # 총 자산 = 주식 현재가치 + 잔존 현금
             total_assets = stock_value + cash
@@ -174,10 +187,16 @@ def get_account_portfolio():
                 'holdings': []
             })
 
+        # NXT 시간대 확인
+        in_nxt = is_nxt_hours()
+
         portfolio = []
         for h in holdings:
             try:
                 code = str(h.get('stk_cd', '')).strip()
+                # _NX 접미사 제거
+                code = code.replace('_NX', '')
+                # A 접두사 제거
                 if code.startswith('A'):
                     code = code[1:]
 
@@ -190,8 +209,22 @@ def get_account_portfolio():
                 avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
                 current_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
 
+                # NXT 시간대일 때는 실시간 현재가 조회
+                if in_nxt and _bot_instance and hasattr(_bot_instance, 'data_fetcher'):
+                    try:
+                        price_info = _bot_instance.data_fetcher.get_current_price(code)
+                        if price_info and price_info.get('current_price'):
+                            current_price = price_info['current_price']
+                            print(f"[NXT] {code} 실시간 현재가: {current_price:,}원")
+                    except Exception as e:
+                        print(f"[NXT] {code} 현재가 조회 실패: {e}")
+                        # 조회 실패 시 기존 가격 사용
+
                 value = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
                 if value == 0 and current_price > 0:
+                    value = quantity * current_price
+                elif in_nxt and current_price > 0:
+                    # NXT 시간대에는 실시간 현재가로 재계산
                     value = quantity * current_price
 
                 profit_loss = value - (avg_price * quantity)
