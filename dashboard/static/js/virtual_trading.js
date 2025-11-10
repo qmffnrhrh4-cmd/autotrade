@@ -30,6 +30,32 @@ class VirtualTradingManager {
     }
 
     /**
+     * Fetch with timeout (타임아웃 기능이 있는 fetch)
+     * @param {string} url - 요청 URL
+     * @param {object} options - fetch 옵션
+     * @param {number} timeout - 타임아웃 시간 (ms, 기본값: 10000ms)
+     */
+    async fetchWithTimeout(url, options = {}, timeout = 10000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('요청 시간이 초과되었습니다');
+            }
+            throw error;
+        }
+    }
+
+    /**
      * WebSocket 연결 (실시간 가격 업데이트)
      */
     connectWebSocket() {
@@ -98,7 +124,7 @@ class VirtualTradingManager {
      */
     async loadStrategies() {
         try {
-            const response = await fetch('/api/virtual-trading/strategies');
+            const response = await this.fetchWithTimeout('/api/virtual-trading/strategies');
             const data = await response.json();
 
             if (data.success) {
@@ -110,7 +136,7 @@ class VirtualTradingManager {
                 }
             }
         } catch (error) {
-            console.error('Failed to load strategies:', error);
+            console.error('전략 로드 실패:', error);
         }
     }
 
@@ -193,14 +219,14 @@ class VirtualTradingManager {
      */
     async loadStrategyDetail(strategyId) {
         try {
-            const response = await fetch(`/api/virtual-trading/strategies/${strategyId}`);
+            const response = await this.fetchWithTimeout(`/api/virtual-trading/strategies/${strategyId}`);
             const data = await response.json();
 
             if (data.success) {
                 this.renderStrategyDetail(data.strategy, data.metrics);
             }
         } catch (error) {
-            console.error('Failed to load strategy detail:', error);
+            console.error('전략 상세 로드 실패:', error);
         }
     }
 
@@ -784,7 +810,7 @@ class VirtualTradingManager {
         try {
             this.showNotification('AI 전략 생성', '5가지 AI 전략을 생성하는 중...', 'info');
 
-            const response = await fetch('/api/virtual-trading/ai/initialize', {
+            const response = await this.fetchWithTimeout('/api/virtual-trading/ai/initialize', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -819,7 +845,7 @@ class VirtualTradingManager {
         try {
             this.showNotification('AI 검토 시작', '전략 성과를 분석하는 중...', 'info');
 
-            const response = await fetch('/api/virtual-trading/ai/review', {
+            const response = await this.fetchWithTimeout('/api/virtual-trading/ai/review', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -851,7 +877,7 @@ class VirtualTradingManager {
         try {
             this.showNotification('AI 개선 시작', '전략을 개선하는 중...', 'info');
 
-            const response = await fetch('/api/virtual-trading/ai/improve', {
+            const response = await this.fetchWithTimeout('/api/virtual-trading/ai/improve', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -890,7 +916,7 @@ class VirtualTradingManager {
         try {
             this.showNotification('AI 자동 관리', '전략을 분석하고 개선하는 중...', 'info');
 
-            const response = await fetch('/api/virtual-trading/ai/auto-manage', {
+            const response = await this.fetchWithTimeout('/api/virtual-trading/ai/auto-manage', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
