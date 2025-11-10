@@ -1271,25 +1271,71 @@
             content.innerHTML = html;
         }
 
+        // ==================== Number Animation Helper ====================
+        const previousValues = {
+            totalAssets: 0,
+            stockCount: 0,
+            dailyProfit: 0,
+            totalReturn: 0
+        };
+
+        function animateNumber(elementId, newValue, isPercentage = false, isCurrency = false) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            const oldValue = previousValues[elementId] || 0;
+
+            if (oldValue === newValue) return;
+
+            try {
+                // Use CountUp.js for smooth animation
+                const options = {
+                    startVal: oldValue,
+                    decimalPlaces: isPercentage ? 2 : 0,
+                    duration: 1.5,
+                    useEasing: true,
+                    useGrouping: true,
+                    separator: ',',
+                    decimal: '.',
+                    suffix: isCurrency ? '원' : (isPercentage ? '%' : '')
+                };
+
+                const countUp = new countUp.CountUp(elementId, newValue, options);
+                if (!countUp.error) {
+                    countUp.start();
+                    previousValues[elementId] = newValue;
+                } else {
+                    console.error(countUp.error);
+                    element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
+                }
+            } catch (e) {
+                // Fallback without animation
+                element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
+                previousValues[elementId] = newValue;
+            }
+        }
+
         function refreshAccount() {
             fetch('/api/account')
                 .then(response => response.json())
                 .then(data => {
-                    // Update account stats
-                    document.getElementById('total-assets').textContent = (data.total_assets || 0).toLocaleString() + '원';
-                    document.getElementById('stock-count').textContent = (data.open_positions || 0);
-
-                    // Calculate and display profit percentage
+                    // Animate account stats
+                    const totalAssets = data.total_assets || 0;
+                    const openPositions = data.open_positions || 0;
                     const profitPercent = data.profit_loss_percent || 0;
                     const profitLoss = data.profit_loss || 0;
+
+                    animateNumber('total-assets', totalAssets, false, true);
+                    animateNumber('stock-count', openPositions, false, false);
+
                     const profitColor = profitLoss >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
 
-                    // Update total return
+                    // Update total return with animation
                     const totalReturnElement = document.getElementById('total-return');
                     totalReturnElement.textContent = (profitPercent >= 0 ? '+' : '') + profitPercent.toFixed(2) + '%';
                     totalReturnElement.style.color = profitColor;
 
-                    // Update daily profit
+                    // Update daily profit with animation
                     const dailyProfitElement = document.getElementById('daily-profit');
                     dailyProfitElement.textContent = (profitLoss >= 0 ? '+' : '') + profitLoss.toLocaleString() + '원';
                     dailyProfitElement.style.color = profitColor;
