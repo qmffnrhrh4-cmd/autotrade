@@ -63,8 +63,8 @@ def process_tr_in_main_thread(request_id, tr_type, params):
             all_items = []
             prev_next_value = 0
             request_count = 0
-            max_requests = 5  # 최대 5회 연속 조회 (100개 × 5 = 500개)
-                              # 키움 API TR 요청 제한이 매우 엄격하여 3초 대기 + 5회로 제한
+            max_requests = 10  # 최대 10회 연속 조회 (100개 × 10 = 1000개)
+                               # SetInputValue를 매번 호출하면 연속 조회 가능
 
             logger.info(f"[{request_id}] {stock_code} {interval}분봉 연속 조회 시작 (최대 {max_requests}회)")
 
@@ -113,11 +113,10 @@ def process_tr_in_main_thread(request_id, tr_type, params):
                 # 이벤트 핸들러 연결
                 openapi_context.OnReceiveTrData.connect(on_receive)
 
-                # 입력값 설정 (첫 요청시만)
-                if prev_next_value == 0:
-                    openapi_context.SetInputValue('종목코드', stock_code)
-                    openapi_context.SetInputValue('틱범위', str(interval))
-                    openapi_context.SetInputValue('수정주가구분', '1')
+                # 입력값 설정 (매 요청마다 설정 필요!)
+                openapi_context.SetInputValue('종목코드', stock_code)
+                openapi_context.SetInputValue('틱범위', str(interval))
+                openapi_context.SetInputValue('수정주가구분', '1')
 
                 # TR 요청
                 event_loop = QEventLoop()
@@ -170,11 +169,11 @@ def process_tr_in_main_thread(request_id, tr_type, params):
                 except:
                     pass
 
-                # API 요청 제한 준수 (연속 조회 시 3초 대기)
-                # 키움 API는 TR 요청 제한이 매우 엄격하므로 충분한 대기 시간 필요
+                # API 요청 제한 준수 (연속 조회 시 1초 대기)
+                # 키움 API는 초당 5회 제한 (0.2초 권장이지만 안전하게 1초)
                 if prev_next_value == 2 and request_count < max_requests:
-                    logger.info(f"[{request_id}] API 제한 준수를 위해 3초 대기...")
-                    time.sleep(3.0)
+                    logger.info(f"[{request_id}] API 제한 준수를 위해 1초 대기...")
+                    time.sleep(1.0)
 
             # 최종 결과 저장
             result_data = {
@@ -276,9 +275,9 @@ def get_minute_data(code, interval):
 
         logger.info(f"[{request_id}] {code} {interval}분봉 요청을 큐에 추가")
 
-        # 결과 대기 (polling) - 5회 연속 조회 + 각 3초 대기 고려
-        # 최대 5회 × (10초 응답 + 3초 대기) = 65초, 안전하게 90초로 설정
-        timeout = 90
+        # 결과 대기 (polling) - 10회 연속 조회 + 각 1초 대기 고려
+        # 최대 10회 × (10초 응답 + 1초 대기) = 110초, 안전하게 120초로 설정
+        timeout = 120
         start_time = time.time()
 
         while time.time() - start_time < timeout:

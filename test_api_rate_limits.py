@@ -97,11 +97,10 @@ def test_continuous_inquiry(api, stock_code, interval, delay_seconds, max_attemp
         received_data['result'] = None
         received_data['completed'] = False
 
-        # 입력값 설정 (첫 요청시만)
-        if prev_next_value == 0:
-            api.SetInputValue('종목코드', stock_code)
-            api.SetInputValue('틱범위', str(interval))
-            api.SetInputValue('수정주가구분', '1')
+        # 입력값 설정 (매 요청마다 설정 필요!)
+        api.SetInputValue('종목코드', stock_code)
+        api.SetInputValue('틱범위', str(interval))
+        api.SetInputValue('수정주가구분', '1')
 
         # TR 요청
         event_loop = QEventLoop()
@@ -350,10 +349,10 @@ def test_progressive_delay(api, stock_code, interval):
         received_data['result'] = None
         received_data['completed'] = False
 
-        if prev_next_value == 0:
-            api.SetInputValue('종목코드', stock_code)
-            api.SetInputValue('틱범위', str(interval))
-            api.SetInputValue('수정주가구분', '1')
+        # 입력값 설정 (매 요청마다 설정 필요!)
+        api.SetInputValue('종목코드', stock_code)
+        api.SetInputValue('틱범위', str(interval))
+        api.SetInputValue('수정주가구분', '1')
 
         event_loop = QEventLoop()
         received_data['event_loop'] = event_loop
