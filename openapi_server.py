@@ -253,32 +253,39 @@ def get_minute_data(code, interval):
                 if rq_name != rqname:
                     return
 
+                # 실제 레코드명 로깅 (중요!)
+                logger.info(f"  📥 OnReceiveTrData - record_name: '{record_name}', prev_next: {prev_next}")
+
                 try:
-                    cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
+                    # ⚠️ 중요: GetCommData의 두 번째 인자는 record_name이어야 함!
+                    cnt = openapi_context.GetRepeatCnt(tr_code, record_name)
                     items = []
 
-                    logger.info(f"  GetRepeatCnt 반환값: {cnt}개")
+                    logger.info(f"  📊 GetRepeatCnt: {cnt}개")
 
                     # 복수 데이터 추출
                     for i in range(cnt):
                         # opt10080 분봉차트 기본 출력 필드만 사용
                         try:
                             item = {
-                                '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
-                                '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
-                                '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
-                                '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
-                                '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
-                                '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
+                                '체결시간': openapi_context.GetCommData(tr_code, record_name, i, "체결시간").strip(),
+                                '현재가': openapi_context.GetCommData(tr_code, record_name, i, "현재가").strip(),
+                                '시가': openapi_context.GetCommData(tr_code, record_name, i, "시가").strip(),
+                                '고가': openapi_context.GetCommData(tr_code, record_name, i, "고가").strip(),
+                                '저가': openapi_context.GetCommData(tr_code, record_name, i, "저가").strip(),
+                                '거래량': openapi_context.GetCommData(tr_code, record_name, i, "거래량").strip(),
                             }
 
                             # 첫 5개와 마지막 2개만 샘플 로그 출력
                             if i < 5 or i >= cnt - 2:
-                                logger.info(f"    [{i}] {item.get('체결시간', 'N/A')[:14]} - 종가: {item.get('현재가', 'N/A')}, 거래량: {item.get('거래량', 'N/A')}")
+                                logger.info(f"    [{i}] {item.get('체결시간', 'N/A')[:14] if item.get('체결시간') else 'N/A'} - 종가: {item.get('현재가', 'N/A')}, 거래량: {item.get('거래량', 'N/A')}")
 
                             items.append(item)
                         except Exception as e:
                             logger.error(f"    [{i}] 데이터 추출 실패: {e}")
+                            if i < 3:  # 처음 3개만 에러 상세 로그
+                                import traceback
+                                logger.error(traceback.format_exc())
                             continue
 
                     received_data['result'] = {'items': items, 'count': cnt, 'total_received': len(items)}
