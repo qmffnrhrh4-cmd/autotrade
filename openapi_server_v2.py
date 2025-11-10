@@ -50,85 +50,122 @@ def process_tr_in_main_thread(request_id, tr_type, params):
     """메인 스레드에서 TR 요청 처리 (Qt에서 호출)"""
     from PyQt5.QtCore import QEventLoop, QTimer
     from datetime import datetime
+    import time
 
     logger.info(f"[{request_id}] 메인 스레드에서 TR 처리 시작: {tr_type}")
 
     try:
         if tr_type == 'minute_chart':
-            # 분봉 조회
+            # 분봉 조회 (연속 조회 지원)
             stock_code = params['stock_code']
             interval = params['interval']
 
-            result_data = {'items': [], 'count': 0}
-            received_data = {'result': None, 'completed': False}
+            all_items = []
+            prev_next_value = 0
+            request_count = 0
+            max_requests = 10  # 최대 10회 연속 조회 (100개 × 10 = 1000개)
 
-            def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
-                if rq_name != 'minute_qt':
-                    return
+            logger.info(f"[{request_id}] {stock_code} {interval}분봉 연속 조회 시작 (최대 {max_requests}회)")
 
-                try:
-                    cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
-                    items = []
+            while request_count < max_requests:
+                request_count += 1
+                logger.info(f"[{request_id}] {request_count}회차 조회 (prev_next={prev_next_value})")
 
-                    max_extract = min(cnt, 100)
+                received_data = {'result': None, 'completed': False}
 
-                    for i in range(max_extract):
-                        try:
-                            item = {
-                                '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
-                                '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
-                                '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
-                                '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
-                                '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
-                                '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
-                            }
-                            items.append(item)
-                        except:
-                            continue
+                def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+                    if rq_name != 'minute_qt':
+                        return
 
-                    received_data['result'] = {
-                        'items': items,
-                        'count': cnt,
-                        'prev_next': int(prev_next) if prev_next else 0
-                    }
-                except Exception as e:
-                    received_data['result'] = {'error': str(e)}
+                    try:
+                        cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
+                        items = []
 
-                received_data['completed'] = True
-                if event_loop.isRunning():
-                    event_loop.quit()
+                        max_extract = min(cnt, 100)
 
-            # 이벤트 핸들러 연결
-            openapi_context.OnReceiveTrData.connect(on_receive)
+                        for i in range(max_extract):
+                            try:
+                                item = {
+                                    '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
+                                    '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                                    '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
+                                    '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
+                                    '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
+                                    '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
+                                }
+                                items.append(item)
+                            except:
+                                continue
 
-            # 입력값 설정
-            openapi_context.SetInputValue('종목코드', stock_code)
-            openapi_context.SetInputValue('틱범위', str(interval))
-            openapi_context.SetInputValue('수정주가구분', '1')
+                        received_data['result'] = {
+                            'items': items,
+                            'count': cnt,
+                            'prev_next': int(prev_next) if prev_next else 0
+                        }
+                    except Exception as e:
+                        received_data['result'] = {'error': str(e)}
 
-            # TR 요청
-            event_loop = QEventLoop()
-            ret = openapi_context.CommRqData('minute_qt', 'opt10080', 0, '0101')
+                    received_data['completed'] = True
+                    if event_loop.isRunning():
+                        event_loop.quit()
 
-            if ret != 0:
-                result_data = {'error': f'Request failed: {ret}'}
-            else:
-                # 타임아웃 설정
-                QTimer.singleShot(10000, event_loop.quit)
-                event_loop.exec_()
+                # 이벤트 핸들러 연결
+                openapi_context.OnReceiveTrData.connect(on_receive)
 
-                if received_data['completed']:
-                    result_data = received_data['result']
+                # 입력값 설정 (첫 요청시만)
+                if prev_next_value == 0:
+                    openapi_context.SetInputValue('종목코드', stock_code)
+                    openapi_context.SetInputValue('틱범위', str(interval))
+                    openapi_context.SetInputValue('수정주가구분', '1')
+
+                # TR 요청
+                event_loop = QEventLoop()
+                ret = openapi_context.CommRqData('minute_qt', 'opt10080', prev_next_value, '0101')
+
+                if ret != 0:
+                    logger.error(f"[{request_id}] {request_count}회차 요청 실패: {ret}")
+                    break
                 else:
-                    result_data = {'error': 'Timeout'}
+                    # 타임아웃 설정
+                    QTimer.singleShot(10000, event_loop.quit)
+                    event_loop.exec_()
 
-            # 이벤트 핸들러 해제
-            try:
-                openapi_context.OnReceiveTrData.disconnect(on_receive)
-            except:
-                pass
+                    if received_data['completed'] and received_data['result']:
+                        result = received_data['result']
 
-            # 결과 저장
+                        if 'error' in result:
+                            logger.error(f"[{request_id}] {request_count}회차 오류: {result['error']}")
+                            break
+
+                        items = result.get('items', [])
+                        all_items.extend(items)
+                        logger.info(f"[{request_id}] {request_count}회차: {len(items)}개 수신 (누적: {len(all_items)}개)")
+
+                        # 연속 조회 가능 여부 확인
+                        prev_next_value = result.get('prev_next', 0)
+                        if prev_next_value != 2:
+                            logger.info(f"[{request_id}] 연속 조회 종료 (prev_next={prev_next_value})")
+                            break
+                    else:
+                        logger.error(f"[{request_id}] {request_count}회차 타임아웃")
+                        break
+
+                # 이벤트 핸들러 해제
+                try:
+                    openapi_context.OnReceiveTrData.disconnect(on_receive)
+                except:
+                    pass
+
+                # API 요청 제한 준수 (0.2초 대기)
+                if prev_next_value == 2 and request_count < max_requests:
+                    time.sleep(0.2)
+
+            # 최종 결과 저장
+            result_data = {
+                'items': all_items,
+                'count': len(all_items)
+            }
+
             with tr_result_lock:
                 tr_result_dict[request_id] = {
                     'completed': True,
@@ -136,7 +173,7 @@ def process_tr_in_main_thread(request_id, tr_type, params):
                     'error': None
                 }
 
-            logger.info(f"[{request_id}] TR 처리 완료")
+            logger.info(f"[{request_id}] TR 처리 완료: 총 {len(all_items)}개 캔들 수집")
 
         else:
             # Unknown TR type
@@ -223,8 +260,8 @@ def get_minute_data(code, interval):
 
         logger.info(f"[{request_id}] {code} {interval}분봉 요청을 큐에 추가")
 
-        # 결과 대기 (polling)
-        timeout = 15
+        # 결과 대기 (polling) - 10회 연속 조회 고려하여 충분한 시간 확보
+        timeout = 30
         start_time = time.time()
 
         while time.time() - start_time < timeout:
