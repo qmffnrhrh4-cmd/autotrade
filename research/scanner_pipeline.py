@@ -206,12 +206,22 @@ class ScannerPipeline:
             candidates = self.screener.filter_exclude_etf_and_derivatives(candidates)
             print(f"📍 ETF 필터 후: {len(candidates) if candidates else 0}개 종목")
 
+            # 🔍 DEBUG: 첫 번째 후보 데이터 타입 확인
+            if candidates and len(candidates) > 0:
+                first = candidates[0]
+                print(f"🔍 DEBUG: 첫 번째 종목 키: {list(first.keys())}")
+                print(f"🔍 DEBUG: volume 타입={type(first.get('volume'))}, 값={first.get('volume')}")
+                print(f"🔍 DEBUG: price 타입={type(first.get('price'))}, 값={first.get('price')}")
+                print(f"🔍 DEBUG: rate 타입={type(first.get('rate'))}, 값={first.get('rate')}")
+
             # 거래량 기준 정렬
+            print("📍 거래량 정렬 시작...")
             candidates = sorted(
                 candidates,
                 key=lambda x: float(x.get('volume', 0)) * float(x.get('price', 0)),  # 거래대금
                 reverse=True
             )
+            print("📍 거래량 정렬 완료")
 
             # 최대 개수 제한
             candidates = candidates[:self.fast_max_candidates]
@@ -219,22 +229,58 @@ class ScannerPipeline:
             scan_time = datetime.now()
             stock_candidates = []
 
-            for stock in candidates:
-                candidate = StockCandidate(
-                    code=stock['code'],
-                    name=stock['name'],
-                    price=int(float(stock['price'])),
-                    volume=int(float(stock['volume'])),
-                    rate=float(stock['rate']),
-                    fast_scan_time=scan_time,
-                )
+            print(f"📍 StockCandidate 생성 시작 ({len(candidates)}개)...")
+            for idx, stock in enumerate(candidates):
+                try:
+                    print(f"  [{idx+1}] {stock.get('name')} - volume={stock.get('volume')} (type={type(stock.get('volume'))})")
+                    candidate = StockCandidate(
+                        code=stock['code'],
+                        name=stock['name'],
+                        price=int(float(stock['price'])),
+                        volume=int(float(stock['volume'])),
+                        rate=float(stock['rate']),
+                        fast_scan_time=scan_time,
+                    )
 
-                candidate.fast_scan_score = self._calculate_fast_score(candidate)
-                stock_candidates.append(candidate)
+                    candidate.fast_scan_score = self._calculate_fast_score(candidate)
+                    stock_candidates.append(candidate)
+                except Exception as e:
+                    print(f"  ❌ 에러 발생: {stock.get('name')} - {e}")
+                    import traceback
+                    traceback.print_exc()
+                    raise  # 원래 에러를 다시 발생시켜 상위 except에서 잡히도록
 
-            stock_candidates = self._apply_learned_preferences(stock_candidates)
-            stock_candidates = self._adjust_for_market_condition(stock_candidates)
-            stock_candidates = self._filter_duplicates(stock_candidates)
+            print(f"📍 헬퍼 함수 실행 시작 ({len(stock_candidates)}개)...")
+
+            try:
+                print("  🔹 _apply_learned_preferences 실행 중...")
+                stock_candidates = self._apply_learned_preferences(stock_candidates)
+                print(f"  ✅ _apply_learned_preferences 완료: {len(stock_candidates)}개")
+            except Exception as e:
+                print(f"  ❌ _apply_learned_preferences 에러: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+
+            try:
+                print("  🔹 _adjust_for_market_condition 실행 중...")
+                stock_candidates = self._adjust_for_market_condition(stock_candidates)
+                print(f"  ✅ _adjust_for_market_condition 완료: {len(stock_candidates)}개")
+            except Exception as e:
+                print(f"  ❌ _adjust_for_market_condition 에러: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+
+            try:
+                print("  🔹 _filter_duplicates 실행 중...")
+                stock_candidates = self._filter_duplicates(stock_candidates)
+                print(f"  ✅ _filter_duplicates 완료: {len(stock_candidates)}개")
+            except Exception as e:
+                print(f"  ❌ _filter_duplicates 에러: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
 
             self.fast_scan_results = stock_candidates
             self.last_fast_scan = time.time()
