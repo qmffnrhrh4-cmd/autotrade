@@ -10,6 +10,7 @@ from .models import VirtualTradingDB
 from .manager import VirtualTradingManager
 from .scheduler import VirtualTradingScheduler
 from .backtest_adapter import BacktestAdapter
+from .ai_strategy_manager import AIStrategyManager
 
 __all__ = [
     'VirtualAccount',
@@ -20,4 +21,5 @@ __all__ = [
     'VirtualTradingManager',
     'VirtualTradingScheduler',
     'BacktestAdapter',
+    'AIStrategyManager',
 ]

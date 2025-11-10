@@ -399,3 +399,142 @@ def apply_backtest_result():
     except Exception as e:
         logger.error(f"백테스팅 조건 적용 실패: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+# ============================================================================
+# AI 자동 전략 관리 API
+# ============================================================================
+
+@virtual_trading_bp.route('/api/virtual-trading/ai/initialize', methods=['POST'])
+def ai_initialize_strategies():
+    """AI가 5가지 전략을 자동 생성"""
+    try:
+        if not virtual_manager:
+            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        from flask import current_app
+        bot_instance = getattr(current_app, 'bot_instance', None)
+
+        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+
+        from virtual_trading import AIStrategyManager
+
+        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+
+        data = request.json or {}
+        initial_capital = data.get('initial_capital', 10000000)
+
+        strategy_ids = ai_manager.initialize_strategies(initial_capital)
+
+        return jsonify({
+            'success': True,
+            'strategy_ids': strategy_ids,
+            'message': f'AI가 5가지 전략을 자동 생성했습니다'
+        })
+
+    except Exception as e:
+        logger.error(f"AI 전략 초기화 실패: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@virtual_trading_bp.route('/api/virtual-trading/ai/review', methods=['POST'])
+def ai_review_strategies():
+    """AI가 전략 성과를 자동 검토"""
+    try:
+        if not virtual_manager:
+            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        from flask import current_app
+        bot_instance = getattr(current_app, 'bot_instance', None)
+
+        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+
+        from virtual_trading import AIStrategyManager
+
+        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+
+        # 모든 전략 가져오기
+        strategies = virtual_manager.get_strategy_summary()
+        ai_manager.active_strategy_ids = [s['strategy_id'] for s in strategies]
+
+        review_result = ai_manager.review_strategies()
+
+        return jsonify({
+            'success': True,
+            'result': review_result
+        })
+
+    except Exception as e:
+        logger.error(f"AI 전략 검토 실패: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@virtual_trading_bp.route('/api/virtual-trading/ai/improve', methods=['POST'])
+def ai_improve_strategies():
+    """AI가 전략을 자동 개선"""
+    try:
+        if not virtual_manager:
+            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        from flask import current_app
+        bot_instance = getattr(current_app, 'bot_instance', None)
+
+        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+
+        from virtual_trading import AIStrategyManager
+
+        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+
+        # 모든 전략 가져오기
+        strategies = virtual_manager.get_strategy_summary()
+        ai_manager.active_strategy_ids = [s['strategy_id'] for s in strategies]
+
+        data = request.json or {}
+        backtest_period_days = data.get('backtest_period_days', 90)
+
+        improvement_result = ai_manager.improve_strategies(backtest_period_days)
+
+        return jsonify({
+            'success': True,
+            'result': improvement_result
+        })
+
+    except Exception as e:
+        logger.error(f"AI 전략 개선 실패: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@virtual_trading_bp.route('/api/virtual-trading/ai/auto-manage', methods=['POST'])
+def ai_auto_manage():
+    """AI가 전략을 자동 관리 (검토 → 개선 → 추천)"""
+    try:
+        if not virtual_manager:
+            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        from flask import current_app
+        bot_instance = getattr(current_app, 'bot_instance', None)
+
+        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+
+        from virtual_trading import AIStrategyManager
+
+        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+
+        # 모든 전략 가져오기
+        strategies = virtual_manager.get_strategy_summary()
+        ai_manager.active_strategy_ids = [s['strategy_id'] for s in strategies]
+
+        manage_result = ai_manager.auto_manage_strategies()
+
+        return jsonify({
+            'success': True,
+            'result': manage_result
+        })
+
+    except Exception as e:
+        logger.error(f"AI 자동 관리 실패: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500

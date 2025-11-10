@@ -1490,7 +1490,7 @@
             if (oldValue === newValue) return;
 
             try {
-                // Use CountUp.js for smooth animation
+                // Use CountUp.js for smooth roulette-style animation
                 const options = {
                     startVal: oldValue,
                     decimalPlaces: isPercentage ? 2 : 0,
@@ -1502,15 +1502,24 @@
                     suffix: isCurrency ? '원' : (isPercentage ? '%' : '')
                 };
 
-                const countUp = new countUp.CountUp(elementId, newValue, options);
-                if (!countUp.error) {
-                    countUp.start();
-                    previousValues[elementId] = newValue;
+                // Check if CountUp is available globally
+                if (typeof window.countUp !== 'undefined' && window.countUp.CountUp) {
+                    const counter = new window.countUp.CountUp(elementId, newValue, options);
+                    if (!counter.error) {
+                        counter.start();
+                        previousValues[elementId] = newValue;
+                    } else {
+                        console.error('CountUp error:', counter.error);
+                        element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
+                        previousValues[elementId] = newValue;
+                    }
                 } else {
-                    console.error(countUp.error);
+                    console.warn('CountUp.js not loaded, using fallback');
                     element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
+                    previousValues[elementId] = newValue;
                 }
             } catch (e) {
+                console.error('Animation error:', e);
                 // Fallback without animation
                 element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
                 previousValues[elementId] = newValue;

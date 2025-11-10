@@ -450,41 +450,72 @@ def get_chart_data(stock_code: str):
                             })
 
                             # Add indicator data (use time_value for both daily and minute data)
-                            if not pd.isna(rsi_values.iloc[idx]):
-                                indicators['rsi'].append({'time': time_value, 'value': float(rsi_values.iloc[idx])})
+                            # Use try-except for each indicator to avoid slice errors
+                            try:
+                                if idx < len(rsi_values) and not pd.isna(rsi_values.iloc[idx]):
+                                    indicators['rsi'].append({'time': time_value, 'value': float(rsi_values.iloc[idx])})
+                            except:
+                                pass
 
-                            if not pd.isna(macd_line.iloc[idx]):
-                                indicators['macd'].append({
-                                    'time': time_value,
-                                    'macd': float(macd_line.iloc[idx]),
-                                    'signal': float(signal_line.iloc[idx]),
-                                    'histogram': float(histogram.iloc[idx])
-                                })
+                            try:
+                                if idx < len(macd_line) and not pd.isna(macd_line.iloc[idx]):
+                                    indicators['macd'].append({
+                                        'time': time_value,
+                                        'macd': float(macd_line.iloc[idx]),
+                                        'signal': float(signal_line.iloc[idx]),
+                                        'histogram': float(histogram.iloc[idx])
+                                    })
+                            except:
+                                pass
 
-                            # Volume
+                            # Volume - Korean stock market convention: 상승(빨강), 하락(파랑)
+                            close_price = float(item.get('close', 0))
+                            open_price = float(item.get('open', 0))
                             indicators['volume'].append({
                                 'time': time_value,
                                 'value': float(item.get('volume', 0)),
-                                'color': '#10b981' if float(item.get('close', 0)) >= float(item.get('open', 0)) else '#ef4444'
+                                'color': '#ef4444' if close_price >= open_price else '#3b82f6'  # Red for up, Blue for down
                             })
 
                             # Moving Averages (only add if not NaN)
-                            if not pd.isna(sma_5.iloc[idx]):
-                                indicators['ma5'].append({'time': time_value, 'value': float(sma_5.iloc[idx])})
-                            if not pd.isna(sma_20.iloc[idx]):
-                                indicators['ma20'].append({'time': time_value, 'value': float(sma_20.iloc[idx])})
-                            if not pd.isna(sma_60.iloc[idx]):
-                                indicators['ma60'].append({'time': time_value, 'value': float(sma_60.iloc[idx])})
-                            if not pd.isna(ema_12.iloc[idx]):
-                                indicators['ema12'].append({'time': time_value, 'value': float(ema_12.iloc[idx])})
-                            if not pd.isna(ema_26.iloc[idx]):
-                                indicators['ema26'].append({'time': time_value, 'value': float(ema_26.iloc[idx])})
+                            try:
+                                if idx < len(sma_5) and not pd.isna(sma_5.iloc[idx]):
+                                    indicators['ma5'].append({'time': time_value, 'value': float(sma_5.iloc[idx])})
+                            except:
+                                pass
+
+                            try:
+                                if idx < len(sma_20) and not pd.isna(sma_20.iloc[idx]):
+                                    indicators['ma20'].append({'time': time_value, 'value': float(sma_20.iloc[idx])})
+                            except:
+                                pass
+
+                            try:
+                                if idx < len(sma_60) and not pd.isna(sma_60.iloc[idx]):
+                                    indicators['ma60'].append({'time': time_value, 'value': float(sma_60.iloc[idx])})
+                            except:
+                                pass
+
+                            try:
+                                if idx < len(ema_12) and not pd.isna(ema_12.iloc[idx]):
+                                    indicators['ema12'].append({'time': time_value, 'value': float(ema_12.iloc[idx])})
+                            except:
+                                pass
+
+                            try:
+                                if idx < len(ema_26) and not pd.isna(ema_26.iloc[idx]):
+                                    indicators['ema26'].append({'time': time_value, 'value': float(ema_26.iloc[idx])})
+                            except:
+                                pass
 
                             # Bollinger Bands
-                            if not pd.isna(bb_upper.iloc[idx]):
-                                indicators['bb_upper'].append({'time': time_value, 'value': float(bb_upper.iloc[idx])})
-                                indicators['bb_middle'].append({'time': time_value, 'value': float(bb_middle.iloc[idx])})
-                                indicators['bb_lower'].append({'time': time_value, 'value': float(bb_lower.iloc[idx])})
+                            try:
+                                if idx < len(bb_upper) and not pd.isna(bb_upper.iloc[idx]):
+                                    indicators['bb_upper'].append({'time': time_value, 'value': float(bb_upper.iloc[idx])})
+                                    indicators['bb_middle'].append({'time': time_value, 'value': float(bb_middle.iloc[idx])})
+                                    indicators['bb_lower'].append({'time': time_value, 'value': float(bb_lower.iloc[idx])})
+                            except:
+                                pass
 
                     except Exception as e:
                         print(f"⚠️ Error parsing chart data item: {e}, item={item}")

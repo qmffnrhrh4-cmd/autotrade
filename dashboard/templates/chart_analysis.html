@@ -458,12 +458,12 @@
             });
 
             candlestickSeries = chart.addCandlestickSeries({
-                upColor: '#26a69a',
-                downColor: '#ef5350',
-                borderUpColor: '#26a69a',
-                borderDownColor: '#ef5350',
-                wickUpColor: '#26a69a',
-                wickDownColor: '#ef5350',
+                upColor: '#ef4444',        // Red for up (Korean market convention)
+                downColor: '#3b82f6',      // Blue for down
+                borderUpColor: '#ef4444',
+                borderDownColor: '#3b82f6',
+                wickUpColor: '#ef4444',
+                wickDownColor: '#3b82f6',
             });
 
             // Responsive
@@ -607,8 +607,8 @@
             if (!points || points.length === 0) return;
 
             const chartMarkers = points.map(point => {
-                const color = point.signal === 'bullish' ? '#26a69a' :
-                              point.signal === 'bearish' ? '#ef5350' : '#06b6d4';
+                const color = point.signal === 'bullish' ? '#ef4444' :     // Red for bullish
+                              point.signal === 'bearish' ? '#3b82f6' : '#06b6d4';  // Blue for bearish
 
                 return {
                     time: point.date,

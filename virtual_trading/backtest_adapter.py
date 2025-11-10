@@ -132,11 +132,12 @@ class BacktestAdapter:
         trades = []
 
         for i, day in enumerate(daily_data):
-            date = day.get('date', '')
-            open_price = day.get('open_price', 0)
-            high_price = day.get('high_price', 0)
-            low_price = day.get('low_price', 0)
-            close_price = day.get('close_price', 0)
+            date = day.get('date', day.get('stck_bsop_date', ''))
+            # Support both formats: 'open'/'open_price', 'high'/'high_price', etc.
+            open_price = day.get('open', day.get('open_price', day.get('stck_oprc', 0)))
+            high_price = day.get('high', day.get('high_price', day.get('stck_hgpr', 0)))
+            low_price = day.get('low', day.get('low_price', day.get('stck_lwpr', 0)))
+            close_price = day.get('close', day.get('close_price', day.get('stck_clpr', 0)))
 
             # 포지션이 없으면 매수 (단순화: 매일 매수 시도)
             if position is None and open_price > 0:

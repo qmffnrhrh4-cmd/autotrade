@@ -266,13 +266,13 @@ class AdvancedTradingChart {
             },
         });
 
-        // Add candlestick series with better colors
+        // Add candlestick series with Korean market colors (상승=빨강, 하락=파랑)
         this.candlestickSeries = this.mainChart.addCandlestickSeries({
-            upColor: '#22c55e',
-            downColor: '#ef4444',
+            upColor: '#ef4444',        // Red for up
+            downColor: '#3b82f6',      // Blue for down
             borderVisible: false,
-            wickUpColor: '#22c55e',
-            wickDownColor: '#ef4444',
+            wickUpColor: '#ef4444',    // Red wick for up
+            wickDownColor: '#3b82f6',  // Blue wick for down
         });
 
         // Add MA series
@@ -663,11 +663,11 @@ class AdvancedTradingChart {
 
         // For weekly/monthly, create volume data from aggregated candles
         if (this.currentTimeframe === 'W' || this.currentTimeframe === 'M') {
-            // Generate volume data from chartData
+            // Generate volume data from chartData (상승=빨강, 하락=파랑)
             const volumeData = chartData.map(candle => ({
                 time: candle.time,
                 value: candle.volume || 0,
-                color: candle.close >= candle.open ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)'
+                color: candle.close >= candle.open ? 'rgba(239, 68, 68, 0.5)' : 'rgba(59, 130, 246, 0.5)'  // Red for up, Blue for down
             }));
 
             if (this.series.volume) {
