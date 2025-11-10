@@ -139,7 +139,7 @@ class Screener:
         # 가격 필터
         filtered = [
             stock for stock in stocks
-            if min_price <= int(stock.get('current_price', 0)) <= max_price
+            if min_price <= int(float(stock.get('current_price', 0))) <= max_price
         ]
         
         logger.info(f"가격대 스크리닝 완료: {len(filtered)}개 종목 ({min_price:,}원 ~ {max_price:,}원)")
@@ -458,7 +458,7 @@ class Screener:
         filtered = []
         for stock in candidates:
             volume = int(float(stock.get('volume', 0)))
-            price = int(stock.get('current_price', 0))
+            price = int(float(stock.get('current_price', 0)))
             change_rate = float(stock.get('change_rate', 0))
             
             # 모든 조건 만족 체크
@@ -538,9 +538,9 @@ class Screener:
             investor_info = self.fetcher.get_investor_trading(stock_code)
             if not investor_info:
                 continue
-            
-            foreign_net = int(investor_info.get('foreign_net', 0))
-            institution_net = int(investor_info.get('institution_net', 0))
+
+            foreign_net = int(float(investor_info.get('foreign_net', 0)))
+            institution_net = int(float(investor_info.get('institution_net', 0)))
             
             # 조건 체크
             foreign_ok = (foreign_net > 0) if foreign_net_positive else (foreign_net <= 0)
@@ -620,7 +620,7 @@ class Screener:
                 'top_3': []
             }
         
-        prices = [int(s.get('current_price', 0)) for s in stocks]
+        prices = [int(float(s.get('current_price', 0))) for s in stocks]
         volumes = [int(float(s.get('volume', 0))) for s in stocks]
         rates = [float(s.get('change_rate', 0)) for s in stocks]
         
