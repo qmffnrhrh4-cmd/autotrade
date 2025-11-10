@@ -15,7 +15,7 @@ except ImportError:
     AdvancedRiskAnalytics = None
 
 try:
-    from ...features.risk_analyzer import RiskAnalyzer, RiskAnalysis, StockRisk, PortfolioRisk
+    from features.risk_analyzer import RiskAnalyzer, RiskAnalysis, StockRisk, PortfolioRisk
 except ImportError:
     RiskAnalyzer = None
     RiskAnalysis = None

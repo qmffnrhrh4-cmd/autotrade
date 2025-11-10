@@ -275,6 +275,12 @@ def get_virtual_trades():
             })
 
         virtual_trader = _bot_instance.virtual_trader
+        if not virtual_trader:
+            return jsonify({
+                'success': False,
+                'message': '가상매매 미활성화'
+            })
+
         trades_by_strategy = {}
 
         for strategy_name, account in virtual_trader.accounts.items():
