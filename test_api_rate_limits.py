@@ -55,42 +55,47 @@ def test_continuous_inquiry(api, stock_code, interval, delay_seconds, max_attemp
     prev_next_value = 0
     attempt_count = 0
 
+    # 이벤트 핸들러는 루프 밖에서 한 번만 정의하고 연결
+    received_data = {'result': None, 'completed': False, 'return_code': None, 'event_loop': None}
+
+    def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+        if rq_name != 'test_minute':
+            return
+
+        try:
+            cnt = api.GetRepeatCnt(tr_code, rq_name)
+            items = []
+
+            for i in range(min(cnt, 100)):
+                item = {
+                    '체결시간': api.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
+                    '현재가': api.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                }
+                items.append(item)
+
+            received_data['result'] = {
+                'items': items,
+                'count': cnt,
+                'prev_next': int(prev_next) if prev_next else 0
+            }
+        except Exception as e:
+            received_data['result'] = {'error': str(e)}
+
+        received_data['completed'] = True
+        if received_data['event_loop'] and received_data['event_loop'].isRunning():
+            received_data['event_loop'].quit()
+
+    # 이벤트 핸들러를 한 번만 연결 (연속 조회의 핵심!)
+    api.OnReceiveTrData.connect(on_receive)
+
     while attempt_count < max_attempts:
         attempt_count += 1
         attempt_start = time.time()
         log(f"\n--- {attempt_count}회차 시도 (prev_next={prev_next_value}) ---")
 
-        received_data = {'result': None, 'completed': False, 'return_code': None}
-
-        def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
-            if rq_name != 'test_minute':
-                return
-
-            try:
-                cnt = api.GetRepeatCnt(tr_code, rq_name)
-                items = []
-
-                for i in range(min(cnt, 100)):
-                    item = {
-                        '체결시간': api.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
-                        '현재가': api.GetCommData(tr_code, rq_name, i, "현재가").strip(),
-                    }
-                    items.append(item)
-
-                received_data['result'] = {
-                    'items': items,
-                    'count': cnt,
-                    'prev_next': int(prev_next) if prev_next else 0
-                }
-            except Exception as e:
-                received_data['result'] = {'error': str(e)}
-
-            received_data['completed'] = True
-            if event_loop.isRunning():
-                event_loop.quit()
-
-        # 이벤트 핸들러 연결
-        api.OnReceiveTrData.connect(on_receive)
+        # 매 시도마다 결과 초기화
+        received_data['result'] = None
+        received_data['completed'] = False
 
         # 입력값 설정 (첫 요청시만)
         if prev_next_value == 0:
@@ -100,6 +105,7 @@ def test_continuous_inquiry(api, stock_code, interval, delay_seconds, max_attemp
 
         # TR 요청
         event_loop = QEventLoop()
+        received_data['event_loop'] = event_loop
         ret = api.CommRqData('test_minute', 'opt10080', prev_next_value, '0101')
 
         attempt_result = {
@@ -126,12 +132,6 @@ def test_continuous_inquiry(api, stock_code, interval, delay_seconds, max_attemp
 
             attempt_result['error_message'] = error_msg
             result['errors'].append(f"Attempt {attempt_count}: {error_msg}")
-
-            # 이벤트 핸들러 해제
-            try:
-                api.OnReceiveTrData.disconnect(on_receive)
-            except:
-                pass
 
             result['attempts'].append(attempt_result)
             break
@@ -163,12 +163,6 @@ def test_continuous_inquiry(api, stock_code, interval, delay_seconds, max_attemp
                         log(f"ℹ️  연속 조회 종료 (prev_next={prev_next_value})")
                         attempt_result['elapsed_time'] = time.time() - attempt_start
                         result['attempts'].append(attempt_result)
-
-                        # 이벤트 핸들러 해제
-                        try:
-                            api.OnReceiveTrData.disconnect(on_receive)
-                        except:
-                            pass
                         break
             else:
                 log(f"❌ 타임아웃")
@@ -178,16 +172,16 @@ def test_continuous_inquiry(api, stock_code, interval, delay_seconds, max_attemp
         attempt_result['elapsed_time'] = time.time() - attempt_start
         result['attempts'].append(attempt_result)
 
-        # 이벤트 핸들러 해제
-        try:
-            api.OnReceiveTrData.disconnect(on_receive)
-        except:
-            pass
-
         # 다음 요청 전 대기
         if prev_next_value == 2 and attempt_count < max_attempts:
             log(f"⏳ {delay_seconds}초 대기 중...")
             time.sleep(delay_seconds)
+
+    # 모든 시도가 끝난 후 이벤트 핸들러 해제
+    try:
+        api.OnReceiveTrData.disconnect(on_receive)
+    except:
+        pass
 
     result['total_items'] = len(all_items)
     result['end_time'] = datetime.now().isoformat()
@@ -316,39 +310,45 @@ def test_progressive_delay(api, stock_code, interval):
     all_items = []
     prev_next_value = 0
 
+    # 이벤트 핸들러는 루프 밖에서 한 번만 정의하고 연결
+    received_data = {'result': None, 'completed': False, 'event_loop': None}
+
+    def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+        if rq_name != 'test_prog':
+            return
+
+        try:
+            cnt = api.GetRepeatCnt(tr_code, rq_name)
+            items = []
+
+            for i in range(min(cnt, 100)):
+                item = {
+                    '체결시간': api.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
+                    '현재가': api.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                }
+                items.append(item)
+
+            received_data['result'] = {
+                'items': items,
+                'count': cnt,
+                'prev_next': int(prev_next) if prev_next else 0
+            }
+        except Exception as e:
+            received_data['result'] = {'error': str(e)}
+
+        received_data['completed'] = True
+        if received_data['event_loop'] and received_data['event_loop'].isRunning():
+            received_data['event_loop'].quit()
+
+    # 이벤트 핸들러를 한 번만 연결
+    api.OnReceiveTrData.connect(on_receive)
+
     for attempt_count in range(1, 6):
         log(f"\n--- {attempt_count}회차 시도 (prev_next={prev_next_value}) ---")
 
-        received_data = {'result': None, 'completed': False}
-
-        def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
-            if rq_name != 'test_prog':
-                return
-
-            try:
-                cnt = api.GetRepeatCnt(tr_code, rq_name)
-                items = []
-
-                for i in range(min(cnt, 100)):
-                    item = {
-                        '체결시간': api.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
-                        '현재가': api.GetCommData(tr_code, rq_name, i, "현재가").strip(),
-                    }
-                    items.append(item)
-
-                received_data['result'] = {
-                    'items': items,
-                    'count': cnt,
-                    'prev_next': int(prev_next) if prev_next else 0
-                }
-            except Exception as e:
-                received_data['result'] = {'error': str(e)}
-
-            received_data['completed'] = True
-            if event_loop.isRunning():
-                event_loop.quit()
-
-        api.OnReceiveTrData.connect(on_receive)
+        # 매 시도마다 결과 초기화
+        received_data['result'] = None
+        received_data['completed'] = False
 
         if prev_next_value == 0:
             api.SetInputValue('종목코드', stock_code)
@@ -356,6 +356,7 @@ def test_progressive_delay(api, stock_code, interval):
             api.SetInputValue('수정주가구분', '1')
 
         event_loop = QEventLoop()
+        received_data['event_loop'] = event_loop
         ret = api.CommRqData('test_prog', 'opt10080', prev_next_value, '0101')
 
         attempt_result = {
@@ -369,10 +370,6 @@ def test_progressive_delay(api, stock_code, interval):
         if ret != 0:
             log(f"❌ 요청 실패: {ret}")
             result['errors'].append(f"Attempt {attempt_count}: Error {ret}")
-            try:
-                api.OnReceiveTrData.disconnect(on_receive)
-            except:
-                pass
             result['attempts'].append(attempt_result)
             break
         else:
@@ -395,23 +392,20 @@ def test_progressive_delay(api, stock_code, interval):
 
                     if prev_next_value != 2:
                         result['attempts'].append(attempt_result)
-                        try:
-                            api.OnReceiveTrData.disconnect(on_receive)
-                        except:
-                            pass
                         break
 
         result['attempts'].append(attempt_result)
-
-        try:
-            api.OnReceiveTrData.disconnect(on_receive)
-        except:
-            pass
 
         if prev_next_value == 2 and attempt_count < 5:
             delay = delays[attempt_count - 1]
             log(f"⏳ {delay}초 대기 중...")
             time.sleep(delay)
+
+    # 모든 시도가 끝난 후 이벤트 핸들러 해제
+    try:
+        api.OnReceiveTrData.disconnect(on_receive)
+    except:
+        pass
 
     result['total_items'] = len(all_items)
     result['end_time'] = datetime.now().isoformat()
