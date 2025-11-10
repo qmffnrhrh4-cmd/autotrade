@@ -32,7 +32,57 @@ class Screener:
         logger.info("Screener 초기화 완료")
     
     # ==================== 단일 조건 스크리닝 ====================
-    
+
+    def filter_exclude_etf_and_derivatives(
+        self,
+        stocks: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        ETF, 레버리지, 인버스, SPAC 등 제외 필터
+
+        Args:
+            stocks: 종목 리스트
+
+        Returns:
+            필터링된 종목 리스트 (일반 주식만)
+        """
+        # 제외할 키워드 (대소문자 구분 안함)
+        exclude_keywords = [
+            # ETF 관련
+            'ETF', 'KODEX', 'TIGER', 'KINDEX', 'ARIRANG', 'HANARO',
+            'KBSTAR', 'KOSEF', 'TIMEFOLIO', 'SOL',
+            # 레버리지/인버스
+            '레버리지', '인버스', '레버', '인버',
+            'LEVERAGE', 'INVERSE',
+            # SPAC
+            'SPAC', '스팩',
+            # 기타
+            '리츠', 'REIT',
+        ]
+
+        filtered = []
+        excluded_count = 0
+
+        for stock in stocks:
+            name = stock.get('name', '').upper()
+
+            # 제외 키워드 체크
+            should_exclude = False
+            for keyword in exclude_keywords:
+                if keyword.upper() in name:
+                    should_exclude = True
+                    excluded_count += 1
+                    logger.debug(f"제외: {stock.get('name')} (키워드: {keyword})")
+                    break
+
+            if not should_exclude:
+                filtered.append(stock)
+
+        logger.info(f"ETF/레버리지/SPAC 필터링 완료: {excluded_count}개 제외, {len(filtered)}개 남음")
+        return filtered
+
+    # ==================== 단일 조건 스크리닝 ====================
+
     def screen_by_volume(
         self,
         min_volume: int = 100000,
