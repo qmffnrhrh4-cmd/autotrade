@@ -531,6 +531,9 @@ class AdvancedTradingChart {
             // Update chart
             this.updateChartWithData(processedData, data);
 
+            // AI 자동 분석 (차트 로드 완료 후)
+            this.autoAnalyzeChart(stockCode, this.currentTimeframe);
+
         } catch (error) {
             console.error('Error loading chart data:', error);
             this.showError('차트 데이터 로드 실패');
@@ -1310,6 +1313,189 @@ class AdvancedTradingChart {
                 >×</button>
             </div>
         `).join('');
+    }
+
+    // ============================================================
+    // AI 자동 차트 분석
+    // ============================================================
+
+    /**
+     * AI 자동 차트 분석
+     */
+    async autoAnalyzeChart(stockCode, timeframe) {
+        try {
+            console.log(`🤖 AI 차트 분석 시작: ${stockCode} (${timeframe})`);
+
+            const url = `/api/chart/ai_analysis/${stockCode}?timeframe=${timeframe}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.success && data.analysis_points) {
+                // AI 분석 결과를 차트에 마커로 표시
+                this.displayAIAnalysis(data.analysis_points, data.summary);
+                console.log(`✅ AI 분석 완료: ${data.analysis_points.length}개 포인트 발견`);
+            }
+        } catch (error) {
+            console.warn('AI 차트 분석 실패:', error);
+            // 분석 실패는 차트 표시를 막지 않음 (조용히 실패)
+        }
+    }
+
+    /**
+     * AI 분석 결과를 차트에 표시
+     */
+    displayAIAnalysis(analysisPoints, summary) {
+        if (!this.candlestickSeries || !analysisPoints || analysisPoints.length === 0) {
+            return;
+        }
+
+        // 분석 포인트를 마커로 변환
+        const markers = analysisPoints.map(point => {
+            // signal 타입에 따라 색상 및 위치 결정
+            let color, position, shape, text;
+
+            if (point.signal === 'bullish') {
+                // 상승 시그널 - 빨강, 아래쪽, 위 화살표
+                color = '#ef4444';
+                position = 'belowBar';
+                shape = 'arrowUp';
+                text = '매수';
+            } else if (point.signal === 'bearish') {
+                // 하락 시그널 - 파랑, 위쪽, 아래 화살표
+                color = '#3b82f6';
+                position = 'aboveBar';
+                shape = 'arrowDown';
+                text = '매도';
+            } else if (point.type === 'support') {
+                // 지지선 - 초록, 아래쪽, 원
+                color = '#10b981';
+                position = 'belowBar';
+                shape = 'circle';
+                text = '지지';
+            } else if (point.type === 'resistance') {
+                // 저항선 - 주황, 위쪽, 원
+                color = '#f59e0b';
+                position = 'aboveBar';
+                shape = 'circle';
+                text = '저항';
+            } else {
+                // 기타 - 보라, 중간, 사각형
+                color = '#8b5cf6';
+                position = 'inBar';
+                shape = 'square';
+                text = point.type.toUpperCase();
+            }
+
+            return {
+                time: point.date,
+                position: position,
+                color: color,
+                shape: shape,
+                text: text
+            };
+        });
+
+        // 차트에 마커 추가
+        this.candlestickSeries.setMarkers(markers);
+
+        // AI 분석 요약 표시 (차트 상단에 오버레이)
+        this.displayAISummary(summary);
+    }
+
+    /**
+     * AI 분석 요약 표시
+     */
+    displayAISummary(summary) {
+        if (!summary) return;
+
+        // 기존 요약 제거
+        const existingSummary = document.getElementById('ai-chart-summary');
+        if (existingSummary) {
+            existingSummary.remove();
+        }
+
+        // 추세 색상 결정
+        let trendColor, trendIcon, trendText;
+        if (summary.trend === 'bullish') {
+            trendColor = '#ef4444';
+            trendIcon = '📈';
+            trendText = '상승 추세';
+        } else if (summary.trend === 'bearish') {
+            trendColor = '#3b82f6';
+            trendIcon = '📉';
+            trendText = '하락 추세';
+        } else {
+            trendColor = '#94a3b8';
+            trendIcon = '➡️';
+            trendText = '중립';
+        }
+
+        // 추천 행동
+        let recommendText, recommendColor;
+        if (summary.recommendation === 'buy') {
+            recommendText = '매수 추천';
+            recommendColor = '#ef4444';
+        } else if (summary.recommendation === 'sell') {
+            recommendText = '매도 추천';
+            recommendColor = '#3b82f6';
+        } else {
+            recommendText = '관망';
+            recommendColor = '#94a3b8';
+        }
+
+        // 요약 HTML 생성
+        const summaryHTML = `
+            <div id="ai-chart-summary" style="
+                position: absolute;
+                top: 60px;
+                right: 10px;
+                background: rgba(30, 33, 57, 0.95);
+                border: 1px solid rgba(148, 163, 184, 0.2);
+                border-radius: 12px;
+                padding: 12px 16px;
+                color: var(--text-primary);
+                font-size: 13px;
+                z-index: 100;
+                backdrop-filter: blur(10px);
+                min-width: 200px;
+            ">
+                <div style="font-weight: 700; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 18px;">🤖</span>
+                    <span>AI 차트 분석</span>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 6px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">추세:</span>
+                        <span style="color: ${trendColor}; font-weight: 600;">
+                            ${trendIcon} ${trendText}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">강도:</span>
+                        <span style="font-weight: 600;">${summary.strength || 'medium'}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-muted);">추천:</span>
+                        <span style="color: ${recommendColor}; font-weight: 600;">${recommendText}</span>
+                    </div>
+                    ${summary.key_levels ? `
+                    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(148, 163, 184, 0.1);">
+                        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">주요 가격대</div>
+                        <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                            <span>지지: ${summary.key_levels.support?.toLocaleString() || '-'}원</span>
+                            <span>저항: ${summary.key_levels.resistance?.toLocaleString() || '-'}원</span>
+                        </div>
+                    </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+        // 차트 컨테이너에 추가
+        const chartContainer = document.querySelector(`#${this.containerId}`);
+        if (chartContainer) {
+            chartContainer.insertAdjacentHTML('beforeend', summaryHTML);
+        }
     }
 }
 

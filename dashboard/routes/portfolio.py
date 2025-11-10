@@ -151,16 +151,30 @@ def get_risk_analysis():
         from strategy.advanced_risk_analytics import AdvancedRiskAnalytics as RiskAnalyzer
 
         if _bot_instance and hasattr(_bot_instance, 'account_api'):
-            holdings = _bot_instance.account_api.get_holdings()
+            # v6.0.1: Fixed field names - use correct kt00004 API field names
+            holdings = _bot_instance.account_api.get_holdings(market_type="KRX+NXT")
 
             # Convert holdings to position format with sector info
             positions = []
             for h in holdings:
-                code = h.get('pdno', '')
+                # v6.0.1: Use correct field names from kt00004 API response
+                code = str(h.get('stk_cd', '')).replace('A', '')  # stk_cd not pdno
+                name = h.get('stk_nm', '')  # stk_nm not prdt_name
+                quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
+
+                if quantity <= 0:
+                    continue
+
+                # Calculate value
+                eval_amt = int(str(h.get('eval_amt', 0)).replace(',', ''))
+                current_price = int(str(h.get('cur_prc', 0)).replace(',', ''))
+                if eval_amt == 0 and current_price > 0:
+                    eval_amt = quantity * current_price
+
                 positions.append({
                     'code': code,
-                    'name': h.get('prdt_name', ''),
-                    'value': int(h.get('eval_amt', 0)),
+                    'name': name,
+                    'value': eval_amt,
                     'weight': 0,  # Will be calculated
                     'sector': '기타'  # Will be determined by analyzer
                 })

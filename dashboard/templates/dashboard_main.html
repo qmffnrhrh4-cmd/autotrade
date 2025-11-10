@@ -918,14 +918,45 @@
                         가상매매 (Virtual Trading)
                     </h2>
 
+                    <!-- AI 자동 관리 버튼 -->
+                    <div class="glass-card" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-brain"></i>
+                                AI 자동 전략 관리
+                            </h3>
+                        </div>
+                        <div style="display: flex; gap: 1rem; flex-wrap: wrap; padding: 1.5rem;">
+                            <button class="btn btn-primary" onclick="virtualTrading.aiInitializeStrategies()" title="AI가 5가지 전략을 자동으로 생성합니다">
+                                <i class="fas fa-magic"></i> AI 전략 5개 생성
+                            </button>
+                            <button class="btn btn-success" onclick="virtualTrading.aiReviewStrategies()" title="전략 성과를 자동으로 검토합니다">
+                                <i class="fas fa-clipboard-check"></i> 전략 검토
+                            </button>
+                            <button class="btn btn-warning" onclick="virtualTrading.aiImproveStrategies()" title="전략을 자동으로 개선합니다">
+                                <i class="fas fa-chart-line"></i> 전략 개선
+                            </button>
+                            <button class="btn btn-info" onclick="virtualTrading.aiAutoManage()" title="검토 → 개선 → 추천을 자동으로 수행합니다">
+                                <i class="fas fa-robot"></i> 전체 자동 관리
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI 결과 표시 영역 -->
+                    <div id="ai-review-result" style="display: none; margin-bottom: 2rem;"></div>
+                    <div id="ai-improvement-result" style="display: none; margin-bottom: 2rem;"></div>
+
                     <div class="grid grid-2">
                         <!-- Virtual Trading Strategies -->
                         <div class="glass-card">
                             <div class="card-header">
                                 <h3 class="card-title">
-                                    <i class="fas fa-robot"></i>
-                                    가상매매 전략
+                                    <i class="fas fa-list-check"></i>
+                                    가상매매 전략 (5가지)
                                 </h3>
+                                <button class="btn btn-primary btn-sm" onclick="virtualTrading.showCreateStrategyModal()">
+                                    <i class="fas fa-plus"></i> 수동 생성
+                                </button>
                             </div>
                             <div id="virtual-strategies-list" style="margin-top: 1.5rem;">
                                 <!-- Strategy list will be populated by API -->
@@ -1417,8 +1448,8 @@
                     <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md);">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
                             <div>
-                                <div style="font-weight: 600; font-size: 1.1rem;">${pos.name}</div>
-                                <div style="font-size: 0.85rem; color: var(--text-muted);">${pos.code}</div>
+                                <div style="font-weight: 600; font-size: 1.1rem;">${pos.stock_name}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">${pos.stock_code}</div>
                             </div>
                             <div style="text-align: right;">
                                 <div style="font-weight: 600; color: ${profitColor};">
@@ -1634,7 +1665,7 @@
                         <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); border-left: 3px solid ${actionColor};">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <div>
-                                    <div style="font-weight: 600;">${action.name} (${action.code})</div>
+                                    <div style="font-weight: 600;">${action.stock_name} (${action.stock_code})</div>
                                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">${action.reason}</div>
                                 </div>
                                 <div style="text-align: right;">
@@ -1963,7 +1994,7 @@
                 .then(positions => {
                     const positionsMap = {};
                     positions.forEach(pos => {
-                        positionsMap[pos.code] = pos;
+                        positionsMap[pos.stock_code] = pos;  // v6.0.1: Fixed - use stock_code instead of code
                     });
 
                     tbody.innerHTML = holdings.map(h => {
