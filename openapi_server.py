@@ -224,6 +224,118 @@ def get_realtime_price(code):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/stock/<code>/minute/<int:interval>', methods=['GET'])
+def get_minute_data(code, interval):
+    """Get minute chart data (past data available)"""
+    if not openapi_context:
+        return jsonify({'error': 'Not connected'}), 400
+
+    # 유효한 interval 체크
+    valid_intervals = [1, 5, 15, 30, 60]
+    if interval not in valid_intervals:
+        return jsonify({'error': f'Invalid interval: {interval}. Valid: {valid_intervals}'}), 400
+
+    try:
+        from PyQt5.QtCore import QEventLoop, QTimer
+        from datetime import datetime
+
+        logger.info(f"📊 {code} {interval}분봉 조회 요청")
+
+        # TR 요청 함수
+        def request_tr_sync(rqname, trcode, inputs, timeout=10000):
+            """TR 동기 요청"""
+            received_data = {'result': None, 'completed': False}
+
+            def on_receive(scr_no, rq_name, tr_code, record_name, prev_next):
+                if rq_name != rqname:
+                    return
+
+                try:
+                    cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
+                    items = []
+
+                    # 복수 데이터 추출 (최대 100개)
+                    for i in range(min(cnt, 100)):
+                        item = {}
+                        fields = ['일자', '체결시간', '현재가', '거래량', '시가', '고가', '저가', '등락률']
+
+                        for field in fields:
+                            try:
+                                value = openapi_context.GetCommData(tr_code, rq_name, i, field).strip()
+                                if value:
+                                    item[field] = value
+                            except:
+                                pass
+
+                        if item:
+                            items.append(item)
+
+                    received_data['result'] = {'items': items, 'count': cnt}
+                except Exception as e:
+                    received_data['result'] = {'error': str(e)}
+
+                received_data['completed'] = True
+                if event_loop.isRunning():
+                    event_loop.quit()
+
+            # 이벤트 핸들러 연결
+            openapi_context.OnReceiveTrData.connect(on_receive)
+
+            # 입력값 설정
+            for key, value in inputs.items():
+                openapi_context.SetInputValue(key, value)
+
+            # TR 요청
+            event_loop = QEventLoop()
+            ret = openapi_context.CommRqData(rqname, trcode, 0, "0101")
+
+            if ret != 0:
+                return {'error': f'Request failed: {ret}'}
+
+            # 타임아웃 설정
+            QTimer.singleShot(timeout, event_loop.quit)
+            event_loop.exec_()
+
+            # 이벤트 핸들러 연결 해제
+            try:
+                openapi_context.OnReceiveTrData.disconnect(on_receive)
+            except:
+                pass
+
+            return received_data['result'] if received_data['completed'] else {'error': 'Timeout'}
+
+        # opt10080: 분봉 조회
+        minute_data = request_tr_sync(
+            'minute_chart',
+            'opt10080',
+            {
+                '종목코드': code,
+                '틱범위': str(interval),
+                '수정주가구분': '1'
+            }
+        )
+
+        result = {
+            'stock_code': code,
+            'interval': interval,
+            'timestamp': datetime.now().isoformat(),
+            'data': minute_data
+        }
+
+        if minute_data and 'items' in minute_data:
+            logger.info(f"✅ {code} {interval}분봉 {len(minute_data['items'])}개 조회 완료")
+        else:
+            logger.warning(f"⚠️ {code} {interval}분봉 조회 실패 또는 데이터 없음")
+
+        return jsonify(result)
+
+    except Exception as e:
+        logger.error(f"Minute data error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/stock/<code>/comprehensive', methods=['GET'])
 def get_comprehensive_data(code):
     """Get comprehensive stock data (20 types)"""

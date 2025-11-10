@@ -354,6 +354,59 @@ class KiwoomOpenAPIClient:
             logger.error(f"❌ 종합 데이터 조회 실패: {stock_code}")
             return {}
 
+    def get_minute_data(self, stock_code: str, interval: int = 1) -> List[Dict[str, Any]]:
+        """
+        분봉 데이터 조회 (과거 데이터 포함)
+
+        Args:
+            stock_code: 종목코드 (6자리)
+            interval: 분봉 간격 (1, 5, 15, 30, 60)
+
+        Returns:
+            분봉 데이터 리스트
+            [
+                {
+                    '일자': '20231201',
+                    '체결시간': '153000',
+                    '현재가': '70000',
+                    '시가': '69500',
+                    '고가': '70500',
+                    '저가': '69000',
+                    '거래량': '100000',
+                    '등락률': '1.5'
+                },
+                ...
+            ]
+        """
+        if not self.is_connected:
+            logger.warning("OpenAPI 연결 안 됨")
+            return []
+
+        # 유효한 interval 체크
+        valid_intervals = [1, 5, 15, 30, 60]
+        if interval not in valid_intervals:
+            logger.error(f"Invalid interval: {interval}. Valid: {valid_intervals}")
+            return []
+
+        logger.info(f"📊 분봉 데이터 조회: {stock_code} ({interval}분)")
+
+        # Timeout을 10초로 설정 (분봉 1개 TR)
+        result = self._request('GET', f'/stock/{stock_code}/minute/{interval}', timeout=10)
+
+        if result and 'data' in result:
+            data = result.get('data', {})
+            items = data.get('items', [])
+
+            if items:
+                logger.info(f"✅ 분봉 데이터 수신: {len(items)}개")
+                return items
+            else:
+                logger.warning(f"⚠️ 분봉 데이터 없음 (주말/휴일 가능성)")
+                return []
+        else:
+            logger.error(f"❌ 분봉 데이터 조회 실패: {stock_code}")
+            return []
+
     def extract_openapi_features(self, comprehensive_data: Dict[str, Any]) -> Dict[str, Any]:
         """
         종합 데이터에서 스코어링/AI에 필요한 특징 추출
