@@ -460,7 +460,14 @@ class Screener:
             volume = int(float(stock.get('volume', 0)))
             price = int(float(stock.get('current_price', 0)))
             change_rate = float(stock.get('change_rate', 0))
-            
+
+            # 변환된 값을 딕셔너리에 저장
+            stock['volume'] = volume
+            stock['current_price'] = price
+            stock['price'] = price  # scanner_pipeline 호환
+            stock['change_rate'] = change_rate
+            stock['rate'] = change_rate  # scanner_pipeline 호환
+
             # 모든 조건 만족 체크
             if (volume >= min_volume and
                 min_price <= price <= max_price and
