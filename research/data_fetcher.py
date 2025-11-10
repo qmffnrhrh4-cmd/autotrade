@@ -130,7 +130,7 @@ class DataFetcher:
         )
 
         if response and response.get('return_code') == 0:
-            ord_alow_amt = int(response.get('ord_alow_amt', 0))
+            ord_alow_amt = int(float(response.get('ord_alow_amt', 0)))
             logger.info(f"예수금 조회 성공: 주문가능금액 {ord_alow_amt:,}원")
             return response  # Response is data directly, no 'output' wrapper
         else:
@@ -162,7 +162,7 @@ class DataFetcher:
             holding = {
                 'stock_code': stock_code,  # _NX 접미사 유지!
                 'stock_name': item.get('stk_nm', ''),
-                'quantity': int(item.get('rmnd_qty', 0)),
+                'quantity': int(float(item.get('rmnd_qty', 0))),
                 'purchase_price': float(item.get('pur_pric', 0)),
                 'current_price': float(item.get('cur_prc', 0)),
                 'profit_loss': float(item.get('evltv_prft', 0)),
@@ -239,7 +239,7 @@ class DataFetcher:
                 'change_rate': float(cntr_info.get('pre_rt', '0').replace('+', '').replace('-', '')),
                 'exchange': cntr_info.get('stex_tp', 'N/A'),
                 'time': cntr_info.get('tm', ''),
-                'volume': int(cntr_info.get('acc_trde_qty', 0))
+                'volume': int(float(cntr_info.get('acc_trde_qty', 0)))
             }
 
             logger.info(f"{query_code} 현재가: {current_price:,}원 ({price_info['exchange']})")
@@ -361,11 +361,11 @@ class DataFetcher:
                         try:
                             standardized_data.append({
                                 'date': item.get('dt', ''),
-                                'open': int(item.get('open_pric', 0)),
-                                'high': int(item.get('high_pric', 0)),
-                                'low': int(item.get('low_pric', 0)),
-                                'close': int(item.get('cur_prc', 0)),  # cur_prc = current/closing price
-                                'volume': int(item.get('trde_qty', 0))  # trde_qty = trade quantity
+                                'open': int(float(item.get('open_pric', 0))),
+                                'high': int(float(item.get('high_pric', 0))),
+                                'low': int(float(item.get('low_pric', 0))),
+                                'close': int(float(item.get('cur_prc', 0))),  # cur_prc = current/closing price
+                                'volume': int(float(item.get('trde_qty', 0)))  # trde_qty = trade quantity
                             })
                         except (ValueError, TypeError) as e:
                             logger.warning(f"⚠️ Error parsing data item: {e}, item={item}")
@@ -448,11 +448,11 @@ class DataFetcher:
                             converted_data.append({
                                 'date': item.get('dt', ''),
                                 'time': item.get('time', ''),
-                                'open': int(item.get('open_pric', 0)),
-                                'high': int(item.get('high_pric', 0)),
-                                'low': int(item.get('low_pric', 0)),
-                                'close': int(item.get('cur_pric', 0)),  # cur_pric = current/closing price
-                                'volume': int(item.get('trde_qty', 0))  # trde_qty = trade quantity
+                                'open': int(float(item.get('open_pric', 0))),
+                                'high': int(float(item.get('high_pric', 0))),
+                                'low': int(float(item.get('low_pric', 0))),
+                                'close': int(float(item.get('cur_pric', 0))),  # cur_pric = current/closing price
+                                'volume': int(float(item.get('trde_qty', 0)))  # trde_qty = trade quantity
                             })
                         except (ValueError, TypeError) as e:
                             logger.warning(f"⚠️ Error parsing data item: {e}, item={item}")
