@@ -226,12 +226,15 @@ def get_realtime_price(code):
 
 @app.route('/stock/<code>/minute/<int:interval>', methods=['GET'])
 def get_minute_data(code, interval):
-    """Get minute chart data (past data available)"""
+    """Get minute chart data (past data available)
+
+    Supported intervals: 1, 3, 5, 10, 15, 30, 60 minutes
+    """
     if not openapi_context:
         return jsonify({'error': 'Not connected'}), 400
 
     # 유효한 interval 체크
-    valid_intervals = [1, 5, 15, 30, 60]
+    valid_intervals = [1, 3, 5, 10, 15, 30, 60]
     if interval not in valid_intervals:
         return jsonify({'error': f'Invalid interval: {interval}. Valid: {valid_intervals}'}), 400
 

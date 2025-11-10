@@ -272,25 +272,37 @@ def get_chart_data(stock_code: str):
                             # Stock not subscribed yet, try to add it
                             print(f"📡 Adding {stock_code} to real-time tracking...")
                             try:
-                                # Create event loop if needed
-                                try:
-                                    loop = asyncio.get_event_loop()
-                                except RuntimeError:
-                                    loop = asyncio.new_event_loop()
-                                    asyncio.set_event_loop(loop)
+                                # Create NEW event loop to avoid conflicts
+                                import threading
 
-                                # Add stock to real-time tracking
-                                success = loop.run_until_complete(
-                                    _realtime_chart_manager.add_stock(stock_code)
-                                )
-                                if success:
-                                    print(f"✅ {stock_code} added to real-time tracking")
-                                    # Try to get data after subscription (might be empty initially)
-                                    minutes = int(timeframe) if timeframe == '1' else 60
-                                    daily_data = _realtime_chart_manager.get_minute_data(stock_code, minutes=minutes)
-                                    if daily_data and len(daily_data) > 0:
-                                        minute_data_available = True
-                                        actual_timeframe = timeframe
+                                def add_stock_sync(stock_code):
+                                    """Add stock in separate thread with new event loop"""
+                                    new_loop = asyncio.new_event_loop()
+                                    asyncio.set_event_loop(new_loop)
+                                    try:
+                                        result = new_loop.run_until_complete(
+                                            _realtime_chart_manager.add_stock(stock_code)
+                                        )
+                                        return result
+                                    finally:
+                                        new_loop.close()
+
+                                # Run in thread to avoid event loop conflicts
+                                from concurrent.futures import ThreadPoolExecutor, TimeoutError
+                                with ThreadPoolExecutor(max_workers=1) as executor:
+                                    future = executor.submit(add_stock_sync, stock_code)
+                                    try:
+                                        success = future.result(timeout=5)
+                                        if success:
+                                            print(f"✅ {stock_code} added to real-time tracking")
+                                            # Try to get data after subscription (might be empty initially)
+                                            minutes = int(timeframe) if timeframe == '1' else 60
+                                            daily_data = _realtime_chart_manager.get_minute_data(stock_code, minutes=minutes)
+                                            if daily_data and len(daily_data) > 0:
+                                                minute_data_available = True
+                                                actual_timeframe = timeframe
+                                    except TimeoutError:
+                                        print(f"⚠️ Timeout adding {stock_code} to real-time tracking")
                             except Exception as e:
                                 print(f"⚠️ Failed to add stock to real-time tracking: {e}")
                     except Exception as e:
@@ -518,20 +530,34 @@ def add_realtime_chart(stock_code):
                 'error': 'Real-time chart manager not initialized'
             })
 
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Use thread-safe event loop approach
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-        success = loop.run_until_complete(
-            _realtime_chart_manager.add_stock(stock_code)
-        )
+        def add_stock_sync(stock_code):
+            """Add stock in separate thread with new event loop"""
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                result = new_loop.run_until_complete(
+                    _realtime_chart_manager.add_stock(stock_code)
+                )
+                return result
+            finally:
+                new_loop.close()
 
-        return jsonify({
-            'success': success,
-            'message': f'{"성공적으로 추가됨" if success else "추가 실패"}: {stock_code}'
-        })
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(add_stock_sync, stock_code)
+            try:
+                success = future.result(timeout=10)
+                return jsonify({
+                    'success': success,
+                    'message': f'{"성공적으로 추가됨" if success else "추가 실패"}: {stock_code}'
+                })
+            except TimeoutError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Timeout adding stock'
+                })
     except Exception as e:
         return jsonify({
             'success': False,
@@ -549,20 +575,34 @@ def remove_realtime_chart(stock_code):
                 'error': 'Real-time chart manager not initialized'
             })
 
-        try:
-            loop = asyncio.get_event_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        # Use thread-safe event loop approach
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
-        loop.run_until_complete(
-            _realtime_chart_manager.remove_stock(stock_code)
-        )
+        def remove_stock_sync(stock_code):
+            """Remove stock in separate thread with new event loop"""
+            new_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(new_loop)
+            try:
+                new_loop.run_until_complete(
+                    _realtime_chart_manager.remove_stock(stock_code)
+                )
+                return True
+            finally:
+                new_loop.close()
 
-        return jsonify({
-            'success': True,
-            'message': f'제거됨: {stock_code}'
-        })
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(remove_stock_sync, stock_code)
+            try:
+                future.result(timeout=10)
+                return jsonify({
+                    'success': True,
+                    'message': f'제거됨: {stock_code}'
+                })
+            except TimeoutError:
+                return jsonify({
+                    'success': False,
+                    'error': 'Timeout removing stock'
+                })
     except Exception as e:
         return jsonify({
             'success': False,

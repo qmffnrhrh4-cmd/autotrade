@@ -360,7 +360,7 @@ class KiwoomOpenAPIClient:
 
         Args:
             stock_code: 종목코드 (6자리)
-            interval: 분봉 간격 (1, 5, 15, 30, 60)
+            interval: 분봉 간격 (1, 3, 5, 10, 15, 30, 60)
 
         Returns:
             분봉 데이터 리스트
@@ -383,7 +383,7 @@ class KiwoomOpenAPIClient:
             return []
 
         # 유효한 interval 체크
-        valid_intervals = [1, 5, 15, 30, 60]
+        valid_intervals = [1, 3, 5, 10, 15, 30, 60]
         if interval not in valid_intervals:
             logger.error(f"Invalid interval: {interval}. Valid: {valid_intervals}")
             return []
