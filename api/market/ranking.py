@@ -97,11 +97,11 @@ class RankingAPI:
                 for item in rank_list:
                     # 현재가 파싱 (부호 포함 가능)
                     cur_prc_str = item.get('cur_prc', '0')
-                    current_price = abs(int(cur_prc_str.replace('+', '').replace('-', '')))
+                    current_price = abs(int(float(cur_prc_str.replace('+', '').replace('-', ''))))
 
                     # 등락폭 파싱 (부호 포함 가능)
                     pred_pre_str = item.get('pred_pre', '0')
-                    change = int(pred_pre_str.replace('+', '').replace('-', ''))
+                    change = int(float(pred_pre_str.replace('+', '').replace('-', '')))
 
                     # 등락 부호 확인 (2: 상승, 3: 보합, 5: 하락)
                     pred_pre_sig = item.get('pred_pre_sig', '3')
@@ -128,7 +128,7 @@ class RankingAPI:
                         'name': item.get('stk_nm', ''),
                         'price': current_price,
                         'current_price': current_price,  # Screener 호환
-                        'volume': int(item.get('trde_qty', '0')),
+                        'volume': int(float(item.get('trde_qty', '0'))),
                         'change': change,
                         'change_rate': change_rate,  # Screener 호환
                         'rate': change_rate,  # StockCandidate 호환
@@ -217,10 +217,10 @@ class RankingAPI:
                     normalized_list.append({
                         'code': item.get('stk_cd', '').replace('_AL', ''),  # _AL 접미사 제거
                         'name': item.get('stk_nm', ''),
-                        'price': int(item.get('cur_prc', '0').replace('+', '').replace('-', '')),
+                        'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
                         'change_rate': float(item.get('flu_rt', '0').replace('+', '').replace('-', '')),
-                        'volume': int(item.get('now_trde_qty', '0')),
-                        'change': int(item.get('pred_pre', '0').replace('+', '').replace('-', '')),
+                        'volume': int(float(item.get('now_trde_qty', '0'))),
+                        'change': int(float(item.get('pred_pre', '0').replace('+', '').replace('-', ''))),
                         'change_sign': item.get('pred_pre_sig', ''),
                     })
 
@@ -301,10 +301,10 @@ class RankingAPI:
                     normalized_list.append({
                         'code': item.get('stk_cd', '').replace('_AL', ''),
                         'name': item.get('stk_nm', ''),
-                        'price': int(item.get('cur_pric', '0').replace('+', '').replace('-', '')),
-                        'trading_value': int(item.get('trde_prica', '0')),  # 거래대금
-                        'volume': int(item.get('trde_qty', '0')),
-                        'change': int(item.get('pred_pre', '0').replace('+', '').replace('-', '')),
+                        'price': int(float(item.get('cur_pric', '0').replace('+', '').replace('-', ''))),
+                        'trading_value': int(float(item.get('trde_prica', '0'))),  # 거래대금
+                        'volume': int(float(item.get('trde_qty', '0'))),
+                        'change': int(float(item.get('pred_pre', '0').replace('+', '').replace('-', ''))),
                         'change_sign': item.get('pred_pre_sig', ''),
                     })
 
@@ -377,8 +377,8 @@ class RankingAPI:
                 normalized_list.append({
                     'code': item.get('stk_cd', '').replace('_AL', ''),
                     'name': item.get('stk_nm', ''),
-                    'price': int(item.get('cur_prc', '0').replace('+', '').replace('-', '')),
-                    'volume': int(item.get('trde_qty', '0')),
+                    'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
+                    'volume': int(float(item.get('trde_qty', '0'))),
                     'volume_increase_rate': float(item.get('qty_incrs_rt', '0')),  # 거래량 증가율
                     'change_rate': float(item.get('flu_rt', '0').replace('+', '').replace('-', '')),
                 })
@@ -448,10 +448,10 @@ class RankingAPI:
                 normalized_list.append({
                     'code': item.get('stk_cd', '').replace('_AL', ''),
                     'name': item.get('stk_nm', ''),
-                    'price': int(item.get('cur_prc', '0').replace('+', '').replace('-', '')),
-                    'open_price': int(item.get('open_prc', '0')),  # 시가
+                    'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
+                    'open_price': int(float(item.get('open_prc', '0'))),  # 시가
                     'intraday_change_rate': float(item.get('flu_rt', '0').replace('+', '').replace('-', '')),
-                    'volume': int(item.get('trde_qty', '0')),
+                    'volume': int(float(item.get('trde_qty', '0'))),
                 })
 
             sort_name = "상승률" if sort == 'rise' else "하락률"
@@ -509,8 +509,8 @@ class RankingAPI:
                 normalized_list.append({
                     'code': item.get('stk_cd', '').replace('_AL', ''),
                     'name': item.get('stk_nm', ''),
-                    'price': int(item.get('cur_prc', '0').replace('+', '').replace('-', '')),
-                    'foreign_net_buy': int(item.get('frg_nt_qty', '0')),  # 외국인 순매수량
+                    'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
+                    'foreign_net_buy': int(float(item.get('frg_nt_qty', '0'))),  # 외국인 순매수량
                     'change_rate': float(item.get('flu_rt', '0').replace('+', '').replace('-', '')),
                 })
 
@@ -566,9 +566,9 @@ class RankingAPI:
                 normalized_list.append({
                     'code': item.get('stk_cd', '').replace('_AL', ''),
                     'name': item.get('stk_nm', ''),
-                    'price': int(item.get('cur_prc', '0').replace('+', '').replace('-', '')),
-                    'continuous_days': int(item.get('cont_dt', '0')),  # 연속일수
-                    'total_net_buy': int(item.get('tot_nt_qty', '0')),  # 총 순매수량
+                    'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
+                    'continuous_days': int(float(item.get('cont_dt', '0'))),  # 연속일수
+                    'total_net_buy': int(float(item.get('tot_nt_qty', '0'))),  # 총 순매수량
                 })
 
             logger.info(f"외국인 연속매매 {len(normalized_list)}개 조회")
@@ -646,8 +646,8 @@ class RankingAPI:
                 normalized_list.append({
                     'code': item.get(code_field, '').replace('_AL', ''),
                     'name': item.get(name_field, ''),
-                    'net_amount': int(item.get(amt_field, '0').replace('+', '').replace('-', '')),  # 순매수/매도 금액 (백만원)
-                    'net_qty': int(item.get(qty_field, '0').replace('+', '').replace('-', '')),  # 순매수/매도 수량 (천주)
+                    'net_amount': int(float(item.get(amt_field, '0').replace('+', '').replace('-', ''))),  # 순매수/매도 금액 (백만원)
+                    'net_qty': int(float(item.get(qty_field, '0').replace('+', '').replace('-', ''))),  # 순매수/매도 수량 (천주)
                 })
 
             type_name = {
@@ -706,9 +706,9 @@ class RankingAPI:
                 normalized_list.append({
                     'code': item.get('stk_cd', '').replace('_AL', ''),
                     'name': item.get('stk_nm', ''),
-                    'price': int(item.get('cur_prc', '0').replace('+', '').replace('-', '')),
+                    'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
                     'credit_ratio': float(item.get('crd_rt', '0')),  # 신용비율
-                    'credit_balance': int(item.get('crd_rmn_qty', '0')),  # 신용잔고
+                    'credit_balance': int(float(item.get('crd_rmn_qty', '0'))),  # 신용잔고
                 })
 
             logger.info(f"신용비율 {len(normalized_list)}개 조회")
@@ -763,9 +763,9 @@ class RankingAPI:
             normalized_list = []
             for item in rank_list[:limit]:
                 # 값에서 +,- 기호 제거하고 숫자로 변환
-                sel_qty = int(item.get('sel_qty', '0').replace('+', '').replace('-', ''))
-                buy_qty = int(item.get('buy_qty', '0').replace('+', '').replace('-', ''))
-                netslmt = int(item.get('netslmt', '0').replace('+', '').replace('-', ''))
+                sel_qty = int(float(item.get('sel_qty', '0').replace('+', '').replace('-', '')))
+                buy_qty = int(float(item.get('buy_qty', '0').replace('+', '').replace('-', '')))
+                netslmt = int(float(item.get('netslmt', '0').replace('+', '').replace('-', '')))
 
                 normalized_list.append({
                     'code': item.get('stk_cd', '').replace('_AL', ''),
