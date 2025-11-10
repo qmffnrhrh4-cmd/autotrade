@@ -664,6 +664,10 @@
                     <i class="fas fa-briefcase"></i>
                     <span>포트폴리오</span>
                 </div>
+                <div class="nav-tab" data-tab="virtual-trading">
+                    <i class="fas fa-flask"></i>
+                    <span>가상매매</span>
+                </div>
                 <div class="nav-tab" data-tab="ai-analysis">
                     <i class="fas fa-brain"></i>
                     <span>AI 분석</span>
@@ -905,6 +909,111 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+
+                <!-- Virtual Trading Tab -->
+                <div class="tab-content" id="virtual-trading">
+                    <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
+                        <i class="fas fa-flask" style="color: var(--color-primary);"></i>
+                        가상매매 (Virtual Trading)
+                    </h2>
+
+                    <div class="grid grid-2">
+                        <!-- Virtual Trading Strategies -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-robot"></i>
+                                    가상매매 전략
+                                </h3>
+                            </div>
+                            <div id="virtual-trading-strategies" style="margin-top: 1.5rem;">
+                                <!-- Strategy list will be populated by API -->
+                            </div>
+                        </div>
+
+                        <!-- Performance Statistics -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-chart-bar"></i>
+                                    성과 통계
+                                </h3>
+                            </div>
+                            <div id="virtual-trading-stats" style="margin-top: 1.5rem;">
+                                <!-- Statistics will be populated by API -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Positions -->
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-list-ul"></i>
+                                가상매매 보유 종목
+                            </h3>
+                        </div>
+                        <div style="overflow-x: auto; margin-top: 1.5rem;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>전략</th>
+                                        <th>종목명</th>
+                                        <th>종목코드</th>
+                                        <th>보유량</th>
+                                        <th>평균단가</th>
+                                        <th>현재가</th>
+                                        <th>평가금액</th>
+                                        <th>수익률</th>
+                                        <th>매수일시</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="virtual-trading-positions">
+                                    <tr>
+                                        <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                            <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                            가상매매 보유 종목이 없습니다
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Trade History -->
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-history"></i>
+                                거래 내역
+                            </h3>
+                        </div>
+                        <div style="overflow-x: auto; margin-top: 1.5rem;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>시간</th>
+                                        <th>전략</th>
+                                        <th>구분</th>
+                                        <th>종목명</th>
+                                        <th>수량</th>
+                                        <th>가격</th>
+                                        <th>수익금</th>
+                                        <th>수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="virtual-trading-history">
+                                    <tr>
+                                        <td colspan="8" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                            <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                            거래 내역이 없습니다
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 

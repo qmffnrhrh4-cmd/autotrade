@@ -196,6 +196,113 @@ def process_tr_in_main_thread(request_id, tr_type, params):
 
             logger.info(f"[{request_id}] TR 처리 완료: 총 {len(all_items)}개 캔들 수집")
 
+        elif tr_type == 'comprehensive':
+            # 종합 데이터 조회 (간소화 버전 - 마스터 정보 + 일봉 차트)
+            stock_code = params['stock_code']
+
+            logger.info(f"[{request_id}] {stock_code} 종합 데이터 조회 시작")
+
+            result_data = {
+                'stock_code': stock_code,
+                'timestamp': datetime.now().isoformat(),
+                'data': {}
+            }
+
+            # 1. 마스터 정보 (API 호출 없음 - 즉시 가능)
+            try:
+                result_data['data']['01_master'] = {
+                    'stock_name': openapi_context.GetMasterCodeName(stock_code),
+                    'current_price': openapi_context.GetMasterLastPrice(stock_code),
+                    'listed_stock_cnt': openapi_context.GetMasterListedStockCnt(stock_code),
+                }
+                logger.info(f"[{request_id}] 마스터 정보 수집 완료")
+            except Exception as e:
+                logger.error(f"[{request_id}] 마스터 정보 오류: {e}")
+                result_data['data']['01_master'] = {'error': str(e)}
+
+            # 2. 일봉 차트 (opt10081)
+            try:
+                logger.info(f"[{request_id}] 일봉 차트 조회 중...")
+
+                received_data = {'result': None, 'completed': False, 'event_loop': None}
+
+                def on_receive_daily(scr_no, rq_name, tr_code, record_name, prev_next):
+                    if rq_name != 'daily_qt':
+                        return
+
+                    try:
+                        cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
+                        items = []
+
+                        for i in range(min(cnt, 100)):
+                            try:
+                                item = {
+                                    '일자': openapi_context.GetCommData(tr_code, rq_name, i, "일자").strip(),
+                                    '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                                    '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
+                                    '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
+                                    '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
+                                    '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
+                                }
+                                items.append(item)
+                            except:
+                                continue
+
+                        received_data['result'] = {'items': items, 'count': cnt}
+                    except Exception as e:
+                        received_data['result'] = {'error': str(e)}
+
+                    received_data['completed'] = True
+                    if received_data['event_loop'] and received_data['event_loop'].isRunning():
+                        received_data['event_loop'].quit()
+
+                openapi_context.OnReceiveTrData.connect(on_receive_daily)
+
+                # 입력값 설정
+                today = datetime.now().strftime('%Y%m%d')
+                openapi_context.SetInputValue('종목코드', stock_code)
+                openapi_context.SetInputValue('기준일자', today)
+                openapi_context.SetInputValue('수정주가구분', '1')
+
+                # TR 요청
+                event_loop = QEventLoop()
+                received_data['event_loop'] = event_loop
+                ret = openapi_context.CommRqData('daily_qt', 'opt10081', 0, '0101')
+
+                if ret == 0:
+                    QTimer.singleShot(10000, event_loop.quit)
+                    event_loop.exec_()
+
+                    if received_data['completed'] and received_data['result']:
+                        result_data['data']['04_daily_chart'] = received_data['result']
+                        logger.info(f"[{request_id}] 일봉 차트 수집 완료: {received_data['result'].get('count', 0)}개")
+                    else:
+                        result_data['data']['04_daily_chart'] = {'error': 'Timeout'}
+                else:
+                    result_data['data']['04_daily_chart'] = {'error': f'Request failed: {ret}'}
+
+                try:
+                    openapi_context.OnReceiveTrData.disconnect(on_receive_daily)
+                except:
+                    pass
+
+            except Exception as e:
+                logger.error(f"[{request_id}] 일봉 차트 오류: {e}")
+                result_data['data']['04_daily_chart'] = {'error': str(e)}
+
+            # 결과 저장
+            result_data['success_count'] = sum(1 for v in result_data['data'].values() if 'error' not in v)
+            result_data['total_count'] = len(result_data['data'])
+
+            with tr_result_lock:
+                tr_result_dict[request_id] = {
+                    'completed': True,
+                    'result': result_data,
+                    'error': None
+                }
+
+            logger.info(f"[{request_id}] 종합 데이터 처리 완료: {result_data['success_count']}/{result_data['total_count']}")
+
         else:
             # Unknown TR type
             with tr_result_lock:
@@ -321,6 +428,82 @@ def get_minute_data(code, interval):
 
     except Exception as e:
         logger.error(f"Minute data error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/accounts', methods=['GET'])
+def get_accounts():
+    """Get account list"""
+    if not openapi_context:
+        return jsonify({'error': 'Not connected'}), 400
+
+    return jsonify({
+        'accounts': account_list
+    })
+
+
+@app.route('/stock/<code>/comprehensive', methods=['GET'])
+def get_comprehensive_data(code):
+    """Get comprehensive stock data (20 types) - 메인 스레드 큐 방식"""
+    if not openapi_context:
+        return jsonify({'error': 'Not connected'}), 400
+
+    try:
+        from datetime import datetime
+
+        # Generate request ID
+        request_id = str(uuid.uuid4())
+
+        # 결과 딕셔너리 초기화
+        with tr_result_lock:
+            tr_result_dict[request_id] = {
+                'completed': False,
+                'result': None,
+                'error': None
+            }
+
+        # TR 요청을 큐에 추가
+        tr_request_queue.put((request_id, 'comprehensive', {
+            'stock_code': code
+        }))
+
+        logger.info(f"[{request_id}] {code} 종합 데이터 요청을 큐에 추가")
+
+        # 결과 대기 (polling) - 종합 데이터는 여러 TR을 조회하므로 120초로 설정
+        timeout = 120
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            with tr_result_lock:
+                result_entry = tr_result_dict.get(request_id)
+
+                if result_entry and result_entry['completed']:
+                    # 완료됨
+                    if result_entry['error']:
+                        return jsonify({'error': result_entry['error']}), 500
+
+                    result_data = result_entry['result']
+
+                    # 결과 정리
+                    del tr_result_dict[request_id]
+
+                    # 응답 반환
+                    return jsonify(result_data)
+
+            # 잠시 대기
+            time.sleep(0.1)
+
+        # 타임아웃
+        with tr_result_lock:
+            if request_id in tr_result_dict:
+                del tr_result_dict[request_id]
+
+        return jsonify({'error': 'Request timeout'}), 504
+
+    except Exception as e:
+        logger.error(f"Comprehensive data error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'error': str(e)}), 500
