@@ -266,13 +266,14 @@ def get_minute_data(code, interval):
                     for i in range(cnt):
                         # opt10080 분봉차트 기본 출력 필드만 사용
                         try:
+                            # ✅ GetCommData 올바른 파라미터: (trCode, "", rqname, index, "필드명")
                             item = {
-                                '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
-                                '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
-                                '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
-                                '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
-                                '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
-                                '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
+                                '체결시간': openapi_context.GetCommData(tr_code, "", rq_name, i, "체결시간").strip(),
+                                '현재가': openapi_context.GetCommData(tr_code, "", rq_name, i, "현재가").strip(),
+                                '시가': openapi_context.GetCommData(tr_code, "", rq_name, i, "시가").strip(),
+                                '고가': openapi_context.GetCommData(tr_code, "", rq_name, i, "고가").strip(),
+                                '저가': openapi_context.GetCommData(tr_code, "", rq_name, i, "저가").strip(),
+                                '거래량': openapi_context.GetCommData(tr_code, "", rq_name, i, "거래량").strip(),
                             }
 
                             # 첫 5개와 마지막 2개만 샘플 로그 출력
@@ -482,7 +483,8 @@ def get_comprehensive_data(code):
 
             for field in fields:
                 try:
-                    value = openapi_context.GetCommData(trcode, rqname, 0, field).strip()
+                    # ✅ GetCommData 올바른 파라미터: (trCode, "", rqname, index, "필드명")
+                    value = openapi_context.GetCommData(trcode, "", rqname, 0, field).strip()
                     if value:
                         data[field] = value
                 except:
@@ -499,7 +501,8 @@ def get_comprehensive_data(code):
 
                 for field in fields:
                     try:
-                        value = openapi_context.GetCommData(trcode, rqname, i, field).strip()
+                        # ✅ GetCommData 올바른 파라미터: (trCode, "", rqname, index, "필드명")
+                        value = openapi_context.GetCommData(trcode, "", rqname, i, field).strip()
                         if value:
                             item[field] = value
                     except:
