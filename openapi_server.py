@@ -257,27 +257,36 @@ def get_minute_data(code, interval):
                     cnt = openapi_context.GetRepeatCnt(tr_code, rq_name)
                     items = []
 
+                    logger.info(f"  GetRepeatCnt 반환값: {cnt}개")
+
                     # 복수 데이터 추출
                     for i in range(cnt):
-                        item = {}
-                        # opt10080 분봉차트 출력 필드
-                        fields = ['현재가', '거래량', '체결시간', '시가', '고가', '저가', '수정주가구분', '수정비율', '대업종구분', '소업종구분', '종목정보', '수정주가이벤트', '전일종가']
+                        # opt10080 분봉차트 기본 출력 필드만 사용
+                        try:
+                            item = {
+                                '체결시간': openapi_context.GetCommData(tr_code, rq_name, i, "체결시간").strip(),
+                                '현재가': openapi_context.GetCommData(tr_code, rq_name, i, "현재가").strip(),
+                                '시가': openapi_context.GetCommData(tr_code, rq_name, i, "시가").strip(),
+                                '고가': openapi_context.GetCommData(tr_code, rq_name, i, "고가").strip(),
+                                '저가': openapi_context.GetCommData(tr_code, rq_name, i, "저가").strip(),
+                                '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
+                            }
 
-                        for field in fields:
-                            try:
-                                value = openapi_context.GetCommData(tr_code, rq_name, i, field).strip()
-                                if value:
-                                    item[field] = value
-                            except:
-                                pass
+                            # 첫 5개와 마지막 2개만 샘플 로그 출력
+                            if i < 5 or i >= cnt - 2:
+                                logger.info(f"    [{i}] {item.get('체결시간', 'N/A')[:14]} - 종가: {item.get('현재가', 'N/A')}, 거래량: {item.get('거래량', 'N/A')}")
 
-                        if item:
                             items.append(item)
+                        except Exception as e:
+                            logger.error(f"    [{i}] 데이터 추출 실패: {e}")
+                            continue
 
                     received_data['result'] = {'items': items, 'count': cnt, 'total_received': len(items)}
-                    logger.info(f"  GetRepeatCnt: {cnt}, 실제 추출: {len(items)}개")
+                    logger.info(f"  ✅ 최종: {len(items)}개 캔들 추출 완료")
                 except Exception as e:
-                    logger.error(f"  데이터 추출 오류: {e}")
+                    logger.error(f"  ❌ 데이터 추출 오류: {e}")
+                    import traceback
+                    logger.error(traceback.format_exc())
                     received_data['result'] = {'error': str(e)}
 
                 received_data['completed'] = True
