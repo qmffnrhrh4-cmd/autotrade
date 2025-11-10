@@ -2,14 +2,15 @@
 strategy 패키지
 매매 전략 모듈
 
-v4.2 Changes:
+v5.0 Changes:
+- Consolidated RiskManager into DynamicRiskManager
 - Position now imported from core (standardized)
 - PositionManager still available for backward compatibility
 """
 from .base_strategy import BaseStrategy
 from .momentum_strategy import MomentumStrategy
 from .portfolio_manager import PortfolioManager
-from .risk_manager import RiskManager
+from .dynamic_risk_manager import DynamicRiskManager, RiskMode, RiskModeConfig
 
 # v4.0 Advanced Strategies
 try:
@@ -31,14 +32,13 @@ from core import Position  # v4.2: Use standard Position
 from .position_manager import PositionManager, get_position_manager
 from .signal_checker import SignalChecker, SignalType, TradingSignalValidator
 
-# v4.1 Advanced Risk & Orchestration
-from .risk_orchestrator import RiskOrchestrator, RiskLevel, RiskAssessment, get_risk_orchestrator
-
 __all__ = [
     'BaseStrategy',
     'MomentumStrategy',
     'PortfolioManager',
-    'RiskManager',
+    'DynamicRiskManager',
+    'RiskMode',
+    'RiskModeConfig',
     # v4.0 Advanced Strategies
     'TrailingStopManager',
     'TrailingStopState',
@@ -57,9 +57,4 @@ __all__ = [
     'SignalChecker',
     'SignalType',
     'TradingSignalValidator',
-    # v4.1 Advanced Risk & Orchestration
-    'RiskOrchestrator',
-    'RiskLevel',
-    'RiskAssessment',
-    'get_risk_orchestrator',
 ]

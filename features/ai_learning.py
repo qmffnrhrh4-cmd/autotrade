@@ -1,14 +1,4 @@
-"""
-AI Learning System
-Advanced machine learning for trading strategy optimization
-
-Features:
-- Pattern recognition from historical data
-- Strategy effectiveness evaluation
-- Automatic parameter tuning
-- Market regime detection
-- Performance prediction
-"""
+"""AI Learning System"""
 import json
 import numpy as np
 import pandas as pd
@@ -21,10 +11,28 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+MIN_TRADES_FOR_ANALYSIS = 10
+MIN_DATA_FOR_PATTERN = 20
+MIN_PATTERN_SAMPLES = 3
+RSI_OVERSOLD = 30
+RSI_OVERBOUGHT = 70
+VOLUME_SURGE_MULTIPLIER = 1.8
+MOMENTUM_PERIOD = 5
+MOMENTUM_THRESHOLD = 0.05
+MIN_SUCCESS_RATE_RSI = 0.55
+MIN_SUCCESS_RATE_VOLUME = 0.60
+MIN_SUCCESS_RATE_MOMENTUM = 0.58
+
+BULL_TREND_THRESHOLD = 0.02
+BEAR_TREND_THRESHOLD = -0.02
+HIGH_VOLATILITY_THRESHOLD = 0.30
+NORMAL_VOLATILITY_THRESHOLD = 0.20
+
+MIN_OPTIMIZATION_DATA = 5
+
 
 @dataclass
 class TradingPattern:
-    """Recognized trading pattern"""
     id: str
     name: str
     description: str
@@ -37,8 +45,7 @@ class TradingPattern:
 
 @dataclass
 class MarketRegime:
-    """Detected market regime"""
-    regime_type: str  # 'bull', 'bear', 'sideways', 'volatile'
+    regime_type: str
     start_date: str
     confidence: float
     characteristics: Dict[str, Any]
@@ -46,30 +53,17 @@ class MarketRegime:
 
 @dataclass
 class LearningInsight:
-    """AI learning insight"""
     timestamp: str
-    insight_type: str  # 'pattern', 'regime', 'parameter', 'strategy'
+    insight_type: str
     title: str
     description: str
     confidence: float
     action_recommended: str
-    impact: str  # 'high', 'medium', 'low'
+    impact: str
 
 
 class AILearningEngine:
-    """
-    Machine learning engine for trading strategy optimization
-
-    Capabilities:
-    - Learn from historical trades
-    - Recognize profitable patterns
-    - Detect market regimes
-    - Optimize parameters automatically
-    - Predict strategy performance
-    """
-
     def __init__(self):
-        """Initialize learning engine"""
         self.patterns: List[TradingPattern] = []
         self.regimes: List[MarketRegime] = []
         self.insights: List[LearningInsight] = []
@@ -80,14 +74,12 @@ class AILearningEngine:
         self._load_learning_data()
 
     def _ensure_data_files(self):
-        """Ensure data files exist"""
         for file in [self.learning_data_file, self.patterns_file]:
             file.parent.mkdir(parents=True, exist_ok=True)
             if not file.exists():
                 file.write_text('{}')
 
     def _load_learning_data(self):
-        """Load learning data from files"""
         try:
             if self.patterns_file.exists():
                 with open(self.patterns_file, 'r', encoding='utf-8') as f:
@@ -99,7 +91,6 @@ class AILearningEngine:
             logger.error(f"Error loading learning data: {e}")
 
     def _save_learning_data(self):
-        """Save learning data to files"""
         try:
             with open(self.patterns_file, 'w', encoding='utf-8') as f:
                 json.dump({
@@ -110,18 +101,9 @@ class AILearningEngine:
             logger.error(f"Error saving learning data: {e}")
 
     def analyze_trade_history(self, trades: List[Dict[str, Any]]) -> List[LearningInsight]:
-        """
-        Analyze historical trades to extract insights
-
-        Args:
-            trades: List of completed trades
-
-        Returns:
-            List of learning insights
-        """
         insights = []
 
-        if len(trades) < 10:
+        if len(trades) < MIN_TRADES_FOR_ANALYSIS:
             return insights
 
         try:
@@ -209,44 +191,29 @@ class AILearningEngine:
         return insights
 
     def recognize_patterns(self, market_data: List[Dict[str, Any]]) -> List[TradingPattern]:
-        """
-        Recognize profitable patterns in market data
-
-        Args:
-            market_data: Historical market data
-
-        Returns:
-            List of recognized patterns
-        """
         recognized_patterns = []
 
         try:
-            if len(market_data) < 20:
+            if len(market_data) < MIN_DATA_FOR_PATTERN:
                 return recognized_patterns
 
-            # Pattern 1: RSI Reversal
             rsi_reversal_pattern = self._detect_rsi_reversal_pattern(market_data)
             if rsi_reversal_pattern:
                 recognized_patterns.append(rsi_reversal_pattern)
 
-            # Pattern 2: Volume Breakout
             volume_breakout_pattern = self._detect_volume_breakout_pattern(market_data)
             if volume_breakout_pattern:
                 recognized_patterns.append(volume_breakout_pattern)
 
-            # Pattern 3: Momentum Continuation
             momentum_pattern = self._detect_momentum_continuation(market_data)
             if momentum_pattern:
                 recognized_patterns.append(momentum_pattern)
 
-            # Add to patterns list
             for pattern in recognized_patterns:
-                # Check if pattern already exists
                 existing = [p for p in self.patterns if p.id == pattern.id]
                 if not existing:
                     self.patterns.append(pattern)
                 else:
-                    # Update existing pattern
                     idx = self.patterns.index(existing[0])
                     self.patterns[idx] = pattern
 

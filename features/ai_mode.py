@@ -1,15 +1,4 @@
-"""
-AI Mode - Autonomous Trading Agent
-Complete AI-driven trading system with self-learning and dynamic optimization
-
-Features:
-- Dynamic parameter optimization
-- Real-time market analysis and decision making
-- Self-learning from past trades
-- Automatic strategy generation
-- Risk-adaptive behavior
-- Continuous self-improvement
-"""
+"""AI Mode - Autonomous Trading Agent"""
 import json
 import numpy as np
 import pandas as pd
@@ -22,9 +11,28 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+DECISIONS_TO_KEEP = 100
+DECISION_SAVE_INTERVAL = 10
+RECENT_DECISIONS_LIMIT = 50
+MIN_DECISIONS_FOR_OPTIMIZATION = 10
+REGIMES_TO_KEEP = 30
+
+DEFAULT_MAX_STOCK_HOLDINGS = 5
+DEFAULT_BUY_AMOUNT_PER_STOCK = 100000
+DEFAULT_STOP_LOSS_PCT = -3.0
+DEFAULT_TAKE_PROFIT_PCT = 5.0
+DEFAULT_MIN_SCORE_THRESHOLD = 300
+
+AGGRESSIVE_STOP_LOSS = -2.5
+AGGRESSIVE_TAKE_PROFIT = 6.0
+CONSERVATIVE_STOP_LOSS = -4.0
+CONSERVATIVE_TAKE_PROFIT = 4.0
+
+HIGH_CONFIDENCE_THRESHOLD = 0.75
+LOW_CONFIDENCE_THRESHOLD = 0.55
+
 
 class AIConfidence(Enum):
-    """AI confidence levels"""
     VERY_LOW = 0.2
     LOW = 0.4
     MEDIUM = 0.6
@@ -34,22 +42,20 @@ class AIConfidence(Enum):
 
 @dataclass
 class AIDecision:
-    """Single AI decision"""
     timestamp: str
-    decision_type: str  # 'buy', 'sell', 'hold', 'parameter_adjust'
+    decision_type: str
     stock_code: Optional[str]
     stock_name: Optional[str]
     action: str
-    reasoning: List[str]  # AI's reasoning process
-    confidence: float  # 0.0 to 1.0
+    reasoning: List[str]
+    confidence: float
     parameters_used: Dict[str, Any]
     expected_outcome: str
-    risk_level: str  # 'Low', 'Medium', 'High'
+    risk_level: str
 
 
 @dataclass
 class AIPerformance:
-    """AI mode performance metrics"""
     total_decisions: int
     successful_decisions: int
     failed_decisions: int
@@ -64,64 +70,42 @@ class AIPerformance:
 
 @dataclass
 class AIStrategy:
-    """AI-generated trading strategy"""
     id: str
     name: str
     description: str
     created_at: str
-    performance_score: float  # 0-100
+    performance_score: float
     win_rate: float
     avg_profit: float
     risk_level: str
     parameters: Dict[str, Any]
-    conditions: List[str]  # When to apply this strategy
+    conditions: List[str]
     is_active: bool
 
 
 class AIAgent:
-    """
-    Autonomous AI Trading Agent
-
-    This AI agent can:
-    - Analyze market conditions in real-time
-    - Make trading decisions autonomously
-    - Adjust all parameters dynamically
-    - Learn from past performance
-    - Generate new strategies
-    - Self-improve continuously
-    """
-
     def __init__(self, bot_instance=None):
-        """
-        Initialize AI Agent
-
-        Args:
-            bot_instance: Trading bot instance to control
-        """
         self.bot = bot_instance
         self.enabled = False
         self.learning_mode = True
 
-        # AI state
         self.decisions_history: List[AIDecision] = []
         self.strategies: List[AIStrategy] = []
         self.performance: AIPerformance = self._init_performance()
 
-        # Dynamic parameters (AI will adjust these)
         self.dynamic_params = {
-            'max_stock_holdings': 5,
-            'buy_amount_per_stock': 100000,
-            'stop_loss_pct': -3.0,
-            'take_profit_pct': 5.0,
+            'max_stock_holdings': DEFAULT_MAX_STOCK_HOLDINGS,
+            'buy_amount_per_stock': DEFAULT_BUY_AMOUNT_PER_STOCK,
+            'stop_loss_pct': DEFAULT_STOP_LOSS_PCT,
+            'take_profit_pct': DEFAULT_TAKE_PROFIT_PCT,
             'risk_mode': 'balanced',
             'sector_diversification': True,
             'technical_indicators_weight': 0.7,
             'news_sentiment_weight': 0.3,
-            'min_score_threshold': 300,
-            'position_sizing_method': 'equal',  # 'equal', 'risk_based', 'kelly'
+            'min_score_threshold': DEFAULT_MIN_SCORE_THRESHOLD,
+            'position_sizing_method': 'equal',
         }
 
-        # Learning data
         self.learning_data_file = Path('data/ai_learning.json')
         self.strategies_file = Path('data/ai_strategies.json')
         self.decisions_file = Path('data/ai_decisions.json')
@@ -129,14 +113,12 @@ class AIAgent:
         self._load_ai_state()
 
     def _ensure_data_files(self):
-        """Ensure AI data files exist"""
         for file in [self.learning_data_file, self.strategies_file, self.decisions_file]:
             file.parent.mkdir(parents=True, exist_ok=True)
             if not file.exists():
                 file.write_text('{}')
 
     def _init_performance(self) -> AIPerformance:
-        """Initialize performance metrics"""
         return AIPerformance(
             total_decisions=0,
             successful_decisions=0,
@@ -151,9 +133,7 @@ class AIAgent:
         )
 
     def _load_ai_state(self):
-        """Load AI state from files"""
         try:
-            # Load strategies
             if self.strategies_file.exists():
                 with open(self.strategies_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -161,31 +141,27 @@ class AIAgent:
                         self.strategies = [AIStrategy(**s) for s in data['strategies']]
                     logger.info(f"Loaded {len(self.strategies)} AI strategies")
 
-            # Load decisions history
             if self.decisions_file.exists():
                 with open(self.decisions_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if 'decisions' in data:
-                        self.decisions_history = [AIDecision(**d) for d in data['decisions'][-100:]]  # Keep last 100
+                        self.decisions_history = [AIDecision(**d) for d in data['decisions'][-DECISIONS_TO_KEEP:]]
                     logger.info(f"Loaded {len(self.decisions_history)} AI decisions")
 
         except Exception as e:
             logger.error(f"Error loading AI state: {e}")
 
     def _save_ai_state(self):
-        """Save AI state to files"""
         try:
-            # Save strategies
             with open(self.strategies_file, 'w', encoding='utf-8') as f:
                 json.dump({
                     'strategies': [asdict(s) for s in self.strategies],
                     'last_updated': datetime.now().isoformat()
                 }, f, ensure_ascii=False, indent=2)
 
-            # Save decisions
             with open(self.decisions_file, 'w', encoding='utf-8') as f:
                 json.dump({
-                    'decisions': [asdict(d) for d in self.decisions_history[-100:]],
+                    'decisions': [asdict(d) for d in self.decisions_history[-DECISIONS_TO_KEEP:]],
                     'last_updated': datetime.now().isoformat()
                 }, f, ensure_ascii=False, indent=2)
 
@@ -528,8 +504,7 @@ class AIAgent:
                 / self.performance.total_decisions
             )
 
-            # Save state periodically
-            if len(self.decisions_history) % 10 == 0:
+            if len(self.decisions_history) % DECISION_SAVE_INTERVAL == 0:
                 self._save_ai_state()
 
             logger.info(f"AI Decision: {action.upper()} {stock_name} (confidence: {confidence:.0%})")
@@ -575,36 +550,23 @@ class AIAgent:
             return 'Medium'
 
     def optimize_parameters(self):
-        """
-        AI optimizes its own parameters based on past performance
-
-        This is the self-improvement mechanism
-        """
         try:
             logger.info("🧠 AI Self-optimization starting...")
 
-            # Analyze recent decisions
-            if len(self.decisions_history) < 10:
+            if len(self.decisions_history) < MIN_DECISIONS_FOR_OPTIMIZATION:
                 logger.info("Not enough data for optimization yet")
                 return
 
-            recent_decisions = self.decisions_history[-50:]  # Last 50 decisions
-
-            # Calculate success metrics
-            # (In real implementation, would compare decisions with actual outcomes)
-
-            # Optimize stop loss and take profit based on volatility
+            recent_decisions = self.decisions_history[-RECENT_DECISIONS_LIMIT:]
             avg_confidence = np.mean([d.confidence for d in recent_decisions])
 
-            if avg_confidence > 0.75:
-                # High confidence - can be more aggressive
-                self.dynamic_params['stop_loss_pct'] = -2.5
-                self.dynamic_params['take_profit_pct'] = 6.0
+            if avg_confidence > HIGH_CONFIDENCE_THRESHOLD:
+                self.dynamic_params['stop_loss_pct'] = AGGRESSIVE_STOP_LOSS
+                self.dynamic_params['take_profit_pct'] = AGGRESSIVE_TAKE_PROFIT
                 logger.info("AI: Confidence high, adjusting to aggressive parameters")
-            elif avg_confidence < 0.55:
-                # Low confidence - be more conservative
-                self.dynamic_params['stop_loss_pct'] = -4.0
-                self.dynamic_params['take_profit_pct'] = 4.0
+            elif avg_confidence < LOW_CONFIDENCE_THRESHOLD:
+                self.dynamic_params['stop_loss_pct'] = CONSERVATIVE_STOP_LOSS
+                self.dynamic_params['take_profit_pct'] = CONSERVATIVE_TAKE_PROFIT
                 logger.info("AI: Confidence low, adjusting to conservative parameters")
 
             # Update performance

@@ -390,5 +390,225 @@ class VirtualTrader:
             filepath = f"{base_dir}/{filename}"
             account.load_state(filepath)
 
+    def get_optimal_strategy(self, market_data: Dict = None) -> Optional[str]:
+        if not self.accounts:
+            return None
+
+        scores = {}
+
+        for strategy_name, account in self.accounts.items():
+            summary = account.get_summary()
+
+            score = 0.0
+
+            if summary['total_trades'] > 0:
+                score += summary['win_rate'] * 0.3
+                score += (summary['total_pnl_rate'] / 10) * 0.4
+
+                if summary['total_trades'] >= 10:
+                    score += 10
+                elif summary['total_trades'] >= 5:
+                    score += 5
+
+                if summary['total_pnl'] > 0:
+                    score += 10
+
+            if market_data:
+                market_condition = self._determine_market_condition(market_data)
+
+                if market_condition == 'bullish' and 'momentum' in strategy_name.lower():
+                    score += 15
+                elif market_condition == 'bearish' and 'reversal' in strategy_name.lower():
+                    score += 15
+                elif market_condition == 'volatile' and 'swing' in strategy_name.lower():
+                    score += 15
+
+            scores[strategy_name] = score
+
+        return max(scores, key=scores.get) if scores else None
+
+    def _determine_market_condition(self, market_data: Dict) -> str:
+        rsi = market_data.get('rsi', 50)
+        price_change = market_data.get('price_change_percent', 0)
+        volume_ratio = market_data.get('volume_ratio', 1.0)
+
+        if rsi > 70 and price_change > 2:
+            return 'overbought'
+        elif rsi < 30 and price_change < -2:
+            return 'oversold'
+        elif price_change > 3 and volume_ratio > 1.5:
+            return 'bullish'
+        elif price_change < -3 and volume_ratio > 1.5:
+            return 'bearish'
+        elif abs(price_change) > 2:
+            return 'volatile'
+        else:
+            return 'neutral'
+
+    def get_strategy_recommendations(self, market_data: Dict = None) -> Dict[str, float]:
+        recommendations = {}
+
+        for strategy_name, account in self.accounts.items():
+            summary = account.get_summary()
+
+            recommendation_score = 50.0
+
+            if summary['total_trades'] > 0:
+                recommendation_score += min(summary['win_rate'], 30)
+
+                pnl_contribution = (summary['total_pnl_rate'] / 10) * 10
+                recommendation_score += max(min(pnl_contribution, 20), -20)
+
+            if market_data:
+                market_condition = self._determine_market_condition(market_data)
+
+                condition_bonus = self._get_condition_bonus(strategy_name, market_condition)
+                recommendation_score += condition_bonus
+
+            recommendations[strategy_name] = max(0, min(100, recommendation_score))
+
+        return dict(sorted(recommendations.items(), key=lambda x: x[1], reverse=True))
+
+    def _get_condition_bonus(self, strategy_name: str, condition: str) -> float:
+        bonus_map = {
+            'bullish': {
+                'momentum': 20,
+                'breakout': 15,
+                'trend': 15,
+            },
+            'bearish': {
+                'reversal': 20,
+                'value': 15,
+                'contrarian': 15,
+            },
+            'volatile': {
+                'swing': 20,
+                'hot': 15,
+            },
+            'oversold': {
+                'reversal': 25,
+                'mean_reversion': 20,
+            },
+            'overbought': {
+                'contrarian': 20,
+                'value': 15,
+            }
+        }
+
+        condition_bonuses = bonus_map.get(condition, {})
+
+        for key, bonus in condition_bonuses.items():
+            if key.lower() in strategy_name.lower():
+                return bonus
+
+        return 0
+
+    def analyze_failure_patterns(self) -> Dict[str, List[Dict]]:
+        failure_analysis = {}
+
+        for strategy_name, account in self.accounts.items():
+            failures = []
+
+            for trade in account.trade_history:
+                if trade['type'] == 'sell' and trade.get('realized_pnl', 0) < 0:
+                    failures.append({
+                        'stock_code': trade.get('stock_code', ''),
+                        'stock_name': trade.get('stock_name', ''),
+                        'pnl': trade.get('realized_pnl', 0),
+                        'pnl_rate': trade.get('realized_pnl_rate', 0.0),
+                        'reason': trade.get('reason', ''),
+                        'timestamp': trade.get('timestamp', '')
+                    })
+
+            if failures:
+                failure_analysis[strategy_name] = {
+                    'total_failures': len(failures),
+                    'avg_loss': sum(f['pnl'] for f in failures) / len(failures),
+                    'worst_loss': min(failures, key=lambda x: x['pnl']),
+                    'common_reasons': self._analyze_common_reasons(failures),
+                    'recent_failures': failures[-5:]
+                }
+
+        return failure_analysis
+
+    def _analyze_common_reasons(self, failures: List[Dict]) -> Dict[str, int]:
+        reason_counts = {}
+
+        for failure in failures:
+            reason = failure.get('reason', 'unknown')
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+
+        return dict(sorted(reason_counts.items(), key=lambda x: x[1], reverse=True))
+
+    def get_learning_summary(self) -> Dict:
+        summaries = self.get_all_summaries()
+
+        total_trades = sum(s['total_trades'] for s in summaries.values())
+        total_winning = sum(s['winning_trades'] for s in summaries.values())
+        total_losing = sum(s['losing_trades'] for s in summaries.values())
+        total_pnl = sum(s['total_pnl'] for s in summaries.values())
+
+        best_strategy = self.get_best_strategy()
+        worst_strategy = min(summaries, key=lambda k: summaries[k]['total_pnl_rate']) if summaries else None
+
+        strategy_rankings = sorted(
+            summaries.items(),
+            key=lambda x: (x[1]['total_pnl_rate'], x[1]['win_rate']),
+            reverse=True
+        )
+
+        return {
+            'overall_stats': {
+                'total_trades': total_trades,
+                'total_winning': total_winning,
+                'total_losing': total_losing,
+                'overall_win_rate': (total_winning / total_trades * 100) if total_trades > 0 else 0,
+                'total_pnl': total_pnl,
+                'avg_pnl_per_trade': total_pnl / total_trades if total_trades > 0 else 0
+            },
+            'best_strategy': best_strategy,
+            'worst_strategy': worst_strategy,
+            'strategy_rankings': [
+                {
+                    'name': name,
+                    'pnl_rate': summary['total_pnl_rate'],
+                    'win_rate': summary['win_rate'],
+                    'total_trades': summary['total_trades']
+                }
+                for name, summary in strategy_rankings
+            ],
+            'recommendations': self.get_strategy_recommendations(),
+            'failure_analysis': self.analyze_failure_patterns()
+        }
+
+    def auto_adjust_parameters(self):
+        for strategy_name, strategy in self.strategies.items():
+            account = self.accounts[strategy_name]
+            summary = account.get_summary()
+
+            if summary['total_trades'] < 5:
+                continue
+
+            if hasattr(strategy, 'take_profit_rate') and hasattr(strategy, 'stop_loss_rate'):
+                if summary['win_rate'] < 30:
+                    strategy.stop_loss_rate = max(strategy.stop_loss_rate * 0.8, -0.03)
+                    strategy.take_profit_rate = min(strategy.take_profit_rate * 1.2, 0.20)
+
+                    logger.info(f"[{strategy_name}] 파라미터 조정: 손절률 {strategy.stop_loss_rate:.2%}, 익절률 {strategy.take_profit_rate:.2%}")
+
+                elif summary['win_rate'] > 70 and summary['total_pnl'] > 0:
+                    strategy.position_size_rate = min(strategy.position_size_rate * 1.1, 0.25)
+
+                    logger.info(f"[{strategy_name}] 포지션 크기 확대: {strategy.position_size_rate:.2%}")
+
+            recent_trades = [t for t in account.trade_history if t['type'] == 'sell'][-5:]
+            if len(recent_trades) >= 5:
+                recent_losses = sum(1 for t in recent_trades if t.get('realized_pnl', 0) < 0)
+
+                if recent_losses >= 4:
+                    if hasattr(strategy, 'stop_loss_rate'):
+                        strategy.stop_loss_rate = max(strategy.stop_loss_rate * 0.7, -0.02)
+                        logger.info(f"[{strategy_name}] 연속 손실로 손절률 축소: {strategy.stop_loss_rate:.2%}")
+
 
 __all__ = ['VirtualTrader', 'TradingStrategy']
