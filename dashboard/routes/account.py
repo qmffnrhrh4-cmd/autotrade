@@ -48,22 +48,22 @@ def get_account():
 
             # 계좌 정보 계산 (kt00001 API 응답 구조에 맞게 수정)
             # entr: 예수금, 100stk_ord_alow_amt: 100% 주문가능금액 (실제 사용가능액 = 잔존 현금)
-            deposit_amount = int(str(deposit.get('entr', '0')).replace(',', '')) if deposit else 0
-            cash = int(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', '')) if deposit else 0
+            deposit_amount = int(float(str(deposit.get('entr', '0')).replace(',', ''))) if deposit else 0
+            cash = int(float(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', ''))) if deposit else 0
 
             # v5.4.2: 주식 현재가치 계산 (장외 시간 대응)
             # eval_amt이 0인 경우 (장외 시간) 수량 × 현재가로 직접 계산
             stock_value = 0
             if holdings:
                 for h in holdings:
-                    eval_amt = int(str(h.get('eval_amt', 0)).replace(',', ''))
+                    eval_amt = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
                     if eval_amt > 0:
                         # API에서 평가금액이 정상적으로 오는 경우 (장중)
                         stock_value += eval_amt
                     else:
                         # 장외 시간 등으로 eval_amt이 0인 경우, 직접 계산
-                        quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
-                        cur_price = int(str(h.get('cur_prc', 0)).replace(',', ''))
+                        quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))
+                        cur_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
                         calculated_value = quantity * cur_price
                         stock_value += calculated_value
                         # Note: After-hours calculation (eval_amt=0)
@@ -84,15 +84,15 @@ def get_account():
                     stock_name = h.get('stk_nm', '')
 
                     # kt00004 API 필드 사용 (main.py:841-851과 동일)
-                    quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))  # 보유수량
-                    avg_price = int(str(h.get('avg_prc', 0)).replace(',', ''))  # 평균단가
-                    cur_price = int(str(h.get('cur_prc', 0)).replace(',', ''))  # 현재가
+                    quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))  # 보유수량
+                    avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))  # 평균단가
+                    cur_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))  # 현재가
 
                     # 매입금액 계산 (평균단가 × 수량)
                     buy_amt = avg_price * quantity
 
                     # 평가금액 계산
-                    eval_amt = int(str(h.get('eval_amt', 0)).replace(',', ''))
+                    eval_amt = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
                     if eval_amt == 0:
                         # 장외 시간 등으로 eval_amt이 0인 경우, 직접 계산
                         eval_amt = quantity * cur_price
@@ -154,6 +154,79 @@ def get_account():
         })
 
 
+@account_bp.route('/api/account/portfolio')
+def get_account_portfolio():
+    """Get portfolio holdings in dashboard-compatible format"""
+    try:
+        # Get positions using the same logic as get_positions()
+        if not _bot_instance or not hasattr(_bot_instance, 'account_api'):
+            return jsonify({
+                'success': False,
+                'holdings': [],
+                'message': 'Bot not initialized'
+            })
+
+        holdings = _bot_instance.account_api.get_holdings(market_type="KRX+NXT")
+
+        if not holdings:
+            return jsonify({
+                'success': True,
+                'holdings': []
+            })
+
+        portfolio = []
+        for h in holdings:
+            try:
+                code = str(h.get('stk_cd', '')).strip()
+                if code.startswith('A'):
+                    code = code[1:]
+
+                name = h.get('stk_nm', '')
+                quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))
+
+                if quantity <= 0:
+                    continue
+
+                avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+                current_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
+
+                value = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
+                if value == 0 and current_price > 0:
+                    value = quantity * current_price
+
+                profit_loss = value - (avg_price * quantity)
+                profit_loss_percent = ((current_price - avg_price) / avg_price * 100) if avg_price > 0 else 0
+
+                portfolio.append({
+                    'stock_code': code,
+                    'stock_name': name,
+                    'quantity': quantity,
+                    'avg_price': avg_price,
+                    'current_price': current_price,
+                    'value': value,
+                    'profit_loss': profit_loss,
+                    'profit_loss_percent': profit_loss_percent
+                })
+            except Exception as e:
+                print(f"Error processing holding {h}: {e}")
+                continue
+
+        return jsonify({
+            'success': True,
+            'holdings': portfolio
+        })
+
+    except Exception as e:
+        print(f"Error getting portfolio: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'holdings': [],
+            'message': str(e)
+        })
+
+
 @account_bp.route('/api/positions')
 def get_positions():
     """Get current positions from real API (kt00004 API 응답 필드 사용)"""
@@ -184,17 +257,17 @@ def get_positions():
                     code = code[1:]
 
                 name = h.get('stk_nm', '')  # 종목명
-                quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))  # 보유수량
+                quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))  # 보유수량
 
                 # v5.3.2: 수량 0인 종목 스킵
                 if quantity <= 0:
                     continue
 
-                avg_price = int(str(h.get('avg_prc', 0)).replace(',', ''))  # 평균단가
-                current_price = int(str(h.get('cur_prc', 0)).replace(',', ''))  # 현재가
+                avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))  # 평균단가
+                current_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))  # 현재가
 
                 # v5.4.2: 평가금액 계산 (장외 시간 대응)
-                value = int(str(h.get('eval_amt', 0)).replace(',', ''))
+                value = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
                 if value == 0 and current_price > 0:
                     # 장외 시간 등으로 eval_amt이 0인 경우, 직접 계산
                     value = quantity * current_price
@@ -331,16 +404,16 @@ def get_real_holdings():
                     stock_code = stock_code[1:]
 
                 stock_name = holding.get('stk_nm', stock_code)
-                quantity = int(str(holding.get('rmnd_qty', 0)).replace(',', ''))
+                quantity = int(float(str(holding.get('rmnd_qty', 0)).replace(',', '')))
 
                 if quantity <= 0:
                     continue
 
-                avg_price = int(str(holding.get('avg_prc', 0)).replace(',', ''))
-                current_price = int(str(holding.get('cur_prc', 0)).replace(',', ''))
+                avg_price = int(float(str(holding.get('avg_prc', 0)).replace(',', '')))
+                current_price = int(float(str(holding.get('cur_prc', 0)).replace(',', '')))
 
                 # v5.4.2: 평가금액 계산 (장외 시간 대응)
-                eval_amount = int(str(holding.get('eval_amt', 0)).replace(',', ''))
+                eval_amount = int(float(str(holding.get('eval_amt', 0)).replace(',', '')))
                 if eval_amount == 0 and current_price > 0:
                     # 장외 시간 등으로 eval_amt이 0인 경우, 직접 계산
                     eval_amount = quantity * current_price
@@ -583,13 +656,13 @@ def get_optimization_summary():
         for h in holdings:
             code = str(h.get('stk_cd', '')).replace('A', '')
             name = h.get('stk_nm', '')
-            quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
+            quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))
 
             if quantity <= 0:
                 continue
 
-            avg_price = int(str(h.get('avg_prc', 0)).replace(',', ''))
-            current_price = int(str(h.get('cur_prc', 0)).replace(',', ''))
+            avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+            current_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
 
             # 최고가 추정
             highest_price = max(current_price, avg_price)
