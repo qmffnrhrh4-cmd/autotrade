@@ -308,9 +308,15 @@ def get_minute_data(code, interval):
             # 이벤트 핸들러 연결
             openapi_context.OnReceiveTrData.connect(on_receive)
 
-            # 입력값 설정
-            for key, value in inputs.items():
-                openapi_context.SetInputValue(key, value)
+            # 입력값 설정 (⚠️ 연속 조회 시에는 설정하면 안 됨!)
+            if prev_next == 0:
+                # 최초 조회만 입력값 설정
+                for key, value in inputs.items():
+                    openapi_context.SetInputValue(key, value)
+                logger.info(f"  ✅ SetInputValue 설정 완료")
+            else:
+                # prev_next=2일 때는 SetInputValue 호출 안 함 (내부 상태 유지)
+                logger.info(f"  ⏭️  SetInputValue 생략 (연속 조회)")
 
             # TR 요청 (prev_next: 0=조회, 2=연속)
             event_loop = QEventLoop()
