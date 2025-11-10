@@ -969,6 +969,76 @@ class AutoTradingBot:
             import traceback
             traceback.print_exc()
 
+    def _get_optimal_buy_price(self, stock_code, current_price):
+        """
+        호가 분석 기반 최적 매수 가격 계산
+        매수호가 중에서 유리한 가격 선택 (낮은 가격)
+        """
+        try:
+            orderbook = self.data_fetcher.get_orderbook(stock_code)
+            if not orderbook or 'bids' not in orderbook:
+                logger.warning(f"{stock_code} 호가 정보 없음, 현재가 사용")
+                return current_price
+
+            bids = orderbook['bids'][:5]  # 상위 5개 매수호가
+            if not bids:
+                return current_price
+
+            # 매수호가 중 가장 높은 가격 (1호가) 사용
+            # 체결 확률을 높이면서도 시장가보다 낮은 가격
+            best_bid = bids[0]['price']
+
+            # 현재가보다 높으면 현재가 사용
+            if best_bid > current_price:
+                optimal_price = current_price
+            else:
+                # 1호가와 2호가 사이 가격 사용
+                if len(bids) >= 2:
+                    second_bid = bids[1]['price']
+                    optimal_price = best_bid  # 1호가 사용 (체결 우선)
+                else:
+                    optimal_price = best_bid
+
+            logger.info(f"매수 가격 최적화: {current_price:,}원 → {optimal_price:,}원 (호가 분석)")
+            return optimal_price
+
+        except Exception as e:
+            logger.warning(f"최적 매수 가격 계산 실패: {e}")
+            return current_price
+
+    def _get_optimal_sell_price(self, stock_code, current_price):
+        """
+        호가 분석 기반 최적 매도 가격 계산
+        매도호가 중에서 유리한 가격 선택 (높은 가격)
+        """
+        try:
+            orderbook = self.data_fetcher.get_orderbook(stock_code)
+            if not orderbook or 'asks' not in orderbook:
+                logger.warning(f"{stock_code} 호가 정보 없음, 현재가 사용")
+                return current_price
+
+            asks = orderbook['asks'][:5]  # 상위 5개 매도호가
+            if not asks:
+                return current_price
+
+            # 매도호가 중 가장 낮은 가격 (1호가) 사용
+            # 체결 확률을 높이면서도 시장가보다 높은 가격
+            best_ask = asks[0]['price']
+
+            # 현재가보다 낮으면 현재가 사용
+            if best_ask < current_price:
+                optimal_price = current_price
+            else:
+                # 1호가 사용 (빠른 체결 우선)
+                optimal_price = best_ask
+
+            logger.info(f"매도 가격 최적화: {current_price:,}원 → {optimal_price:,}원 (호가 분석)")
+            return optimal_price
+
+        except Exception as e:
+            logger.warning(f"최적 매도 가격 계산 실패: {e}")
+            return current_price
+
     def _execute_buy(self, candidate, scoring_result):
         try:
             if self.market_status.get('can_cancel_only'):
@@ -979,6 +1049,9 @@ class AutoTradingBot:
             stock_name = candidate.name
             current_price = candidate.price
 
+            # 호가 분석 기반 최적 매수 가격 계산
+            optimal_price = self._get_optimal_buy_price(stock_code, current_price)
+
             deposit = self.account_api.get_deposit()
             holdings = self.account_api.get_holdings()
 
@@ -987,7 +1060,7 @@ class AutoTradingBot:
             logger.debug(f"사용 가능 현금: {available_cash:,}원")
 
             quantity = self.dynamic_risk_manager.calculate_position_size(
-                stock_price=current_price,
+                stock_price=optimal_price,
                 available_cash=available_cash
             )
 
@@ -995,11 +1068,11 @@ class AutoTradingBot:
                 logger.warning("매수 수량 0")
                 return
 
-            total_amount = current_price * quantity
+            total_amount = optimal_price * quantity
 
             logger.info(
-                f"{stock_name} 매수 주문: {quantity}주 @ {current_price:,}원 "
-                f"(합계 {total_amount:,}원)"
+                f"{stock_name} 매수 주문: {quantity}주 @ {optimal_price:,}원 "
+                f"(합계 {total_amount:,}원, 호가 분석 최적화)"
             )
 
             from utils.trading_date import is_nxt_hours
@@ -1024,7 +1097,7 @@ class AutoTradingBot:
             order_result = self.order_api.buy(
                 stock_code=stock_code,
                 quantity=quantity,
-                price=current_price,
+                price=optimal_price,
                 order_type=order_type
             )
 
@@ -1036,7 +1109,7 @@ class AutoTradingBot:
                     stock_name=stock_name,
                     action='buy',
                     quantity=quantity,
-                    price=current_price,
+                    price=optimal_price,
                     total_amount=total_amount,
                     risk_mode=self.dynamic_risk_manager.current_mode.value,
                     ai_score=candidate.ai_score,
@@ -1072,9 +1145,22 @@ class AutoTradingBot:
                 logger.warning(f"{self.market_status['market_type']}: 신규 매도 주문 불가")
                 return
 
+            # 호가 분석 기반 최적 매도 가격 계산
+            optimal_price = self._get_optimal_sell_price(stock_code, price)
+
+            # 손익 재계산 (최적화된 가격 기준)
+            if optimal_price != price:
+                holdings = self.account_api.get_holdings()
+                for h in holdings:
+                    if h.get('stk_cd', '').replace('A', '').replace('_NX', '') == stock_code:
+                        avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+                        profit_loss = (optimal_price - avg_price) * quantity
+                        profit_loss_rate = ((optimal_price - avg_price) / avg_price * 100) if avg_price > 0 else 0
+                        break
+
             logger.info(
-                f"{stock_name} 매도 주문: {quantity}주 @ {price:,}원 "
-                f"(손익: {profit_loss:+,}원, {profit_loss_rate:+.2f}%)"
+                f"{stock_name} 매도 주문: {quantity}주 @ {optimal_price:,}원 "
+                f"(손익: {profit_loss:+,}원, {profit_loss_rate:+.2f}%, 호가 분석 최적화)"
             )
 
             from utils.trading_date import is_nxt_hours
@@ -1099,7 +1185,7 @@ class AutoTradingBot:
             order_result = self.order_api.sell(
                 stock_code=stock_code,
                 quantity=quantity,
-                price=price,
+                price=optimal_price,
                 order_type=order_type
             )
 
@@ -1111,8 +1197,8 @@ class AutoTradingBot:
                     stock_name=stock_name,
                     action='sell',
                     quantity=quantity,
-                    price=price,
-                    total_amount=price * quantity,
+                    price=optimal_price,
+                    total_amount=optimal_price * quantity,
                     profit_loss=profit_loss,
                     profit_loss_ratio=profit_loss_rate / 100,
                     risk_mode=self.dynamic_risk_manager.current_mode.value,
@@ -1127,7 +1213,7 @@ class AutoTradingBot:
                 self.alert_manager.alert_position_closed(
                     stock_code=stock_code,
                     stock_name=stock_name,
-                    sell_price=price,
+                    sell_price=optimal_price,
                     profit_loss_rate=profit_loss_rate,
                     profit_loss_amount=profit_loss,
                     reason=reason
@@ -1135,7 +1221,7 @@ class AutoTradingBot:
 
                 self.monitor.log_activity(
                     'sell',
-                    f'{stock_name} sell: {quantity}@{price:,} (P/L: {profit_loss:+,})',
+                    f'{stock_name} sell: {quantity}@{optimal_price:,} (P/L: {profit_loss:+,})',
                     level=log_level
                 )
 
