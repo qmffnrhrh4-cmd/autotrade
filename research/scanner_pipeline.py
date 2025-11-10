@@ -250,9 +250,37 @@ class ScannerPipeline:
                     traceback.print_exc()
                     raise  # 원래 에러를 다시 발생시켜 상위 except에서 잡히도록
 
-            stock_candidates = self._apply_learned_preferences(stock_candidates)
-            stock_candidates = self._adjust_for_market_condition(stock_candidates)
-            stock_candidates = self._filter_duplicates(stock_candidates)
+            print(f"📍 헬퍼 함수 실행 시작 ({len(stock_candidates)}개)...")
+
+            try:
+                print("  🔹 _apply_learned_preferences 실행 중...")
+                stock_candidates = self._apply_learned_preferences(stock_candidates)
+                print(f"  ✅ _apply_learned_preferences 완료: {len(stock_candidates)}개")
+            except Exception as e:
+                print(f"  ❌ _apply_learned_preferences 에러: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+
+            try:
+                print("  🔹 _adjust_for_market_condition 실행 중...")
+                stock_candidates = self._adjust_for_market_condition(stock_candidates)
+                print(f"  ✅ _adjust_for_market_condition 완료: {len(stock_candidates)}개")
+            except Exception as e:
+                print(f"  ❌ _adjust_for_market_condition 에러: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
+
+            try:
+                print("  🔹 _filter_duplicates 실행 중...")
+                stock_candidates = self._filter_duplicates(stock_candidates)
+                print(f"  ✅ _filter_duplicates 완료: {len(stock_candidates)}개")
+            except Exception as e:
+                print(f"  ❌ _filter_duplicates 에러: {e}")
+                import traceback
+                traceback.print_exc()
+                raise
 
             self.fast_scan_results = stock_candidates
             self.last_fast_scan = time.time()
