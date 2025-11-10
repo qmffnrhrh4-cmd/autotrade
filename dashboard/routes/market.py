@@ -215,12 +215,48 @@ def get_chart_data(stock_code: str):
             actual_timeframe = timeframe  # Track what we actually got
 
             if timeframe.isdigit():
-                # Minute data (1, 3, 5, 10, 30, 60)
+                # Minute data (1, 5, 15, 30, 60)
                 print(f"📊 Attempting to fetch {timeframe}-minute data")
 
-                # Try real-time minute data first (장중 실시간)
-                realtime_data_available = False
-                if _realtime_chart_manager:
+                minute_data_available = False
+                interval = int(timeframe)
+
+                # 1. Try OpenAPI first (과거 데이터 포함, 가장 안정적)
+                if _bot_instance and hasattr(_bot_instance, 'openapi_client') and _bot_instance.openapi_client:
+                    if _bot_instance.openapi_client.is_connected:
+                        try:
+                            print(f"📊 Trying OpenAPI minute data (past data available)...")
+                            openapi_minute_data = _bot_instance.openapi_client.get_minute_data(
+                                stock_code=stock_code,
+                                interval=interval
+                            )
+
+                            if openapi_minute_data and len(openapi_minute_data) > 0:
+                                print(f"✅ OpenAPI minute data: {len(openapi_minute_data)} candles")
+                                # Convert OpenAPI format to internal format
+                                daily_data = []
+                                for item in openapi_minute_data:
+                                    # OpenAPI 형식: {'일자': '20231201', '체결시간': '153000', '현재가': '70000', ...}
+                                    daily_data.append({
+                                        'date': item.get('일자', ''),
+                                        'time': item.get('체결시간', ''),
+                                        'open': item.get('시가', 0),
+                                        'high': item.get('고가', 0),
+                                        'low': item.get('저가', 0),
+                                        'close': item.get('현재가', 0),
+                                        'volume': item.get('거래량', 0)
+                                    })
+                                minute_data_available = True
+                                actual_timeframe = timeframe
+                            else:
+                                print(f"⚠️ OpenAPI minute data: no data (weekend/holiday)")
+                        except Exception as e:
+                            print(f"⚠️ OpenAPI minute data failed: {e}")
+                    else:
+                        print(f"⚠️ OpenAPI not connected")
+
+                # 2. Try real-time minute data if OpenAPI failed (장중 실시간)
+                if not minute_data_available and _realtime_chart_manager:
                     try:
                         # Check if we have real-time data for this stock
                         if stock_code in _realtime_chart_manager.charts:
@@ -230,7 +266,7 @@ def get_chart_data(stock_code: str):
                                 # Get requested number of minutes (default 60)
                                 minutes = int(timeframe) if timeframe == '1' else 60
                                 daily_data = _realtime_chart_manager.get_minute_data(stock_code, minutes=minutes)
-                                realtime_data_available = True
+                                minute_data_available = True
                                 actual_timeframe = timeframe
                         else:
                             # Stock not subscribed yet, try to add it
@@ -253,48 +289,22 @@ def get_chart_data(stock_code: str):
                                     minutes = int(timeframe) if timeframe == '1' else 60
                                     daily_data = _realtime_chart_manager.get_minute_data(stock_code, minutes=minutes)
                                     if daily_data and len(daily_data) > 0:
-                                        realtime_data_available = True
+                                        minute_data_available = True
                                         actual_timeframe = timeframe
                             except Exception as e:
                                 print(f"⚠️ Failed to add stock to real-time tracking: {e}")
                     except Exception as e:
                         print(f"⚠️ Real-time data fetch failed: {e}")
 
-                # Fallback to REST API minute data if no real-time data
-                if not realtime_data_available:
-                    if hasattr(_bot_instance.data_fetcher, 'get_minute_price'):
-                        try:
-                            print(f"📊 Trying REST API minute data...")
-                            daily_data = _bot_instance.data_fetcher.get_minute_price(
-                                stock_code=stock_code,
-                                minute_type=timeframe
-                            )
-
-                            # Check if we got valid data
-                            if not daily_data or len(daily_data) == 0:
-                                print(f"⚠️ {timeframe}-minute data not available (likely weekend/holiday), falling back to daily data")
-                                actual_timeframe = 'D'
-                                daily_data = _bot_instance.data_fetcher.get_daily_price(
-                                    stock_code=stock_code,
-                                    start_date=start_date_str,
-                                    end_date=end_date_str
-                                )
-                        except Exception as e:
-                            print(f"⚠️ Minute data fetch failed ({e}), falling back to daily data")
-                            actual_timeframe = 'D'
-                            daily_data = _bot_instance.data_fetcher.get_daily_price(
-                                stock_code=stock_code,
-                                start_date=start_date_str,
-                                end_date=end_date_str
-                            )
-                    else:
-                        print(f"⚠️ Minute price method not available, using daily data")
-                        actual_timeframe = 'D'
-                        daily_data = _bot_instance.data_fetcher.get_daily_price(
-                            stock_code=stock_code,
-                            start_date=start_date_str,
-                            end_date=end_date_str
-                        )
+                # 3. Fallback to daily data if all minute data sources failed
+                if not minute_data_available:
+                    print(f"⚠️ All minute data sources failed, falling back to daily data")
+                    actual_timeframe = 'D'
+                    daily_data = _bot_instance.data_fetcher.get_daily_price(
+                        stock_code=stock_code,
+                        start_date=start_date_str,
+                        end_date=end_date_str
+                    )
             else:
                 # Daily, Weekly, Monthly data
                 daily_data = _bot_instance.data_fetcher.get_daily_price(
