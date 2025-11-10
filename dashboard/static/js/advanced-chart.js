@@ -69,6 +69,32 @@ class AdvancedTradingChart {
         this.nextColorIndex = 0;
     }
 
+    /**
+     * Fetch with timeout (타임아웃 기능이 있는 fetch)
+     * @param {string} url - 요청 URL
+     * @param {object} options - fetch 옵션
+     * @param {number} timeout - 타임아웃 시간 (ms, 기본값: 10000ms)
+     */
+    async fetchWithTimeout(url, options = {}, timeout = 10000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            return response;
+        } catch (error) {
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                throw new Error('요청 시간이 초과되었습니다');
+            }
+            throw error;
+        }
+    }
+
     initialize() {
         const container = document.getElementById(this.containerId);
         if (!container) {
@@ -511,7 +537,7 @@ class AdvancedTradingChart {
             // v6.0: Request correct timeframe from API (daily or minute)
             const url = `/api/chart/${stockCode}?timeframe=${this.currentTimeframe}`;
             console.log(`📡 Fetching chart data: ${url}`);
-            const response = await fetch(url);
+            const response = await this.fetchWithTimeout(url);
             const data = await response.json();
 
             if (!data.success || !data.data || data.data.length === 0) {
@@ -807,7 +833,7 @@ class AdvancedTradingChart {
                 if (!this.rawData) {
                     console.log('📡 Fetching daily data for conversion');
                     const url = `/api/chart/${this.currentStockCode}?timeframe=D`;
-                    const response = await fetch(url);
+                    const response = await this.fetchWithTimeout(url);
                     const data = await response.json();
 
                     if (data.success && data.data && data.data.length > 0) {
@@ -834,7 +860,7 @@ class AdvancedTradingChart {
                 // Minute data - fetch from server
                 console.log(`📡 Fetching ${timeframe}-minute data from server`);
                 const url = `/api/chart/${this.currentStockCode}?timeframe=${timeframe}`;
-                const response = await fetch(url);
+                const response = await this.fetchWithTimeout(url);
                 const data = await response.json();
 
                 if (data.success && data.data && data.data.length > 0) {
@@ -1194,7 +1220,7 @@ class AdvancedTradingChart {
             this.showLoading();
 
             // Fetch stock data
-            const response = await fetch(`/api/chart/${stockCode}?timeframe=D`);
+            const response = await this.fetchWithTimeout(`/api/chart/${stockCode}?timeframe=D`);
             const data = await response.json();
 
             if (!data.success || !data.data || data.data.length === 0) {
@@ -1327,7 +1353,7 @@ class AdvancedTradingChart {
             console.log(`🤖 AI 차트 분석 시작: ${stockCode} (${timeframe})`);
 
             const url = `/api/chart/ai_analysis/${stockCode}?timeframe=${timeframe}`;
-            const response = await fetch(url);
+            const response = await this.fetchWithTimeout(url);
             const data = await response.json();
 
             if (data.success && data.analysis_points) {

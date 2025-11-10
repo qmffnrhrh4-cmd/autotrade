@@ -167,7 +167,7 @@ def get_chart_data(stock_code: str):
             print(f"❌ bot_instance is None")
             return jsonify({
                 'success': False,
-                'error': 'Trading bot not initialized',
+                'error': '트레이딩 봇이 초기화되지 않았습니다',
                 'data': [],
                 'signals': [],
                 'name': stock_code,
@@ -178,7 +178,7 @@ def get_chart_data(stock_code: str):
             print(f"❌ bot_instance has no data_fetcher")
             return jsonify({
                 'success': False,
-                'error': 'Data fetcher not available',
+                'error': '데이터 수집기를 사용할 수 없습니다',
                 'data': [],
                 'signals': [],
                 'name': stock_code,
@@ -583,7 +583,7 @@ def add_realtime_chart(stock_code):
         if not _realtime_chart_manager:
             return jsonify({
                 'success': False,
-                'error': 'Real-time chart manager not initialized'
+                'error': '실시간 차트 관리자가 초기화되지 않았습니다'
             })
 
         # Use thread-safe event loop approach
@@ -612,7 +612,7 @@ def add_realtime_chart(stock_code):
             except TimeoutError:
                 return jsonify({
                     'success': False,
-                    'error': 'Timeout adding stock'
+                    'error': '종목 추가 시간 초과'
                 })
     except Exception as e:
         return jsonify({
@@ -628,7 +628,7 @@ def remove_realtime_chart(stock_code):
         if not _realtime_chart_manager:
             return jsonify({
                 'success': False,
-                'error': 'Real-time chart manager not initialized'
+                'error': '실시간 차트 관리자가 초기화되지 않았습니다'
             })
 
         # Use thread-safe event loop approach
@@ -657,7 +657,7 @@ def remove_realtime_chart(stock_code):
             except TimeoutError:
                 return jsonify({
                     'success': False,
-                    'error': 'Timeout removing stock'
+                    'error': '종목 제거 시간 초과'
                 })
     except Exception as e:
         return jsonify({
@@ -673,7 +673,7 @@ def get_realtime_chart_status():
         if not _realtime_chart_manager:
             return jsonify({
                 'success': False,
-                'error': 'Real-time chart manager not initialized'
+                'error': '실시간 차트 관리자가 초기화되지 않았습니다'
             })
 
         status = _realtime_chart_manager.get_status()
@@ -699,7 +699,7 @@ def get_daily_chart_data(stock_code: str):
         if not _bot_instance or not hasattr(_bot_instance, 'openapi_client'):
             return jsonify({
                 'success': False,
-                'error': 'OpenAPI client not available',
+                'error': 'OpenAPI 클라이언트를 사용할 수 없습니다',
                 'data': []
             })
 
@@ -707,7 +707,7 @@ def get_daily_chart_data(stock_code: str):
         if not openapi_client or not openapi_client.is_connected:
             return jsonify({
                 'success': False,
-                'error': 'OpenAPI not connected',
+                'error': 'OpenAPI가 연결되지 않았습니다',
                 'data': []
             })
 
@@ -717,7 +717,7 @@ def get_daily_chart_data(stock_code: str):
         if not comprehensive_data or 'data' not in comprehensive_data:
             return jsonify({
                 'success': False,
-                'error': 'Failed to fetch comprehensive data',
+                'error': '종합 데이터 가져오기 실패',
                 'data': []
             })
 
@@ -727,7 +727,7 @@ def get_daily_chart_data(stock_code: str):
         if 'items' not in daily_chart or not daily_chart['items']:
             return jsonify({
                 'success': False,
-                'error': 'No daily chart data available',
+                'error': '일봉 차트 데이터가 없습니다',
                 'data': []
             })
 
@@ -752,7 +752,7 @@ def get_minute_chart_data(stock_code: str, interval: int):
         if not _bot_instance or not hasattr(_bot_instance, 'openapi_client'):
             return jsonify({
                 'success': False,
-                'error': 'OpenAPI client not available',
+                'error': 'OpenAPI 클라이언트를 사용할 수 없습니다',
                 'data': []
             })
 
@@ -760,7 +760,7 @@ def get_minute_chart_data(stock_code: str, interval: int):
         if not openapi_client or not openapi_client.is_connected:
             return jsonify({
                 'success': False,
-                'error': 'OpenAPI not connected',
+                'error': 'OpenAPI가 연결되지 않았습니다',
                 'data': []
             })
 
@@ -769,7 +769,7 @@ def get_minute_chart_data(stock_code: str, interval: int):
         if interval not in valid_intervals:
             return jsonify({
                 'success': False,
-                'error': f'Invalid interval. Valid: {valid_intervals}',
+                'error': f'잘못된 분봉 간격입니다. 유효한 값: {valid_intervals}',
                 'data': []
             })
 
@@ -779,7 +779,7 @@ def get_minute_chart_data(stock_code: str, interval: int):
         if not minute_data or len(minute_data) == 0:
             return jsonify({
                 'success': False,
-                'error': 'No minute data available',
+                'error': '분봉 데이터가 없습니다',
                 'data': []
             })
 
@@ -808,7 +808,7 @@ def get_ai_chart_analysis(stock_code: str):
         if not _bot_instance:
             return jsonify({
                 'success': False,
-                'error': 'Trading bot not initialized'
+                'error': '트레이딩 봇이 초기화되지 않았습니다'
             })
 
         timeframe = request.args.get('timeframe', 'D')
@@ -823,7 +823,7 @@ def get_ai_chart_analysis(stock_code: str):
         if not daily_data or len(daily_data) == 0:
             return jsonify({
                 'success': False,
-                'error': 'No chart data available'
+                'error': '차트 데이터가 없습니다'
             })
 
         # Analyze chart patterns and signals
@@ -929,6 +929,75 @@ def get_ai_chart_analysis(stock_code: str):
         print(f"AI Chart Analysis error: {e}")
         import traceback
         traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+# ============================================================================
+# MARKET CONDITION DETECTION API
+# ============================================================================
+
+@market_bp.route('/api/market/detect/<stock_code>')
+def detect_market_condition(stock_code: str):
+    """Detect market condition and alerts"""
+    try:
+        if not _bot_instance:
+            return jsonify({
+                'success': False,
+                'error': '트레이딩 봇이 초기화되지 않았습니다'
+            })
+
+        from market_detector import integrate_with_bot
+
+        # Initialize detector
+        detector = integrate_with_bot(_bot_instance)
+
+        # Detect market condition
+        result = detector.detect_market_condition(stock_code)
+
+        return jsonify({
+            'success': True,
+            'detection': result
+        })
+
+    except Exception as e:
+        logger.error(f"Market detection error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@market_bp.route('/api/market/auto-response/<stock_code>', methods=['POST'])
+def auto_response_to_market(stock_code: str):
+    """Auto response to market condition"""
+    try:
+        if not _bot_instance:
+            return jsonify({
+                'success': False,
+                'error': '트레이딩 봇이 초기화되지 않았습니다'
+            })
+
+        from market_detector import integrate_with_bot
+
+        # Get current positions
+        positions = request.json.get('positions', [])
+
+        # Initialize detector
+        detector = integrate_with_bot(_bot_instance)
+
+        # Get auto response
+        response = detector.auto_response(stock_code, positions)
+
+        return jsonify({
+            'success': True,
+            'response': response
+        })
+
+    except Exception as e:
+        logger.error(f"Auto response error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)

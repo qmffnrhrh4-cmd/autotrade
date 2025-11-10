@@ -476,7 +476,7 @@
         <div class="header-actions">
             <div class="status-indicator">
                 <div class="status-dot"></div>
-                <span>Live Trading</span>
+                <span>실시간 거래</span>
             </div>
             <button class="btn">
                 <i class="fas fa-bell"></i>
@@ -484,7 +484,7 @@
             </button>
             <button class="btn btn-primary">
                 <i class="fas fa-cog"></i>
-                <span>Settings</span>
+                <span>설정</span>
             </button>
         </div>
     </div>
@@ -493,12 +493,12 @@
     <div class="horizontal-scroll-container" id="scrollContainer">
         <!-- Section 1: Overview -->
         <section class="section section-overview" id="section-overview">
-            <h1 class="section-title">Overview</h1>
+            <h1 class="section-title">개요</h1>
 
             <div class="card-grid">
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">Total Assets</span>
+                        <span class="card-title">총 자산</span>
                         <i class="fas fa-wallet" style="color: var(--color-primary);"></i>
                     </div>
                     <div class="card-value" id="totalAssets">₩0</div>
@@ -510,7 +510,7 @@
 
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">Today's P&L</span>
+                        <span class="card-title">오늘의 손익</span>
                         <i class="fas fa-chart-line" style="color: var(--color-success);"></i>
                     </div>
                     <div class="card-value" id="todayPL">₩0</div>
@@ -522,7 +522,7 @@
 
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">Open Positions</span>
+                        <span class="card-title">보유 포지션</span>
                         <i class="fas fa-briefcase" style="color: var(--color-info);"></i>
                     </div>
                     <div class="card-value" id="openPositions">0</div>
@@ -533,12 +533,12 @@
 
                 <div class="card">
                     <div class="card-header">
-                        <span class="card-title">Win Rate</span>
+                        <span class="card-title">승률</span>
                         <i class="fas fa-percentage" style="color: var(--color-warning);"></i>
                     </div>
                     <div class="card-value" id="winRate">0%</div>
                     <div class="card-change">
-                        <span id="totalTrades">0 trades</span>
+                        <span id="totalTrades">0 거래</span>
                     </div>
                 </div>
             </div>
@@ -550,18 +550,18 @@
 
         <!-- Section 2: Positions -->
         <section class="section section-positions" id="section-positions">
-            <h1 class="section-title">Active Positions</h1>
+            <h1 class="section-title">활성 포지션</h1>
 
             <table class="positions-table">
                 <thead>
                     <tr>
-                        <th>Stock</th>
-                        <th>Entry Price</th>
-                        <th>Current Price</th>
-                        <th>Quantity</th>
-                        <th>P&L</th>
-                        <th>P&L %</th>
-                        <th>Actions</th>
+                        <th>종목</th>
+                        <th>매수가</th>
+                        <th>현재가</th>
+                        <th>수량</th>
+                        <th>손익</th>
+                        <th>손익률</th>
+                        <th>액션</th>
                     </tr>
                 </thead>
                 <tbody id="positionsTableBody">
@@ -576,41 +576,41 @@
 
         <!-- Section 3: AI Analysis -->
         <section class="section section-ai" id="section-ai">
-            <h1 class="section-title">AI Analysis</h1>
+            <h1 class="section-title">AI 분석</h1>
 
             <div class="chart-container">
-                <h3>AI Trading Signals</h3>
+                <h3>AI 트레이딩 신호</h3>
                 <div id="aiSignalsContainer">
                     <div class="loading"></div>
                 </div>
             </div>
 
             <div class="chart-container">
-                <h3>Market Sentiment</h3>
+                <h3>시장 심리</h3>
                 <div id="marketSentimentChart"></div>
             </div>
         </section>
 
         <!-- Section 4: Performance -->
         <section class="section section-performance" id="section-performance">
-            <h1 class="section-title">Performance</h1>
+            <h1 class="section-title">성과</h1>
 
             <div class="chart-container">
-                <h3>Cumulative Returns</h3>
+                <h3>누적 수익</h3>
                 <div id="returnsChart"></div>
             </div>
 
             <div class="card-grid">
                 <div class="card">
-                    <div class="card-title">Sharpe Ratio</div>
+                    <div class="card-title">샤프 지수</div>
                     <div class="card-value" id="sharpeRatio">0.00</div>
                 </div>
                 <div class="card">
-                    <div class="card-title">Max Drawdown</div>
+                    <div class="card-title">최대 손실폭</div>
                     <div class="card-value" id="maxDrawdown">0%</div>
                 </div>
                 <div class="card">
-                    <div class="card-title">Total Trades</div>
+                    <div class="card-title">총 거래</div>
                     <div class="card-value" id="totalTradesPerf">0</div>
                 </div>
             </div>
@@ -691,7 +691,7 @@
                 // 업데이트
                 updateOverview(data);
             } catch (error) {
-                console.error('Failed to fetch data:', error);
+                console.error('데이터 가져오기 실패:', error);
             }
         }
 
@@ -724,13 +724,13 @@
             document.getElementById('winRate').textContent =
                 (data.win_rate || 0).toFixed(1) + '%';
             document.getElementById('totalTrades').textContent =
-                (data.total_trades || 0) + ' trades';
+                (data.total_trades || 0) + ' 거래';
         }
 
         // 차트 초기화 (ApexCharts)
         const portfolioChartOptions = {
             series: [{
-                name: 'Portfolio Value',
+                name: '포트폴리오 가치',
                 data: []
             }],
             chart: {
