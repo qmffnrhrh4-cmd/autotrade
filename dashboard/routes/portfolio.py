@@ -195,13 +195,14 @@ def get_performance_metrics():
                 'message': 'Database not available'
             })
 
-        # Get completed trades from last 30 days
-        thirty_days_ago = datetime.now().timestamp() - (30 * 24 * 60 * 60)
+        # Get completed trades (sell transactions) from last 30 days
+        from datetime import timedelta
+        thirty_days_ago = datetime.now() - timedelta(days=30)
 
         trades = session.query(Trade).filter(
-            Trade.sell_time.isnot(None),
+            Trade.action == 'sell',
             Trade.profit_loss.isnot(None),
-            Trade.buy_time >= datetime.fromtimestamp(thirty_days_ago)
+            Trade.timestamp >= thirty_days_ago
         ).all()
 
         if not trades:
@@ -237,7 +238,7 @@ def get_performance_metrics():
         win_rate = (win_count / total_trades * 100) if total_trades > 0 else 0
 
         # Returns
-        returns = [t.profit_loss_pct for t in trades if t.profit_loss_pct is not None]
+        returns = [t.profit_loss_ratio for t in trades if t.profit_loss_ratio is not None]
         avg_return = statistics.mean(returns) if returns else 0.0
 
         # Profits and Losses
@@ -253,7 +254,7 @@ def get_performance_metrics():
         cumulative_returns = []
         cumulative = 0
         for t in trades:
-            cumulative += t.profit_loss_pct if t.profit_loss_pct else 0
+            cumulative += t.profit_loss_ratio if t.profit_loss_ratio else 0
             cumulative_returns.append(cumulative)
 
         max_drawdown = 0.0
@@ -274,7 +275,7 @@ def get_performance_metrics():
             sharpe_ratio = (mean_return / std_return) * (252 ** 0.5) if std_return > 0 else 0.0
 
         # Daily trade frequency
-        days_with_trades = len(set(t.buy_time.date() for t in trades))
+        days_with_trades = len(set(t.timestamp.date() for t in trades))
         daily_trades = total_trades / days_with_trades if days_with_trades > 0 else 0
 
         return jsonify({

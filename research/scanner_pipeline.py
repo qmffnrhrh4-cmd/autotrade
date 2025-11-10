@@ -209,7 +209,7 @@ class ScannerPipeline:
             # 거래량 기준 정렬
             candidates = sorted(
                 candidates,
-                key=lambda x: x.get('volume', 0) * x.get('price', 0),  # 거래대금
+                key=lambda x: float(x.get('volume', 0)) * float(x.get('price', 0)),  # 거래대금
                 reverse=True
             )
 
