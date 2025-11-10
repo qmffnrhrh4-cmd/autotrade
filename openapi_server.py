@@ -276,11 +276,14 @@ def get_minute_data(code, interval):
                                 '거래량': openapi_context.GetCommData(tr_code, rq_name, i, "거래량").strip(),
                             }
 
-                            # 첫 5개와 마지막 2개만 샘플 로그 출력
-                            if i < 5 or i >= cnt - 2:
-                                logger.info(f"    [{i}] {item.get('체결시간', 'N/A')[:14] if item.get('체결시간') else 'N/A'} - 종가: {item.get('현재가', 'N/A')}, 거래량: {item.get('거래량', 'N/A')}")
-
                             items.append(item)
+
+                            # 첫 5개와 마지막 2개만 샘플 로그 출력 (추가 후)
+                            if i < 5 or i >= cnt - 2:
+                                time_val = item.get('체결시간', '')
+                                price_val = item.get('현재가', '')
+                                vol_val = item.get('거래량', '')
+                                logger.info(f"    [{i}] 시간:{time_val} 가격:{price_val} 량:{vol_val}")
                         except Exception as e:
                             logger.error(f"    [{i}] 데이터 추출 실패: {e}")
                             if i < 3:  # 처음 3개만 에러 상세 로그
