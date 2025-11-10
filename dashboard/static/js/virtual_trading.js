@@ -514,8 +514,70 @@ class VirtualTradingManager {
      * 매수 모달 표시
      */
     showBuyModal() {
-        // TODO: 매수 모달 구현
-        alert('매수 기능은 곧 추가됩니다');
+        if (!this.currentStrategy) {
+            alert('먼저 전략을 선택하세요');
+            return;
+        }
+
+        const stockCode = prompt('종목코드를 입력하세요 (예: 005930):');
+        if (!stockCode) return;
+
+        const stockName = prompt('종목명을 입력하세요 (예: 삼성전자):');
+        if (!stockName) return;
+
+        const quantity = parseInt(prompt('매수 수량을 입력하세요:'));
+        if (!quantity || quantity <= 0) {
+            alert('유효한 수량을 입력하세요');
+            return;
+        }
+
+        const price = parseInt(prompt('매수 가격을 입력하세요 (현재가):'));
+        if (!price || price <= 0) {
+            alert('유효한 가격을 입력하세요');
+            return;
+        }
+
+        const stopLoss = parseFloat(prompt('손절 비율을 입력하세요 (예: 5 = -5%) [선택사항]:') || 0);
+        const takeProfit = parseFloat(prompt('익절 비율을 입력하세요 (예: 10 = +10%) [선택사항]:') || 0);
+
+        this.executeBuy(stockCode, stockName, quantity, price, stopLoss, takeProfit);
+    }
+
+    /**
+     * 매수 주문 실행
+     */
+    async executeBuy(stockCode, stockName, quantity, price, stopLossPercent, takeProfitPercent) {
+        try {
+            const response = await fetch('/api/virtual-trading/buy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    strategy_id: this.currentStrategy,
+                    stock_code: stockCode,
+                    stock_name: stockName,
+                    quantity: quantity,
+                    price: price,
+                    stop_loss_percent: stopLossPercent || null,
+                    take_profit_percent: takeProfitPercent || null
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('매수 완료', data.message, 'success');
+                this.loadPositions();
+                this.loadTradeHistory();
+                this.loadStrategyDetail(this.currentStrategy);
+            } else {
+                this.showNotification('매수 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to execute buy:', error);
+            this.showNotification('매수 실패', error.message, 'danger');
+        }
     }
 
     /**
@@ -563,8 +625,148 @@ class VirtualTradingManager {
      * 전략 생성 모달 표시
      */
     showCreateStrategyModal() {
-        // TODO: 전략 생성 모달 구현
-        alert('전략 생성 기능은 곧 추가됩니다');
+        const name = prompt('전략 이름을 입력하세요:');
+        if (!name) return;
+
+        const description = prompt('전략 설명을 입력하세요 (선택사항):') || '';
+        const initialCapital = parseInt(prompt('초기 자본금을 입력하세요 (기본: 10,000,000원):', '10000000'));
+
+        if (!initialCapital || initialCapital <= 0) {
+            alert('유효한 자본금을 입력하세요');
+            return;
+        }
+
+        this.createStrategy(name, description, initialCapital);
+    }
+
+    /**
+     * 전략 생성
+     */
+    async createStrategy(name, description, initialCapital) {
+        try {
+            const response = await fetch('/api/virtual-trading/strategies', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    description: description,
+                    initial_capital: initialCapital
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('전략 생성', data.message, 'success');
+                this.loadStrategies();
+            } else {
+                this.showNotification('전략 생성 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to create strategy:', error);
+            this.showNotification('전략 생성 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * 백테스팅 실행
+     */
+    showBacktestModal() {
+        if (!this.currentStrategy) {
+            alert('먼저 전략을 선택하세요');
+            return;
+        }
+
+        const stockCode = prompt('백테스팅 종목코드 (예: 005930):');
+        if (!stockCode) return;
+
+        const startDate = prompt('시작일 (예: 20240101):');
+        if (!startDate) return;
+
+        const endDate = prompt('종료일 (예: 20241101):');
+        if (!endDate) return;
+
+        this.runBacktest(stockCode, startDate, endDate);
+    }
+
+    /**
+     * 백테스팅 실행
+     */
+    async runBacktest(stockCode, startDate, endDate) {
+        try {
+            this.showNotification('백테스팅 시작', '데이터 분석 중...', 'info');
+
+            const response = await fetch('/api/virtual-trading/backtest', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    strategy_id: this.currentStrategy,
+                    stock_code: stockCode,
+                    start_date: startDate,
+                    end_date: endDate,
+                    stop_loss_percents: [3.0, 5.0, 7.0],
+                    take_profit_percents: [5.0, 10.0, 15.0]
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const result = data.result;
+                const best = result.best_result;
+
+                const message = `
+최적 조건: 손절 ${best.stop_loss_percent}%, 익절 ${best.take_profit_percent}%
+기대 수익률: ${best.return_rate.toFixed(2)}%
+기대 승률: ${best.win_rate.toFixed(1)}%
+거래 횟수: ${best.trade_count}회 (승: ${best.win_count}, 패: ${best.loss_count})
+
+이 조건을 적용하시겠습니까?
+                `;
+
+                if (confirm(message)) {
+                    this.applyBacktestResult(data.result);
+                }
+            } else {
+                this.showNotification('백테스팅 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to run backtest:', error);
+            this.showNotification('백테스팅 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * 백테스팅 결과 적용
+     */
+    async applyBacktestResult(backtestResult) {
+        try {
+            const response = await fetch('/api/virtual-trading/backtest/apply', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    strategy_id: this.currentStrategy,
+                    backtest_result: backtestResult
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification('조건 적용 완료', data.message, 'success');
+            } else {
+                this.showNotification('조건 적용 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to apply backtest result:', error);
+            this.showNotification('조건 적용 실패', error.message, 'danger');
+        }
     }
 }
 
