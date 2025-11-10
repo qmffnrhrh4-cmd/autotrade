@@ -768,6 +768,283 @@ class VirtualTradingManager {
             this.showNotification('조건 적용 실패', error.message, 'danger');
         }
     }
+
+    // ============================================================
+    // AI 자동 전략 관리 기능
+    // ============================================================
+
+    /**
+     * AI 5가지 전략 자동 생성
+     */
+    async aiInitializeStrategies() {
+        if (!confirm('AI가 5가지 전략을 자동으로 생성합니다. 계속하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            this.showNotification('AI 전략 생성', '5가지 AI 전략을 생성하는 중...', 'info');
+
+            const response = await fetch('/api/virtual-trading/ai/initialize', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    initial_capital: 10000000  // 1000만원
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification(
+                    'AI 전략 생성 완료',
+                    `${data.strategy_ids.length}가지 AI 전략이 생성되었습니다`,
+                    'success'
+                );
+                this.loadStrategies();
+            } else {
+                this.showNotification('AI 전략 생성 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to initialize AI strategies:', error);
+            this.showNotification('AI 전략 생성 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * AI 전략 성과 자동 검토
+     */
+    async aiReviewStrategies() {
+        try {
+            this.showNotification('AI 검토 시작', '전략 성과를 분석하는 중...', 'info');
+
+            const response = await fetch('/api/virtual-trading/ai/review', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.displayAIReviewResult(data.result);
+                this.showNotification('AI 검토 완료', '전략 성과 분석이 완료되었습니다', 'success');
+            } else {
+                this.showNotification('AI 검토 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to review strategies:', error);
+            this.showNotification('AI 검토 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * AI 전략 자동 개선
+     */
+    async aiImproveStrategies() {
+        if (!confirm('AI가 전략을 자동으로 개선합니다. 백테스팅이 실행되며 시간이 걸릴 수 있습니다.')) {
+            return;
+        }
+
+        try {
+            this.showNotification('AI 개선 시작', '전략을 개선하는 중...', 'info');
+
+            const response = await fetch('/api/virtual-trading/ai/improve', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    backtest_period_days: 90
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.displayAIImprovementResult(data.result);
+                this.showNotification(
+                    'AI 개선 완료',
+                    `${data.result.improved_count}개 전략이 개선되었습니다`,
+                    'success'
+                );
+            } else {
+                this.showNotification('AI 개선 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to improve strategies:', error);
+            this.showNotification('AI 개선 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * AI 자동 관리 (검토 → 개선 → 추천)
+     */
+    async aiAutoManage() {
+        if (!confirm('AI가 전략을 자동으로 관리합니다 (검토 → 개선 → 최고 전략 추천). 계속하시겠습니까?')) {
+            return;
+        }
+
+        try {
+            this.showNotification('AI 자동 관리', '전략을 분석하고 개선하는 중...', 'info');
+
+            const response = await fetch('/api/virtual-trading/ai/auto-manage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.displayAIManageResult(data.result);
+                this.showNotification('AI 자동 관리 완료', '전략 관리가 완료되었습니다', 'success');
+            } else {
+                this.showNotification('AI 자동 관리 실패', data.error, 'danger');
+            }
+        } catch (error) {
+            console.error('Failed to auto-manage:', error);
+            this.showNotification('AI 자동 관리 실패', error.message, 'danger');
+        }
+    }
+
+    /**
+     * AI 검토 결과 표시
+     */
+    displayAIReviewResult(result) {
+        const container = document.getElementById('ai-review-result');
+        if (!container) {
+            console.warn('AI review result container not found');
+            return;
+        }
+
+        const reviews = result.reviews || [];
+        const summary = result.summary || {};
+
+        let html = `
+            <div class="ai-result-panel">
+                <h3><i class="fas fa-brain"></i> AI 전략 검토 결과</h3>
+                <div class="ai-summary">
+                    <div class="summary-item">
+                        <span>평가 전략 수:</span>
+                        <span>${summary.total_strategies || 0}개</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>평균 점수:</span>
+                        <span>${(summary.average_score || 0).toFixed(1)}점</span>
+                    </div>
+                    <div class="summary-item">
+                        <span>최고 전략:</span>
+                        <span>${summary.best_strategy?.name || '-'} (${summary.best_strategy?.grade || '-'}등급)</span>
+                    </div>
+                </div>
+                <div class="ai-reviews">
+        `;
+
+        reviews.forEach(review => {
+            const eval_data = review.evaluation;
+            const grade_class = eval_data.grade === 'S' ? 'grade-s' :
+                              eval_data.grade === 'A' ? 'grade-a' :
+                              eval_data.grade === 'B' ? 'grade-b' :
+                              eval_data.grade === 'C' ? 'grade-c' : 'grade-d';
+
+            html += `
+                <div class="review-card ${grade_class}">
+                    <div class="review-header">
+                        <h4>${review.name}</h4>
+                        <span class="grade-badge ${grade_class}">${eval_data.grade}등급</span>
+                    </div>
+                    <div class="review-score">점수: ${eval_data.score.toFixed(0)}점</div>
+                    <div class="review-recommendation">${eval_data.recommendation}</div>
+                    <div class="review-details">
+                        <div><strong>강점:</strong> ${eval_data.strengths.join(', ')}</div>
+                        <div><strong>약점:</strong> ${eval_data.weaknesses.join(', ')}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        container.innerHTML = html;
+        container.style.display = 'block';
+    }
+
+    /**
+     * AI 개선 결과 표시
+     */
+    displayAIImprovementResult(result) {
+        const container = document.getElementById('ai-improvement-result');
+        if (!container) {
+            console.warn('AI improvement result container not found');
+            return;
+        }
+
+        const improvements = result.improvements || [];
+
+        let html = `
+            <div class="ai-result-panel">
+                <h3><i class="fas fa-magic"></i> AI 전략 개선 결과</h3>
+                <p>개선된 전략 수: ${result.improved_count}개</p>
+        `;
+
+        if (improvements.length > 0) {
+            html += '<div class="improvements-list">';
+            improvements.forEach(imp => {
+                html += `
+                    <div class="improvement-card">
+                        <h4>${imp.name}</h4>
+                        <div class="improvement-details">
+                            <div>현재 수익률: ${imp.before_return.toFixed(2)}%</div>
+                            <div>예상 개선: ${imp.expected_improvement.toFixed(2)}%</div>
+                            <div>최적 조건: 손절 ${imp.optimal_conditions.stop_loss}%, 익절 ${imp.optimal_conditions.take_profit}%</div>
+                            <div>테스트 종목: ${imp.tested_stock}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+        } else {
+            html += '<p>개선이 필요한 전략이 없습니다.</p>';
+        }
+
+        html += '</div>';
+
+        container.innerHTML = html;
+        container.style.display = 'block';
+    }
+
+    /**
+     * AI 자동 관리 결과 표시
+     */
+    displayAIManageResult(result) {
+        // 검토 결과 표시
+        if (result.review) {
+            this.displayAIReviewResult(result.review);
+        }
+
+        // 개선 결과 표시
+        if (result.improvement) {
+            this.displayAIImprovementResult(result.improvement);
+        }
+
+        // 추천 전략 표시
+        const recommended = result.recommended_for_real_trading;
+        if (recommended) {
+            this.showNotification(
+                '🏆 실제 매매 추천 전략',
+                `${recommended.name} (${recommended.evaluation.grade}등급, ${recommended.evaluation.score.toFixed(0)}점)`,
+                'success',
+                8000
+            );
+        }
+    }
 }
 
 // 전역 인스턴스 생성
