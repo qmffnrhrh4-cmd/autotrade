@@ -57,8 +57,8 @@ class ThemeAnalyzer:
                         'theme_name': theme.get('thema_nm'),
                         'profit_rate': profit_rate,
                         'change_rate': float(theme.get('flu_rt', '0').replace('+', '')),
-                        'stock_count': int(theme.get('stk_num', 0)),
-                        'rising_count': int(theme.get('rising_stk_num', 0)),
+                        'stock_count': int(float(theme.get('stk_num', 0)),
+                        'rising_count': int(float(theme.get('rising_stk_num', 0)),
                         'main_stock': theme.get('main_stk', ''),
                     })
             
@@ -104,7 +104,7 @@ class ThemeAnalyzer:
             # 거래량 상위 종목
             stocks_sorted = sorted(
                 stocks,
-                key=lambda x: int(x.get('acc_trde_qty', 0)),
+                key=lambda x: int(float(x.get('acc_trde_qty', 0)),
                 reverse=True
             )
             
@@ -171,9 +171,9 @@ class ThemeAnalyzer:
                         candidates.append({
                             'stock_code': stock.get('stk_cd', ''),
                             'stock_name': stock.get('stk_nm', ''),
-                            'current_price': int(stock.get('cur_prc', 0)),
+                            'current_price': int(float(stock.get('cur_prc', 0)),
                             'change_rate': change_rate,
-                            'volume': int(stock.get('acc_trde_qty', 0)),
+                            'volume': int(float(stock.get('acc_trde_qty', 0)),
                             'theme_name': theme_name,
                             'theme_profit_rate': theme['profit_rate'],
                         })

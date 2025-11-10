@@ -227,10 +227,10 @@ class DataFetcher:
 
             # 가격 파싱 (+/- 기호 제거)
             cur_prc_str = cntr_info.get('cur_prc', '0')
-            current_price = abs(int(cur_prc_str.replace('+', '').replace('-', '')))
+            current_price = abs(int(float(cur_prc_str.replace('+', '').replace('-', ''))))
 
             pred_pre_str = cntr_info.get('pred_pre', '0')
-            change_price = int(pred_pre_str.replace('+', '').replace('-', ''))
+            change_price = int(float(pred_pre_str.replace('+', '').replace('-', '')))
 
             price_info = {
                 'stock_code': base_code,

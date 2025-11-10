@@ -110,8 +110,8 @@ class LearnedSelector:
                 pattern = StockPattern(
                     stock_code=stock_code,
                     stock_name=stats.get('stock_name', ''),
-                    avg_price=int(sum(prices) / len(prices)) if prices else 0,
-                    avg_volume=int(sum(volumes) / len(volumes)) if volumes else 0,
+                    avg_price=int(float(sum(prices)) / len(prices)) if prices else 0,
+                    avg_volume=int(float(sum(volumes)) / len(volumes)) if volumes else 0,
                     avg_change_rate=sum(change_rates) / len(change_rates) if change_rates else 0,
                     success_rate=success_rate,
                     avg_profit=avg_profit,
