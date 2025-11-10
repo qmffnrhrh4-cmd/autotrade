@@ -9,6 +9,7 @@ from .trade_logger import TradeLogger
 from .models import VirtualTradingDB
 from .manager import VirtualTradingManager
 from .scheduler import VirtualTradingScheduler
+from .backtest_adapter import BacktestAdapter
 
 __all__ = [
     'VirtualAccount',
@@ -18,4 +19,5 @@ __all__ = [
     'VirtualTradingDB',
     'VirtualTradingManager',
     'VirtualTradingScheduler',
+    'BacktestAdapter',
 ]
