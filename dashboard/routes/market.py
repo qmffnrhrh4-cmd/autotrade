@@ -658,6 +658,115 @@ def get_realtime_chart_status():
 
 
 # ============================================================================
+# CHART DATA ENDPOINTS (RESTful)
+# ============================================================================
+
+@market_bp.route('/api/chart/<stock_code>/daily')
+def get_daily_chart_data(stock_code: str):
+    """Get daily chart data"""
+    try:
+        if not _bot_instance or not hasattr(_bot_instance, 'openapi_client'):
+            return jsonify({
+                'success': False,
+                'error': 'OpenAPI client not available',
+                'data': []
+            })
+
+        openapi_client = _bot_instance.openapi_client
+        if not openapi_client or not openapi_client.is_connected:
+            return jsonify({
+                'success': False,
+                'error': 'OpenAPI not connected',
+                'data': []
+            })
+
+        # Get comprehensive data which includes daily chart
+        comprehensive_data = openapi_client.get_comprehensive_data(stock_code)
+
+        if not comprehensive_data or 'data' not in comprehensive_data:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to fetch comprehensive data',
+                'data': []
+            })
+
+        # Extract daily chart data
+        daily_chart = comprehensive_data['data'].get('04_daily_chart', {})
+
+        if 'items' not in daily_chart or not daily_chart['items']:
+            return jsonify({
+                'success': False,
+                'error': 'No daily chart data available',
+                'data': []
+            })
+
+        return jsonify({
+            'success': True,
+            'data': daily_chart['items']
+        })
+
+    except Exception as e:
+        logger.error(f"Daily chart data error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'data': []
+        })
+
+
+@market_bp.route('/api/chart/<stock_code>/minute/<int:interval>')
+def get_minute_chart_data(stock_code: str, interval: int):
+    """Get minute chart data"""
+    try:
+        if not _bot_instance or not hasattr(_bot_instance, 'openapi_client'):
+            return jsonify({
+                'success': False,
+                'error': 'OpenAPI client not available',
+                'data': []
+            })
+
+        openapi_client = _bot_instance.openapi_client
+        if not openapi_client or not openapi_client.is_connected:
+            return jsonify({
+                'success': False,
+                'error': 'OpenAPI not connected',
+                'data': []
+            })
+
+        # Validate interval
+        valid_intervals = [1, 3, 5, 10, 15, 30, 60]
+        if interval not in valid_intervals:
+            return jsonify({
+                'success': False,
+                'error': f'Invalid interval. Valid: {valid_intervals}',
+                'data': []
+            })
+
+        # Get minute data
+        minute_data = openapi_client.get_minute_data(stock_code, interval)
+
+        if not minute_data or len(minute_data) == 0:
+            return jsonify({
+                'success': False,
+                'error': 'No minute data available',
+                'data': []
+            })
+
+        return jsonify({
+            'success': True,
+            'data': minute_data
+        })
+
+    except Exception as e:
+        logger.error(f"Minute chart data error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'data': []
+        })
+
+
+# ============================================================================
 # AI CHART ANALYSIS ENDPOINT
 # ============================================================================
 

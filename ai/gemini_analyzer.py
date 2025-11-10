@@ -616,9 +616,9 @@ class GeminiAnalyzer(BaseAnalyzer):
             return result
 
         # ========== 일반 분석 모드 (단일 모델) ==========
-        # 재시도 로직 (최대 3회)
-        max_retries = 3
-        retry_delay = 2  # 초
+        # 재시도 로직 (최대 5회) - Gemini API 504 timeout 대응
+        max_retries = 5
+        retry_delay = 3  # 초 (시작 대기 시간)
 
         for attempt in range(max_retries):
             try:
@@ -661,12 +661,12 @@ class GeminiAnalyzer(BaseAnalyzer):
                     portfolio_info=portfolio_text
                 )
 
-                # Gemini API 호출 - 타임아웃 30초 설정
+                # Gemini API 호출 - 타임아웃 60초 설정 (504 timeout 대응)
                 # safety_settings 없이 호출 (기본값 사용)
                 try:
                     response = self.model.generate_content(
                         prompt,
-                        request_options={'timeout': 30}  # 30초 타임아웃
+                        request_options={'timeout': 60}  # 60초 타임아웃
                     )
                 except Exception as timeout_error:
                     # 타임아웃이나 API 에러 발생 시 재시도
@@ -720,9 +720,12 @@ class GeminiAnalyzer(BaseAnalyzer):
             except Exception as e:
                 error_msg = str(e)
 
-                # 재시도 로직
+                # 재시도 로직 - 지수 백오프 (3s, 6s, 12s, 24s, 48s)
                 if attempt < max_retries - 1:
-                    logger.warning(f"AI 분석 실패 (시도 {attempt+1}/{max_retries}), {retry_delay}초 후 재시도: {error_msg}")
+                    logger.warning(
+                        f"AI 분석 실패 (시도 {attempt+1}/{max_retries}), "
+                        f"{retry_delay}초 후 재시도: {error_msg}"
+                    )
                     time.sleep(retry_delay)
                     retry_delay *= 2  # 지수 백오프
                 else:
@@ -1260,10 +1263,10 @@ class GeminiAnalyzer(BaseAnalyzer):
         try:
             logger.info(f"[{model_name}] 분석 시작")
 
-            # API 호출
+            # API 호출 - 타임아웃 60초 설정
             response = model.generate_content(
                 prompt,
-                request_options={'timeout': 30}
+                request_options={'timeout': 60}
             )
 
             # 응답 검증

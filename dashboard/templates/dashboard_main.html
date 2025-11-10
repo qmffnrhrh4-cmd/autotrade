@@ -668,6 +668,10 @@
                     <i class="fas fa-brain"></i>
                     <span>AI 분석</span>
                 </div>
+                <div class="nav-tab" data-tab="chart-analysis">
+                    <i class="fas fa-chart-line"></i>
+                    <span>차트 분석</span>
+                </div>
                 <div class="nav-tab" data-tab="backtesting">
                     <i class="fas fa-history"></i>
                     <span>백테스팅</span>
@@ -984,6 +988,94 @@
                     </div>
                 </div>
 
+                <!-- Chart Analysis Tab -->
+                <div class="tab-content" id="chart-analysis">
+                    <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
+                        <i class="fas fa-chart-line" style="color: var(--color-primary);"></i>
+                        AI 차트 분석
+                    </h2>
+
+                    <div class="grid grid-1">
+                        <!-- Stock Selection Card -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-search"></i>
+                                    종목 선택
+                                </h3>
+                            </div>
+                            <div style="margin-top: 1.5rem;">
+                                <div style="display: flex; gap: 1rem; align-items: center;">
+                                    <input
+                                        type="text"
+                                        id="chartStockCode"
+                                        placeholder="종목코드 (예: 005930)"
+                                        style="flex: 1; padding: 0.75rem; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); border-radius: 8px; color: white; font-size: 1rem;"
+                                    >
+                                    <select
+                                        id="chartInterval"
+                                        style="padding: 0.75rem; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); border-radius: 8px; color: white; font-size: 1rem; min-width: 120px;"
+                                    >
+                                        <option value="1">1분봉</option>
+                                        <option value="5" selected>5분봉</option>
+                                        <option value="15">15분봉</option>
+                                        <option value="60">60분봉</option>
+                                        <option value="day">일봉</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="loadStockChart()">
+                                        <i class="fas fa-chart-area"></i>
+                                        차트 로드
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chart Display Card -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-chart-candlestick"></i>
+                                    주가 차트
+                                </h3>
+                            </div>
+                            <div id="chartContainer" style="margin-top: 1.5rem; min-height: 400px;">
+                                <div class="empty-state">
+                                    <i class="fas fa-chart-line"></i>
+                                    <h3>차트 데이터 없음</h3>
+                                    <p>종목코드를 입력하고 "차트 로드" 버튼을 눌러주세요</p>
+                                </div>
+                            </div>
+                            <canvas id="stockChart" style="display: none; max-height: 400px;"></canvas>
+                        </div>
+
+                        <!-- Technical Indicators Card -->
+                        <div class="glass-card" id="technicalIndicatorsCard" style="display: none;">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-calculator"></i>
+                                    기술적 지표
+                                </h3>
+                            </div>
+                            <div id="technicalIndicators" style="margin-top: 1.5rem;">
+                                <!-- Technical indicators will be displayed here -->
+                            </div>
+                        </div>
+
+                        <!-- AI Chart Analysis Results -->
+                        <div class="glass-card" id="aiChartAnalysisCard" style="display: none;">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-brain"></i>
+                                    AI 차트 분석 결과
+                                </h3>
+                            </div>
+                            <div id="aiChartAnalysisResults" style="margin-top: 1.5rem;">
+                                <!-- AI analysis results will be displayed here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Backtesting Tab -->
                 <div class="tab-content" id="backtesting">
                     <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
@@ -1271,25 +1363,71 @@
             content.innerHTML = html;
         }
 
+        // ==================== Number Animation Helper ====================
+        const previousValues = {
+            totalAssets: 0,
+            stockCount: 0,
+            dailyProfit: 0,
+            totalReturn: 0
+        };
+
+        function animateNumber(elementId, newValue, isPercentage = false, isCurrency = false) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            const oldValue = previousValues[elementId] || 0;
+
+            if (oldValue === newValue) return;
+
+            try {
+                // Use CountUp.js for smooth animation
+                const options = {
+                    startVal: oldValue,
+                    decimalPlaces: isPercentage ? 2 : 0,
+                    duration: 1.5,
+                    useEasing: true,
+                    useGrouping: true,
+                    separator: ',',
+                    decimal: '.',
+                    suffix: isCurrency ? '원' : (isPercentage ? '%' : '')
+                };
+
+                const countUp = new countUp.CountUp(elementId, newValue, options);
+                if (!countUp.error) {
+                    countUp.start();
+                    previousValues[elementId] = newValue;
+                } else {
+                    console.error(countUp.error);
+                    element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
+                }
+            } catch (e) {
+                // Fallback without animation
+                element.textContent = newValue.toLocaleString() + (isCurrency ? '원' : (isPercentage ? '%' : ''));
+                previousValues[elementId] = newValue;
+            }
+        }
+
         function refreshAccount() {
             fetch('/api/account')
                 .then(response => response.json())
                 .then(data => {
-                    // Update account stats
-                    document.getElementById('total-assets').textContent = (data.total_assets || 0).toLocaleString() + '원';
-                    document.getElementById('stock-count').textContent = (data.open_positions || 0);
-
-                    // Calculate and display profit percentage
+                    // Animate account stats
+                    const totalAssets = data.total_assets || 0;
+                    const openPositions = data.open_positions || 0;
                     const profitPercent = data.profit_loss_percent || 0;
                     const profitLoss = data.profit_loss || 0;
+
+                    animateNumber('total-assets', totalAssets, false, true);
+                    animateNumber('stock-count', openPositions, false, false);
+
                     const profitColor = profitLoss >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
 
-                    // Update total return
+                    // Update total return with animation
                     const totalReturnElement = document.getElementById('total-return');
                     totalReturnElement.textContent = (profitPercent >= 0 ? '+' : '') + profitPercent.toFixed(2) + '%';
                     totalReturnElement.style.color = profitColor;
 
-                    // Update daily profit
+                    // Update daily profit with animation
                     const dailyProfitElement = document.getElementById('daily-profit');
                     dailyProfitElement.textContent = (profitLoss >= 0 ? '+' : '') + profitLoss.toLocaleString() + '원';
                     dailyProfitElement.style.color = profitColor;
@@ -1395,6 +1533,244 @@
 
             html += '</div>';
             content.innerHTML = html;
+        }
+
+        // ==================== Chart Analysis Functions ====================
+        let stockChartInstance = null;
+
+        async function loadStockChart() {
+            const stockCode = document.getElementById('chartStockCode').value.trim();
+            const interval = document.getElementById('chartInterval').value;
+
+            if (!stockCode) {
+                showToast('종목코드를 입력하세요', 'warning');
+                return;
+            }
+
+            showToast('차트 데이터 로딩 중...', 'info');
+
+            try {
+                // Fetch chart data from API
+                let endpoint;
+                if (interval === 'day') {
+                    endpoint = `/api/chart/${stockCode}/daily`;
+                } else {
+                    endpoint = `/api/chart/${stockCode}/minute/${interval}`;
+                }
+
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`차트 데이터를 가져올 수 없습니다 (${response.status})`);
+                }
+
+                const data = await response.json();
+
+                if (!data.success || !data.data || data.data.length === 0) {
+                    showToast('차트 데이터가 없습니다', 'warning');
+                    return;
+                }
+
+                // Process data for Chart.js
+                const chartData = data.data.slice(0, 100).reverse(); // Show last 100 candles
+                const labels = chartData.map(item => {
+                    const date = item['일자'] || item['날짜'];
+                    const time = item['체결시간'] || item['시간'] || '';
+                    if (time) {
+                        return `${date.slice(4, 6)}/${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
+                    }
+                    return `${date.slice(4, 6)}/${date.slice(6, 8)}`;
+                });
+
+                const prices = chartData.map(item => parseInt(item['현재가'] || item['종가'] || 0));
+                const volumes = chartData.map(item => parseInt(item['거래량'] || 0));
+
+                // Hide empty state, show chart
+                document.getElementById('chartContainer').style.display = 'none';
+                document.getElementById('stockChart').style.display = 'block';
+
+                // Destroy previous chart instance
+                if (stockChartInstance) {
+                    stockChartInstance.destroy();
+                }
+
+                // Create chart
+                const ctx = document.getElementById('stockChart').getContext('2d');
+                stockChartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '주가',
+                            data: prices,
+                            borderColor: 'rgb(59, 130, 246)',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            fill: true,
+                            tension: 0.1,
+                            pointRadius: 0,
+                            pointHoverRadius: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        interaction: {
+                            intersect: false,
+                            mode: 'index'
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                labels: { color: 'white' }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                titleColor: 'white',
+                                bodyColor: 'white',
+                                callbacks: {
+                                    label: function(context) {
+                                        return `주가: ${context.parsed.y.toLocaleString()}원`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    maxRotation: 45,
+                                    minRotation: 45
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            },
+                            y: {
+                                ticks: {
+                                    color: 'rgba(255, 255, 255, 0.7)',
+                                    callback: function(value) {
+                                        return value.toLocaleString();
+                                    }
+                                },
+                                grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                            }
+                        }
+                    }
+                });
+
+                // Calculate and display technical indicators
+                displayTechnicalIndicators(chartData);
+
+                showToast('차트 로드 완료', 'success');
+
+            } catch (error) {
+                console.error('Chart loading error:', error);
+                showToast(error.message || '차트 로드 실패', 'error');
+            }
+        }
+
+        function displayTechnicalIndicators(chartData) {
+            const card = document.getElementById('technicalIndicatorsCard');
+            const content = document.getElementById('technicalIndicators');
+
+            if (!chartData || chartData.length === 0) {
+                card.style.display = 'none';
+                return;
+            }
+
+            // Calculate basic indicators
+            const latestPrice = parseInt(chartData[chartData.length - 1]['현재가'] || 0);
+            const prices = chartData.map(item => parseInt(item['현재가'] || 0));
+
+            // Moving Averages
+            const ma5 = calculateMA(prices, 5);
+            const ma20 = calculateMA(prices, 20);
+            const ma60 = calculateMA(prices, 60);
+
+            // RSI
+            const rsi = calculateRSI(prices, 14);
+
+            // Volume analysis
+            const volumes = chartData.map(item => parseInt(item['거래량'] || 0));
+            const avgVolume = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+            const latestVolume = volumes[volumes.length - 1];
+            const volumeRatio = (latestVolume / avgVolume).toFixed(2);
+
+            // Display indicators
+            content.innerHTML = `
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+                    <div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">현재가</div>
+                        <div style="font-size: 1.5rem; font-weight: 700;">${latestPrice.toLocaleString()}원</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">MA5</div>
+                        <div style="font-size: 1.25rem; font-weight: 600;">${ma5.toLocaleString()}원</div>
+                        <div style="font-size: 0.75rem; color: ${latestPrice > ma5 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                            ${latestPrice > ma5 ? '↑ 상승' : '↓ 하락'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">MA20</div>
+                        <div style="font-size: 1.25rem; font-weight: 600;">${ma20.toLocaleString()}원</div>
+                        <div style="font-size: 0.75rem; color: ${latestPrice > ma20 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                            ${latestPrice > ma20 ? '↑ 상승' : '↓ 하락'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">MA60</div>
+                        <div style="font-size: 1.25rem; font-weight: 600;">${ma60.toLocaleString()}원</div>
+                        <div style="font-size: 0.75rem; color: ${latestPrice > ma60 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                            ${latestPrice > ma60 ? '↑ 상승' : '↓ 하락'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">RSI(14)</div>
+                        <div style="font-size: 1.25rem; font-weight: 600;">${rsi.toFixed(2)}</div>
+                        <div style="font-size: 0.75rem; color: ${rsi > 70 ? 'var(--color-danger)' : rsi < 30 ? 'var(--color-success)' : 'var(--text-muted)'};">
+                            ${rsi > 70 ? '과매수' : rsi < 30 ? '과매도' : '중립'}
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">거래량 비율</div>
+                        <div style="font-size: 1.25rem; font-weight: 600;">${volumeRatio}x</div>
+                        <div style="font-size: 0.75rem; color: ${volumeRatio > 1.5 ? 'var(--color-success)' : 'var(--text-muted)'};">
+                            ${volumeRatio > 1.5 ? '거래 활발' : '보통'}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            card.style.display = 'block';
+        }
+
+        function calculateMA(prices, period) {
+            if (prices.length < period) return 0;
+            const slice = prices.slice(-period);
+            const sum = slice.reduce((a, b) => a + b, 0);
+            return Math.round(sum / period);
+        }
+
+        function calculateRSI(prices, period = 14) {
+            if (prices.length < period + 1) return 50;
+
+            let gains = 0;
+            let losses = 0;
+
+            for (let i = prices.length - period; i < prices.length; i++) {
+                const change = prices[i] - prices[i - 1];
+                if (change > 0) {
+                    gains += change;
+                } else {
+                    losses -= change;
+                }
+            }
+
+            const avgGain = gains / period;
+            const avgLoss = losses / period;
+
+            if (avgLoss === 0) return 100;
+
+            const rs = avgGain / avgLoss;
+            return 100 - (100 / (1 + rs));
         }
 
         function runBacktest() {
