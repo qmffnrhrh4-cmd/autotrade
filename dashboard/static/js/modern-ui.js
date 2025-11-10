@@ -330,41 +330,186 @@ class ModernUI {
             }
         };
     }
+
+    /**
+     * 실시간 데이터 업데이트 애니메이션
+     */
+    static animateValue(element, start, end, duration = 1000, formatter = null) {
+        const startTime = performance.now();
+
+        const updateValue = (currentTime) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            const easeProgress = 1 - Math.pow(1 - progress, 3);
+            const currentValue = start + (end - start) * easeProgress;
+
+            element.textContent = formatter ? formatter(currentValue) : Math.round(currentValue);
+            element.classList.add('pulse');
+
+            if (progress < 1) {
+                requestAnimationFrame(updateValue);
+            } else {
+                setTimeout(() => element.classList.remove('pulse'), 500);
+            }
+        };
+
+        requestAnimationFrame(updateValue);
+    }
+
+    /**
+     * 파티클 효과
+     */
+    static createParticles(element, count = 20) {
+        const rect = element.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        for (let i = 0; i < count; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.cssText = `
+                position: fixed;
+                width: 8px;
+                height: 8px;
+                background: #3b82f6;
+                border-radius: 50%;
+                pointer-events: none;
+                z-index: 9999;
+                left: ${centerX}px;
+                top: ${centerY}px;
+            `;
+
+            document.body.appendChild(particle);
+
+            const angle = (Math.PI * 2 * i) / count;
+            const velocity = 2 + Math.random() * 2;
+            const tx = Math.cos(angle) * velocity * 50;
+            const ty = Math.sin(angle) * velocity * 50;
+
+            particle.animate([
+                { transform: 'translate(0, 0) scale(1)', opacity: 1 },
+                { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+            ], {
+                duration: 800,
+                easing: 'cubic-bezier(0, .9, .57, 1)'
+            }).onfinish = () => particle.remove();
+        }
+    }
+
+    /**
+     * 로딩 오버레이
+     */
+    static showLoadingOverlay(message = '로딩 중...') {
+        const overlay = document.createElement('div');
+        overlay.id = 'loading-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(4px);
+        `;
+
+        overlay.innerHTML = `
+            <div style="text-align: center; color: white;">
+                <div class="loading-spinner loading-spinner-lg"></div>
+                <p style="margin-top: 20px; font-size: 16px;">${message}</p>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        return overlay;
+    }
+
+    static hideLoadingOverlay() {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            overlay.style.animation = 'fadeOut 0.3s ease-out';
+            setTimeout(() => overlay.remove(), 300);
+        }
+    }
+
+    /**
+     * 확인 다이얼로그
+     */
+    static async confirm(message, title = '확인') {
+        return new Promise((resolve) => {
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10001;
+                animation: fadeIn 0.2s;
+            `;
+
+            dialog.innerHTML = `
+                <div style="background: white; padding: 30px; border-radius: 12px; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); animation: scaleIn 0.3s;">
+                    <h3 style="margin: 0 0 15px 0; font-size: 20px;">${title}</h3>
+                    <p style="margin: 0 0 25px 0; color: #666;">${message}</p>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button id="dialog-cancel" style="padding: 10px 20px; border: 1px solid #ddd; background: white; border-radius: 6px; cursor: pointer;">취소</button>
+                        <button id="dialog-confirm" style="padding: 10px 20px; border: none; background: #3b82f6; color: white; border-radius: 6px; cursor: pointer;">확인</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(dialog);
+
+            dialog.querySelector('#dialog-confirm').onclick = () => {
+                dialog.remove();
+                resolve(true);
+            };
+
+            dialog.querySelector('#dialog-cancel').onclick = () => {
+                dialog.remove();
+                resolve(false);
+            };
+
+            dialog.onclick = (e) => {
+                if (e.target === dialog) {
+                    dialog.remove();
+                    resolve(false);
+                }
+            };
+        });
+    }
 }
 
-// 페이지 로드 시 자동 초기화
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => new ModernUI());
 } else {
     new ModernUI();
 }
 
-// 글로벌 스타일 추가
 const globalStyles = document.createElement('style');
 globalStyles.textContent = `
     @keyframes slideInRight {
-        from {
-            opacity: 0;
-            transform: translateX(100px);
-        }
-        to {
-            opacity: 1;
-            transform: translateX(0);
-        }
+        from { opacity: 0; transform: translateX(100px); }
+        to { opacity: 1; transform: translateX(0); }
     }
-
     @keyframes slideOutRight {
-        from {
-            opacity: 1;
-            transform: translateX(0);
-        }
-        to {
-            opacity: 0;
-            transform: translateX(100px);
-        }
+        from { opacity: 1; transform: translateX(0); }
+        to { opacity: 0; transform: translateX(100px); }
+    }
+    @keyframes fadeOut {
+        from { opacity: 1; }
+        to { opacity: 0; }
     }
 `;
 document.head.appendChild(globalStyles);
 
-// Export for use in other modules
 window.ModernUI = ModernUI;

@@ -275,6 +275,7 @@
 
         <div class="tabs">
             <div class="tab active" onclick="switchTab('system')">시스템</div>
+            <div class="tab" onclick="switchTab('connection')">연결 상태</div>
             <div class="tab" onclick="switchTab('risk')">리스크 관리</div>
             <div class="tab" onclick="switchTab('strategies')">전략 설정</div>
             <div class="tab" onclick="switchTab('ai')">AI 분석</div>
@@ -312,6 +313,79 @@
                     <div class="form-group">
                         <label class="form-label">최대 동시 AI 분석 수</label>
                         <input type="number" class="form-input" id="max_concurrent_analysis" value="3" min="1" max="10">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 연결 상태 -->
+        <div id="panel-connection" class="settings-panel">
+            <div class="settings-section">
+                <div class="section-title">Open API 연결 상태</div>
+                <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px;">
+                        <div id="api-status-indicator" style="width: 16px; height: 16px; border-radius: 50%; background: #9ca3af;"></div>
+                        <div>
+                            <div style="font-weight: 600; font-size: 16px; margin-bottom: 5px;">연결 상태: <span id="api-status-text">확인 중...</span></div>
+                            <div style="font-size: 14px; color: #6b7280;">마지막 확인: <span id="api-last-check">-</span></div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="checkApiConnection()" style="margin-top: 10px;">
+                        🔄 연결 상태 확인
+                    </button>
+                </div>
+
+                <div class="grid-2">
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">WebSocket 연결</div>
+                        <div style="font-size: 18px; font-weight: 600;" id="websocket-status">-</div>
+                    </div>
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">REST API 응답시간</div>
+                        <div style="font-size: 18px; font-weight: 600;" id="api-response-time">-</div>
+                    </div>
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">오늘 API 호출 수</div>
+                        <div style="font-size: 18px; font-weight: 600;" id="api-call-count">-</div>
+                    </div>
+                    <div style="background: #f9fafb; padding: 15px; border-radius: 8px;">
+                        <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Rate Limit 상태</div>
+                        <div style="font-size: 18px; font-weight: 600;" id="rate-limit-status">정상</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; padding: 15px; background: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 5px;">⚠️ 주의사항</div>
+                    <ul style="margin: 0; padding-left: 20px; font-size: 14px; color: #92400e;">
+                        <li>Open API 연결이 원활하지 않을 경우 자동매매가 정지될 수 있습니다.</li>
+                        <li>API Rate Limit을 초과하지 않도록 주의하세요.</li>
+                        <li>WebSocket 연결이 끊어진 경우 실시간 데이터 수신이 중단됩니다.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <div class="section-title">API 설정</div>
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">API 타임아웃 (초)</label>
+                        <input type="number" class="form-input" id="api_timeout" value="30" min="5" max="60">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">재연결 시도 횟수</label>
+                        <input type="number" class="form-input" id="api_retry_count" value="3" min="1" max="10">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label checkbox-group">
+                            <input type="checkbox" class="form-checkbox" id="auto_reconnect" checked>
+                            자동 재연결 활성화
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label checkbox-group">
+                            <input type="checkbox" class="form-checkbox" id="api_logging" checked>
+                            API 호출 로깅
+                        </label>
                     </div>
                 </div>
             </div>
@@ -778,8 +852,49 @@
             }
         }
 
-        // 페이지 로드 시 설정 로드
-        window.addEventListener('DOMContentLoaded', loadSettings);
+        // API 연결 상태 확인
+        async function checkApiConnection() {
+            const indicator = document.getElementById('api-status-indicator');
+            const statusText = document.getElementById('api-status-text');
+            const lastCheck = document.getElementById('api-last-check');
+            const wsStatus = document.getElementById('websocket-status');
+            const apiTime = document.getElementById('api-response-time');
+            const callCount = document.getElementById('api-call-count');
+
+            indicator.style.background = '#f59e0b';
+            statusText.textContent = '확인 중...';
+
+            try {
+                const startTime = performance.now();
+                const response = await fetch('/api/system/status');
+                const endTime = performance.now();
+                const data = await response.json();
+
+                if (response.ok) {
+                    indicator.style.background = '#10b981';
+                    statusText.textContent = '정상 연결';
+                    apiTime.textContent = `${Math.round(endTime - startTime)}ms`;
+
+                    wsStatus.textContent = data.websocket_connected ? '연결됨 ✓' : '연결 안됨 ✗';
+                    callCount.textContent = data.api_calls_today || '0';
+                } else {
+                    indicator.style.background = '#ef4444';
+                    statusText.textContent = '연결 실패';
+                }
+
+                lastCheck.textContent = new Date().toLocaleString('ko-KR');
+            } catch (error) {
+                indicator.style.background = '#ef4444';
+                statusText.textContent = '오류 발생';
+                lastCheck.textContent = new Date().toLocaleString('ko-KR');
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            loadSettings();
+            checkApiConnection();
+            setInterval(checkApiConnection, 30000);
+        });
     </script>
 </body>
 </html>

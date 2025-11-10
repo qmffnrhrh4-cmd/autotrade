@@ -21,7 +21,7 @@ try:
     from .notification import NotificationManager, Notification, NotificationPriority, get_notification_manager
     # v4.0 Advanced Features
     from .replay_simulator import ReplaySimulator, MarketSnapshot
-    from .portfolio_rebalancer import PortfolioRebalancer, PortfolioTarget
+    from .auto_rebalancer import AutoRebalancer, RebalanceStrategy, RebalanceAction, get_auto_rebalancer
 except ImportError as e:
     import warnings
     warnings.warn(f"Some features modules could not be imported: {e}. Install required dependencies (numpy, pandas, etc.)")
@@ -38,7 +38,7 @@ except ImportError as e:
     NotificationManager = Notification = NotificationPriority = get_notification_manager = None
     # v4.0 Advanced Features
     ReplaySimulator = MarketSnapshot = None
-    PortfolioRebalancer = PortfolioTarget = None
+    AutoRebalancer = RebalanceStrategy = RebalanceAction = get_auto_rebalancer = None
 
 __all__ = [
     # Test Mode Manager (no dependencies)
@@ -94,6 +94,8 @@ __all__ = [
     # v4.0 Advanced Features
     'ReplaySimulator',
     'MarketSnapshot',
-    'PortfolioRebalancer',
-    'PortfolioTarget',
+    'AutoRebalancer',
+    'RebalanceStrategy',
+    'RebalanceAction',
+    'get_auto_rebalancer',
 ]

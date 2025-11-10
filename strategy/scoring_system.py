@@ -2,14 +2,18 @@
 strategy/scoring_system.py
 10가지 기준 스코어링 시스템 (440점 만점)
 
-v5.9 Performance Enhancements:
-- 캐싱: 동일 종목 중복 계산 방지 (30초 TTL)
-- 병렬 처리: 다중 종목 동시 스코어링
-- 성능 최적화: 30-50% 속도 향상
+v6.0 Enhanced Features:
+- Time-based dynamic weight adjustment
+- Risk score integration
+- Virtual trading performance feedback
+- Historical performance tracking
+- Market condition adaptation
 """
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, time as dt_time
+from pathlib import Path
 import hashlib
 import json
 
@@ -23,13 +27,12 @@ logger = get_logger()
 
 @dataclass
 class ScoringResult:
-    """스코어링 결과"""
+    """스코어링 결과 (v6.0)"""
 
     total_score: float = 0.0
     max_score: float = 440.0
     percentage: float = 0.0
 
-    # 세부 점수
     volume_surge_score: float = 0.0
     price_momentum_score: float = 0.0
     institutional_buying_score: float = 0.0
@@ -41,7 +44,10 @@ class ScoringResult:
     theme_news_score: float = 0.0
     volatility_pattern_score: float = 0.0
 
-    # 평가 내역
+    risk_score: float = 0.0
+    time_adjusted_score: float = 0.0
+    historical_performance_score: float = 0.0
+
     details: Dict[str, Any] = field(default_factory=dict)
 
     def calculate_percentage(self):
@@ -71,31 +77,62 @@ class ScoringResult:
 
 
 class ScoringSystem:
-    """10가지 기준 스코어링 시스템 (v5.9 - 성능 최적화)"""
+    """10가지 기준 스코어링 시스템 (v6.0 Enhanced)"""
 
-    def __init__(self, market_api=None, enable_cache: bool = True):
+    def __init__(
+        self,
+        market_api=None,
+        enable_cache: bool = True,
+        risk_manager=None,
+        performance_tracker=None
+    ):
         """
         초기화
 
         Args:
             market_api: 시장 데이터 API (선택)
             enable_cache: 캐싱 활성화 여부 (기본 True)
+            risk_manager: 리스크 관리자 (선택)
+            performance_tracker: 가상매매 성과 추적기 (선택)
         """
         self.market_api = market_api
+        self.risk_manager = risk_manager
+        self.performance_tracker = performance_tracker
 
-        # 설정 로드
         self.config = get_config()
         self.scoring_config = self.config.scoring
         self.criteria_config = self.scoring_config.get('criteria', {})
 
-        # v5.9: 캐싱 설정
         self.enable_cache = enable_cache
         self.cache_manager = get_api_cache() if enable_cache else None
         self.cache_ttl = 30
 
-        logger.info("📊 10가지 기준 스코어링 시스템 초기화 완료 (v5.9 - 캐싱/병렬 지원)")
+        self.stock_history = {}
+        self._load_historical_data()
 
-        # v5.7.5: 스캔 타입별 가중치 프로파일
+        logger.info("📊 10가지 기준 스코어링 시스템 초기화 완료 (v6.0 - 시간/리스크/학습 통합)")
+
+        self.time_based_weights = {
+            'early': {
+                'volume_surge': 1.5,
+                'execution_intensity': 1.3,
+                'program_trading': 1.2,
+                'price_momentum': 0.9,
+            },
+            'mid': {
+                'price_momentum': 1.2,
+                'institutional_buying': 1.3,
+                'technical_indicators': 1.1,
+                'volatility_pattern': 0.9,
+            },
+            'late': {
+                'price_momentum': 1.4,
+                'technical_indicators': 1.2,
+                'volatility_pattern': 1.3,
+                'volume_surge': 0.8,
+            }
+        }
+
         self.scan_type_weights = {
             # VolumeBasedStrategy: 거래량, 체결강도, 호가비율 중시
             'volume_based': {
@@ -174,7 +211,7 @@ class ScoringSystem:
 
     def calculate_score(self, stock_data: Dict[str, Any], scan_type: str = 'default') -> ScoringResult:
         """
-        종목 종합 점수 계산 (v5.9 - 캐싱 지원)
+        종목 종합 점수 계산 (v6.0 - 시간/리스크 통합)
 
         Args:
             stock_data: 종목 데이터
@@ -183,7 +220,6 @@ class ScoringSystem:
         Returns:
             ScoringResult 객체
         """
-        # v5.9: 캐시 확인
         if self.enable_cache and self.cache_manager:
             cache_key = self._generate_cache_key(stock_data, scan_type)
             cached_result = self.cache_manager.get(cache_key)
@@ -193,8 +229,12 @@ class ScoringSystem:
 
         result = ScoringResult()
 
-        # v5.7.5: 스캔 타입별 가중치 적용
         weights = self.scan_type_weights.get(scan_type, self.scan_type_weights['default'])
+
+        time_weights = self._get_time_based_weights()
+        for key in time_weights:
+            if key in weights:
+                weights[key] *= time_weights[key]
 
         # 1. 거래량 급증 (60점)
         result.volume_surge_score = self._score_volume_surge(stock_data) * weights['volume_surge']
@@ -226,8 +266,7 @@ class ScoringSystem:
         # 10. 변동성 패턴 (20점)
         result.volatility_pattern_score = self._score_volatility_pattern(stock_data) * weights['volatility_pattern']
 
-        # 총점 계산
-        result.total_score = (
+        base_score = (
             result.volume_surge_score +
             result.price_momentum_score +
             result.institutional_buying_score +
@@ -240,14 +279,19 @@ class ScoringSystem:
             result.volatility_pattern_score
         )
 
+        result.risk_score = self._calculate_risk_score(stock_data)
+        result.historical_performance_score = self._get_historical_performance_score(
+            stock_data.get('stock_code', '')
+        )
+
+        result.total_score = base_score + result.risk_score + result.historical_performance_score
+        result.time_adjusted_score = result.total_score
+
         result.calculate_percentage()
 
-        # v5.9: 캐시 저장
         if self.enable_cache and self.cache_manager:
             cache_key = self._generate_cache_key(stock_data, scan_type)
             self.cache_manager.set(cache_key, result, ttl_seconds=self.cache_ttl)
-
-        # v5.7.5: 스캔 타입 로깅
         scan_type_display = {
             'volume_based': '거래량 기반',
             'price_change': '상승률 기반',
@@ -880,6 +924,120 @@ class ScoringSystem:
             매수 여부
         """
         return scoring_result.total_score >= threshold
+
+    def _get_time_based_weights(self) -> Dict[str, float]:
+        """시간대별 가중치 반환"""
+        now = datetime.now().time()
+
+        if dt_time(9, 0) <= now < dt_time(11, 0):
+            period = 'early'
+        elif dt_time(11, 0) <= now < dt_time(14, 0):
+            period = 'mid'
+        elif dt_time(14, 0) <= now < dt_time(15, 30):
+            period = 'late'
+        else:
+            return {}
+
+        return self.time_based_weights.get(period, {})
+
+    def _calculate_risk_score(self, stock_data: Dict[str, Any]) -> float:
+        """리스크 점수 계산 (DynamicRiskManager 연동)"""
+        if not self.risk_manager:
+            return 0.0
+
+        try:
+            risk_level = self.risk_manager.evaluate_stock_risk(stock_data)
+
+            risk_score_map = {
+                'low': 20.0,
+                'medium': 10.0,
+                'high': -10.0,
+                'very_high': -20.0
+            }
+
+            return risk_score_map.get(risk_level, 0.0)
+
+        except Exception as e:
+            logger.debug(f"리스크 점수 계산 실패: {e}")
+            return 0.0
+
+    def _get_historical_performance_score(self, stock_code: str) -> float:
+        """종목별 과거 성과 히스토리 반영"""
+        if stock_code not in self.stock_history:
+            return 0.0
+
+        history = self.stock_history[stock_code]
+
+        total_trades = history.get('total_trades', 0)
+        if total_trades == 0:
+            return 0.0
+
+        win_rate = history.get('win_rate', 0)
+        avg_pnl = history.get('avg_pnl', 0)
+
+        if win_rate > 70 and avg_pnl > 50000:
+            return 15.0
+        elif win_rate > 50 and avg_pnl > 0:
+            return 10.0
+        elif win_rate < 30 or avg_pnl < -50000:
+            return -15.0
+        elif avg_pnl < 0:
+            return -10.0
+
+        return 0.0
+
+    def _load_historical_data(self):
+        """과거 거래 데이터 로드"""
+        try:
+            perf_file = Path('data/virtual_trading/performance.json')
+            if not perf_file.exists():
+                return
+
+            with open(perf_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            strategy_records = data.get('strategy_records', {})
+
+            for records in strategy_records.values():
+                trades = records.get('trades', [])
+
+                for trade in trades:
+                    stock_code = trade.get('stock_code')
+                    if not stock_code:
+                        continue
+
+                    if stock_code not in self.stock_history:
+                        self.stock_history[stock_code] = {
+                            'total_trades': 0,
+                            'wins': 0,
+                            'losses': 0,
+                            'total_pnl': 0,
+                            'win_rate': 0,
+                            'avg_pnl': 0
+                        }
+
+                    hist = self.stock_history[stock_code]
+                    pnl = trade.get('profit_loss')
+
+                    if pnl is not None:
+                        hist['total_trades'] += 1
+                        hist['total_pnl'] += pnl
+
+                        if pnl > 0:
+                            hist['wins'] += 1
+                        else:
+                            hist['losses'] += 1
+
+            for stock_code, hist in self.stock_history.items():
+                if hist['total_trades'] > 0:
+                    hist['win_rate'] = (hist['wins'] / hist['total_trades']) * 100
+                    hist['avg_pnl'] = hist['total_pnl'] / hist['total_trades']
+
+            if self.stock_history:
+                logger.info(f"과거 성과 데이터 로드: {len(self.stock_history)}개 종목")
+
+        except Exception as e:
+            logger.warning(f"과거 성과 데이터 로드 실패: {e}")
 
 
 __all__ = ['ScoringSystem', 'ScoringResult']

@@ -1,18 +1,13 @@
-"""
-AI Mode v3.6 - Basic AI Functionality
-Handles basic AI mode operations: status, toggle, decisions, learning, optimization
-"""
+"""AI Mode API Routes"""
 from flask import Blueprint, jsonify, request
 from dataclasses import asdict
 from .common import get_bot_instance
 
-# Create blueprint
 ai_mode_bp = Blueprint('ai_mode', __name__)
 
 
 @ai_mode_bp.route('/api/ai/status')
 def get_ai_status():
-    """Get AI mode status"""
     try:
         from features.ai_mode import get_ai_agent
 
@@ -27,7 +22,6 @@ def get_ai_status():
 
 @ai_mode_bp.route('/api/ai/toggle', methods=['POST'])
 def toggle_ai_mode():
-    """Toggle AI mode on/off"""
     try:
         from features.ai_mode import get_ai_agent
 
@@ -56,14 +50,11 @@ def toggle_ai_mode():
 
 @ai_mode_bp.route('/api/ai/decision/<stock_code>')
 def get_ai_decision(stock_code: str):
-    """Get AI decision for a stock"""
     try:
         from features.ai_mode import get_ai_agent
 
         bot = get_bot_instance()
-
-        # Get stock data
-        stock_name = stock_code  # Fallback
+        stock_name = stock_code
         stock_data = {
             'current_price': 0,
             'rsi': 50,
@@ -72,7 +63,6 @@ def get_ai_decision(stock_code: str):
         }
 
         if bot and hasattr(bot, 'market_api'):
-            # Try to get real data
             try:
                 price_info = bot.market_api.get_current_price(stock_code)
                 if price_info:
@@ -95,7 +85,6 @@ def get_ai_decision(stock_code: str):
 
 @ai_mode_bp.route('/api/ai/learning/summary')
 def get_ai_learning_summary():
-    """Get AI learning summary"""
     try:
         from features.ai_learning import AILearningEngine
 
@@ -113,7 +102,6 @@ def get_ai_learning_summary():
 
 @ai_mode_bp.route('/api/ai/optimize', methods=['POST'])
 def trigger_ai_optimization():
-    """Trigger AI self-optimization"""
     try:
         from features.ai_mode import get_ai_agent
 

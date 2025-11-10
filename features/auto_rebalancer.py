@@ -1,9 +1,11 @@
 """
 features/auto_rebalancer.py
-포트폴리오 자동 리밸런싱 시스템 (v5.10 NEW)
+통합 포트폴리오 자동 리밸런싱 시스템
 
 Features:
 - 목표 포트폴리오 비율 유지
+- 다양한 리밸런싱 전략 (Equal Weight, Risk Parity, AI Driven, Momentum, Value)
+- 시간/임계값 기반 리밸런싱
 - 리스크 기반 자동 조정
 - AI 신호 기반 동적 리밸런싱
 - 세금 효율적 리밸런싱

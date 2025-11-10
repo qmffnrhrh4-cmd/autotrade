@@ -1,13 +1,4 @@
-"""
-AutoTrade Pro v5.4 - Modular Dashboard
-Modern, elegant dashboard with comprehensive AI-powered trading features
-
-v5.4 Improvements:
-- Modular route architecture (routes/, websocket/, utils/)
-- Improved code organization and maintainability
-- All v4.2 features preserved
-- Cross-platform compatibility
-"""
+"""AutoTrade Pro v5.4 - Modular Dashboard"""
 import os
 import sys
 import time
@@ -22,9 +13,10 @@ from flask_socketio import SocketIO
 from flask_cors import CORS
 import yaml
 
-# Add parent directory to path
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
+
+REALTIME_UPDATE_INTERVAL = 3
 
 # Import unified settings manager
 try:

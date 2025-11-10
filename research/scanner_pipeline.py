@@ -1,11 +1,14 @@
 """
 research/scanner_pipeline.py
 3단계 스캐닝 파이프라인 (Fast → Deep → AI)
+Enhanced v2.0: Virtual trading learning integration, adaptive scanning
 """
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time as dt_time
+from pathlib import Path
+import json
 
 from utils.logger_new import get_logger
 
@@ -15,10 +18,8 @@ from config.manager import get_config
 logger = get_logger()
 
 
-# Deep Scan 데이터 캐시 (메모리 기반)
-# {stock_code: {'data': {...}, 'timestamp': datetime, 'ttl': 300}}
 _deep_scan_cache = {}
-CACHE_TTL_SECONDS = 300  # 5분
+CACHE_TTL_SECONDS = 60
 
 
 @dataclass
@@ -84,14 +85,15 @@ class StockCandidate:
 
 
 class ScannerPipeline:
-    """3단계 스캐닝 파이프라인"""
+    """3단계 스캐닝 파이프라인 (Enhanced v2.0)"""
 
     def __init__(
         self,
         market_api,
         screener,
         ai_analyzer,
-        scoring_system=None
+        scoring_system=None,
+        performance_tracker=None
     ):
         """
         초기화
@@ -101,13 +103,14 @@ class ScannerPipeline:
             screener: 종목 스크리너
             ai_analyzer: AI 분석기
             scoring_system: 스코어링 시스템 (선택)
+            performance_tracker: 가상매매 성과 추적기 (선택)
         """
         self.market_api = market_api
         self.screener = screener
         self.ai_analyzer = ai_analyzer
         self.scoring_system = scoring_system
+        self.performance_tracker = performance_tracker
 
-        # 설정 로드
         self.config = get_config()
         self.scan_config = self.config.scanning
 
@@ -145,7 +148,13 @@ class ScannerPipeline:
         self.deep_scan_results: List[StockCandidate] = []
         self.ai_scan_results: List[StockCandidate] = []
 
-        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료")
+        self.best_strategy_cache = {}
+        self.market_condition_cache = None
+        self.duplicate_filter_cache = set()
+
+        self._load_learning_data()
+
+        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료 (Enhanced v2.0)")
 
     def should_run_fast_scan(self) -> bool:
         """Fast Scan 실행 여부 확인"""
@@ -207,7 +216,6 @@ class ScannerPipeline:
             # 최대 개수 제한
             candidates = candidates[:self.fast_max_candidates]
 
-            # StockCandidate 객체로 변환
             scan_time = datetime.now()
             stock_candidates = []
 
@@ -221,11 +229,13 @@ class ScannerPipeline:
                     fast_scan_time=scan_time,
                 )
 
-                # Fast Scan 점수 계산 (간단한 거래대금 기준)
                 candidate.fast_scan_score = self._calculate_fast_score(candidate)
                 stock_candidates.append(candidate)
 
-            # 결과 저장
+            stock_candidates = self._apply_learned_preferences(stock_candidates)
+            stock_candidates = self._adjust_for_market_condition(stock_candidates)
+            stock_candidates = self._filter_duplicates(stock_candidates)
+
             self.fast_scan_results = stock_candidates
             self.last_fast_scan = time.time()
 
@@ -791,6 +801,142 @@ class ScannerPipeline:
             'data': data,
             'timestamp': datetime.now()
         }
+
+    def _load_learning_data(self):
+        """가상매매 학습 데이터 로드"""
+        try:
+            perf_file = Path('data/virtual_trading/performance.json')
+            if not perf_file.exists():
+                logger.debug("가상매매 성과 데이터 없음")
+                return
+
+            with open(perf_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            strategy_records = data.get('strategy_records', {})
+
+            for strategy_name, records in strategy_records.items():
+                trades = records.get('trades', [])
+                if not trades:
+                    continue
+
+                completed_trades = [t for t in trades if t.get('profit_loss') is not None]
+                if not completed_trades:
+                    continue
+
+                winning_trades = [t for t in completed_trades if t['profit_loss'] > 0]
+                win_rate = len(winning_trades) / len(completed_trades) * 100 if completed_trades else 0
+                avg_pnl = sum(t['profit_loss'] for t in completed_trades) / len(completed_trades)
+
+                self.best_strategy_cache[strategy_name] = {
+                    'win_rate': win_rate,
+                    'avg_pnl': avg_pnl,
+                    'total_trades': len(completed_trades),
+                    'winning_stocks': [t.get('stock_code') for t in winning_trades],
+                    'losing_stocks': [t.get('stock_code') for t in completed_trades if t['profit_loss'] <= 0]
+                }
+
+            if self.best_strategy_cache:
+                best = max(self.best_strategy_cache.items(), key=lambda x: x[1]['avg_pnl'])
+                logger.info(f"📚 학습 데이터 로드: 최고 전략 = {best[0]} (평균 손익: {best[1]['avg_pnl']:,.0f}원)")
+
+        except Exception as e:
+            logger.warning(f"학습 데이터 로드 실패: {e}")
+
+    def _detect_market_condition(self) -> str:
+        """실시간 시장 조건 감지"""
+        try:
+            if self.market_condition_cache:
+                cache_time = self.market_condition_cache.get('timestamp')
+                if cache_time and (datetime.now() - cache_time).seconds < 60:
+                    return self.market_condition_cache.get('condition', 'normal')
+
+            kospi_data = self.market_api.get_index_data('001')
+            kosdaq_data = self.market_api.get_index_data('101')
+
+            if kospi_data and kosdaq_data:
+                kospi_change = float(kospi_data.get('change_rate', 0))
+                kosdaq_change = float(kosdaq_data.get('change_rate', 0))
+
+                if kospi_change > 1.5 and kosdaq_change > 1.5:
+                    condition = 'bullish'
+                elif kospi_change < -1.5 and kosdaq_change < -1.5:
+                    condition = 'bearish'
+                elif abs(kospi_change) < 0.5 and abs(kosdaq_change) < 0.5:
+                    condition = 'sideways'
+                else:
+                    condition = 'normal'
+
+                self.market_condition_cache = {
+                    'condition': condition,
+                    'timestamp': datetime.now(),
+                    'kospi_change': kospi_change,
+                    'kosdaq_change': kosdaq_change
+                }
+
+                return condition
+
+        except Exception as e:
+            logger.debug(f"시장 조건 감지 실패: {e}")
+
+        return 'normal'
+
+    def _filter_duplicates(self, candidates: List[StockCandidate]) -> List[StockCandidate]:
+        """중복 종목 필터링 강화"""
+        current_time = time.time()
+        filtered = []
+
+        for candidate in candidates:
+            cache_key = f"{candidate.code}_{current_time // 300}"
+
+            if cache_key not in self.duplicate_filter_cache:
+                self.duplicate_filter_cache.add(cache_key)
+                filtered.append(candidate)
+
+        old_keys = {k for k in self.duplicate_filter_cache if int(k.split('_')[1]) < (current_time // 300) - 5}
+        self.duplicate_filter_cache -= old_keys
+
+        if len(candidates) != len(filtered):
+            logger.info(f"중복 필터링: {len(candidates)}개 → {len(filtered)}개")
+
+        return filtered
+
+    def _apply_learned_preferences(self, candidates: List[StockCandidate]) -> List[StockCandidate]:
+        """학습된 선호도 적용"""
+        if not self.best_strategy_cache:
+            return candidates
+
+        for candidate in candidates:
+            bonus_score = 0
+
+            for strategy_data in self.best_strategy_cache.values():
+                if candidate.code in strategy_data.get('winning_stocks', []):
+                    bonus_score += 10
+                    logger.debug(f"{candidate.name}: 과거 성공 종목 +10점")
+
+                if candidate.code in strategy_data.get('losing_stocks', []):
+                    bonus_score -= 5
+                    logger.debug(f"{candidate.name}: 과거 실패 종목 -5점")
+
+            candidate.fast_scan_score += bonus_score
+
+        return candidates
+
+    def _adjust_for_market_condition(self, candidates: List[StockCandidate]) -> List[StockCandidate]:
+        """시장 조건에 따른 스캔 조정"""
+        condition = self._detect_market_condition()
+
+        logger.info(f"시장 조건: {condition}")
+
+        if condition == 'bearish':
+            candidates = [c for c in candidates if c.rate < 5.0]
+            logger.info(f"약세장: 급등주 제외 ({len(candidates)}개 남음)")
+
+        elif condition == 'bullish':
+            candidates = [c for c in candidates if c.rate > 1.0]
+            logger.info(f"강세장: 상승주 우선 ({len(candidates)}개 남음)")
+
+        return candidates
 
 
 __all__ = ['ScannerPipeline', 'StockCandidate']
