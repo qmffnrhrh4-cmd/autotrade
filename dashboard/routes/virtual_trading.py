@@ -300,3 +300,102 @@ def get_performance(strategy_id: int):
     except Exception as e:
         logger.error(f"성과 지표 조회 실패: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
+
+
+@virtual_trading_bp.route('/api/virtual-trading/backtest', methods=['POST'])
+def run_backtest():
+    """백테스팅 실행 (과거 데이터로 전략 검증)"""
+    try:
+        if not virtual_manager:
+            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        data = request.json
+        strategy_id = data.get('strategy_id')
+        stock_code = data.get('stock_code')
+        start_date = data.get('start_date')
+        end_date = data.get('end_date')
+        stop_loss_percents = data.get('stop_loss_percents', [3.0, 5.0, 7.0])
+        take_profit_percents = data.get('take_profit_percents', [5.0, 10.0, 15.0])
+
+        # 필수 파라미터 검증
+        if not all([strategy_id, stock_code, start_date, end_date]):
+            return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
+
+        # BacktestAdapter 임포트 및 실행
+        from virtual_trading import BacktestAdapter
+
+        # data_fetcher를 bot_instance에서 가져오기
+        # (실제 구현에서는 init_virtual_trading_manager에서 설정 필요)
+        from flask import current_app
+        bot_instance = getattr(current_app, 'bot_instance', None)
+
+        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+
+        adapter = BacktestAdapter(
+            virtual_manager=virtual_manager,
+            data_fetcher=bot_instance.data_fetcher
+        )
+
+        result = adapter.run_backtest(
+            strategy_id=strategy_id,
+            stock_code=stock_code,
+            start_date=start_date,
+            end_date=end_date,
+            stop_loss_percents=stop_loss_percents,
+            take_profit_percents=take_profit_percents
+        )
+
+        if 'error' in result:
+            return jsonify({'error': result['error']}), 500
+
+        return jsonify({
+            'success': True,
+            'result': result
+        })
+
+    except Exception as e:
+        logger.error(f"백테스팅 실패: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
+
+
+@virtual_trading_bp.route('/api/virtual-trading/backtest/apply', methods=['POST'])
+def apply_backtest_result():
+    """백테스팅 최적 조건을 전략에 적용"""
+    try:
+        if not virtual_manager:
+            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        data = request.json
+        strategy_id = data.get('strategy_id')
+        backtest_result = data.get('backtest_result')
+
+        if not all([strategy_id, backtest_result]):
+            return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
+
+        from virtual_trading import BacktestAdapter
+        from flask import current_app
+        bot_instance = getattr(current_app, 'bot_instance', None)
+
+        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+
+        adapter = BacktestAdapter(
+            virtual_manager=virtual_manager,
+            data_fetcher=bot_instance.data_fetcher
+        )
+
+        success = adapter.apply_best_conditions(strategy_id, backtest_result)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '최적 조건이 적용되었습니다',
+                'recommendation': backtest_result.get('recommendation', {})
+            })
+        else:
+            return jsonify({'error': '최적 조건 적용 실패'}), 500
+
+    except Exception as e:
+        logger.error(f"백테스팅 조건 적용 실패: {e}", exc_info=True)
+        return jsonify({'error': str(e)}), 500
