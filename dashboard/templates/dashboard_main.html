@@ -1927,7 +1927,7 @@
                                     </div>
                                     <div style="text-align: right;">
                                         <div style="font-size: 1.25rem; font-weight: 700; color: ${returnColor};">
-                                            ${strategy.return >= 0 ? '+' : ''}${strategy.return.toFixed(2)}%
+                                            ${strategy.return >= 0 ? '+' : ''}${(strategy.return || 0).toFixed(2)}%
                                         </div>
                                         <div style="font-size: 0.75rem; color: var(--text-muted);">${strategy.trades || 0}회 거래</div>
                                     </div>

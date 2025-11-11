@@ -108,30 +108,21 @@ def get_account():
                         logger.debug(f"  -> 직접 계산: {quantity} × {cur_price:,} = {calculated_value:,}원")
                         stock_value += calculated_value
 
-            # 정확한 공식 적용:
-            # 총자산 = 예수금 + 주식평가액
-            total_assets = deposit_amount + stock_value
-
-            # 가용금액 = 주문가능금액 (available_cash 또는 order_possible)
-            # 일반적으로 100stk_ord_alow_amt를 사용
-            cash = available_cash
+            # Fix: 정확한 공식 적용
+            # entr 필드가 이미 주식평가액을 포함하고 있어서 중복 계산됨
+            # 가용금액(cash)만 사용하여 총자산 계산
+            # 총자산 = 가용금액 + 주식평가액
+            cash = available_cash  # 100stk_ord_alow_amt (주문가능금액)
+            total_assets = cash + stock_value
 
             logger.info(f"===== 계좌 정보 요약 =====")
-            logger.info(f"  예수금 (entr): {deposit_amount:,}원")
+            logger.info(f"  예수금 (entr): {deposit_amount:,}원 (사용 안함 - 중복 계산 이슈)")
+            logger.info(f"  가용금액 (100stk_ord_alow_amt): {cash:,}원")
             logger.info(f"  주식평가액: {stock_value:,}원")
             logger.info(f"  --------------------------------")
             logger.info(f"  총자산: {total_assets:,}원")
-            logger.info(f"  계산식: {deposit_amount:,} + {stock_value:,} = {total_assets:,}원")
+            logger.info(f"  계산식: {cash:,} (가용금액) + {stock_value:,} (주식평가액) = {total_assets:,}원")
             logger.info(f"  ================================")
-            logger.info(f"  가용금액: {cash:,}원")
-
-            # 92만원 vs 105만원 문제 디버깅
-            if deposit_amount > 900000 and total_assets > 1000000:
-                logger.warning(f"총 자산 차이 감지!")
-                logger.warning(f"  예수금(entr): {deposit_amount:,}원")
-                logger.warning(f"  총자산: {total_assets:,}원")
-                logger.warning(f"  차이: {total_assets - deposit_amount:,}원")
-                logger.warning(f"  의심: entr 필드가 이미 주식평가액을 포함하는지 확인 필요")
             logger.info(f"  주문가능금액: {order_possible:,}원")
             logger.info(f"  출금가능금액: {withdraw_possible:,}원")
 
