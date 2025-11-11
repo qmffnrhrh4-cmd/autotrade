@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 from utils.logger_new import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()  # Fix: get_logger()는 인자를 받지 않음
 
 evolution_bp = Blueprint('evolution', __name__, url_prefix='/api/evolution')
 
