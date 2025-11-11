@@ -82,6 +82,13 @@ class AutoTradingBot:
         self.portfolio_manager = None
         self.analyzer = None
 
+        # v5.5: 고급 자동화 시스템
+        self.split_order_executor = None
+        self.smart_money_manager = None
+        self.emergency_manager = None
+        self.liquidity_splitter = None
+        self.cache_manager = None
+
         self.virtual_trader = None
         self.trade_logger = None
         self.virtual_trading_manager = None
@@ -345,6 +352,49 @@ class AutoTradingBot:
             self.portfolio_manager = PortfolioManager(self.client)
             logger.info("포트폴리오 관리자 초기화 완료")
 
+            # v5.5: 고급 자동화 시스템 초기화
+            logger.info("자동화 시스템 초기화 중...")
+            try:
+                from strategy.split_order_executor import SplitOrderExecutor
+                from strategy.smart_money_manager import get_smart_money_manager
+                from strategy.emergency_manager import get_emergency_manager
+                from strategy.liquidity_splitter import get_liquidity_splitter
+                from utils.cache_manager import get_cache_manager
+
+                # Split order executor
+                self.split_order_executor = SplitOrderExecutor(
+                    order_api=self.order_api,
+                    data_fetcher=self.data_fetcher
+                )
+                logger.info("  ✅ Split order executor")
+
+                # Smart money manager
+                automation_config = self.config.automation_features if hasattr(self.config, 'automation_features') else {}
+                self.smart_money_manager = get_smart_money_manager(automation_config)
+                logger.info("  ✅ Smart money manager")
+
+                # Emergency manager
+                self.emergency_manager = get_emergency_manager(
+                    config=automation_config,
+                    order_api=self.order_api,
+                    data_fetcher=self.data_fetcher
+                )
+                logger.info("  ✅ Emergency manager")
+
+                # Liquidity splitter
+                self.liquidity_splitter = get_liquidity_splitter(automation_config)
+                logger.info("  ✅ Liquidity splitter")
+
+                # Cache manager
+                self.cache_manager = get_cache_manager()
+                logger.info("  ✅ Cache manager")
+
+                logger.info("자동화 시스템 초기화 완료")
+
+            except Exception as e:
+                logger.warning(f"자동화 시스템 초기화 실패: {e}")
+                logger.warning("자동화 기능은 제한적으로 작동합니다")
+
             logger.info("가상매매 시스템 초기화 중...")
             try:
                 virtual_initial_cash = 10_000_000
@@ -554,6 +604,16 @@ class AutoTradingBot:
             logger.info("대시보드 서버 시작됨: http://0.0.0.0:5000")
             print("📊 Dashboard: http://localhost:5000")
 
+            # v5.5: 비상 상황 모니터링 시작
+            if self.emergency_manager:
+                try:
+                    logger.info("비상 모니터링 시스템 시작 중...")
+                    self.emergency_manager.start_monitoring(self)
+                    logger.info("비상 모니터링 시스템 시작 완료")
+                    print("🚨 Emergency monitoring: Active")
+                except Exception as e:
+                    logger.warning(f"비상 모니터링 시작 실패: {e}")
+
             self._main_loop()
         except KeyboardInterrupt:
             logger.info("사용자가 중단함")
@@ -569,6 +629,15 @@ class AutoTradingBot:
     def stop(self):
         logger.info("오토트레이드 프로 중단 중...")
         self.is_running = False
+
+        # v5.5: 비상 모니터링 중지
+        if self.emergency_manager:
+            try:
+                logger.info("비상 모니터링 중지 중...")
+                self.emergency_manager.stop_monitoring()
+                logger.info("비상 모니터링 중지 완료")
+            except Exception as e:
+                logger.warning(f"비상 모니터링 중지 실패: {e}")
 
         if self.virtual_trader:
             try:

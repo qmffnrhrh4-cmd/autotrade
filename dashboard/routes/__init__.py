@@ -14,6 +14,7 @@ from .pages import pages_bp
 from .alerts import alerts_bp
 from .backtest import backtest_bp
 from .virtual_trading import virtual_trading_bp
+from .automation import automation_bp
 
 __all__ = [
     'account_bp',
@@ -25,7 +26,8 @@ __all__ = [
     'pages_bp',
     'alerts_bp',
     'backtest_bp',
-    'virtual_trading_bp'
+    'virtual_trading_bp',
+    'automation_bp'
 ]
 
 
