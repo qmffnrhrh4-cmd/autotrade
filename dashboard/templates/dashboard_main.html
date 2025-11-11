@@ -618,6 +618,17 @@
             to { transform: rotate(360deg); }
         }
 
+        @keyframes highlight-pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 20px 5px rgba(102, 126, 234, 0.5);
+                transform: scale(1.02);
+            }
+        }
+
         /* Empty State */
         .empty-state {
             text-align: center;
