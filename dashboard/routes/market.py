@@ -840,14 +840,31 @@ def get_ai_chart_analysis(stock_code: str):
 
         timeframe = request.args.get('timeframe', 'D')
 
-        # Get chart data first
+        # Get chart data first - Use correct method signature
         from research import DataFetcher
-        data_fetcher = DataFetcher(_bot_instance.client)
+        from utils.trading_date import get_last_trading_date
 
-        # Fetch recent data
-        daily_data = data_fetcher.get_daily_price(stock_code, days=60)
+        # Create DataFetcher (same as virtual trading fix)
+        if hasattr(_bot_instance, 'data_fetcher') and _bot_instance.data_fetcher:
+            data_fetcher = _bot_instance.data_fetcher
+        else:
+            data_fetcher = DataFetcher(_bot_instance.client)
 
-        if not daily_data or len(daily_data) == 0:
+        # Calculate date range (60 trading days ≈ 90 calendar days)
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=90)
+        start_date_str = start_date.strftime('%Y%m%d')
+        end_date_str = end_date.strftime('%Y%m%d')
+
+        # Fetch recent data with correct parameters
+        daily_data = data_fetcher.get_daily_price(
+            stock_code=stock_code,
+            start_date=start_date_str,
+            end_date=end_date_str
+        )
+
+        # Safety check: ensure daily_data is a list
+        if not daily_data or not isinstance(daily_data, list) or len(daily_data) == 0:
             return jsonify({
                 'success': False,
                 'error': '차트 데이터가 없습니다'
@@ -856,8 +873,8 @@ def get_ai_chart_analysis(stock_code: str):
         # Analyze chart patterns and signals
         analysis_points = []
 
-        # Simple trend analysis
-        recent_prices = [item.get('close', 0) for item in daily_data[-20:]]
+        # Simple trend analysis - with safety check
+        recent_prices = [item.get('close', 0) for item in daily_data[-20:]] if len(daily_data) >= 20 else [item.get('close', 0) for item in daily_data]
         if len(recent_prices) >= 20:
             trend_start = recent_prices[0]
             trend_end = recent_prices[-1]
@@ -882,44 +899,54 @@ def get_ai_chart_analysis(stock_code: str):
                     'confidence': 'high'
                 })
 
-        # Volume analysis
-        recent_volumes = [item.get('volume', 0) for item in daily_data[-20:]]
+        # Volume analysis - with safety checks
+        recent_volumes = [item.get('volume', 0) for item in daily_data[-20:]] if len(daily_data) >= 20 else [item.get('volume', 0) for item in daily_data]
         if len(recent_volumes) >= 20:
-            avg_volume = sum(recent_volumes[:-1]) / len(recent_volumes[:-1])
+            avg_volume = sum(recent_volumes[:-1]) / len(recent_volumes[:-1]) if len(recent_volumes) > 1 else recent_volumes[0]
             current_volume = recent_volumes[-1]
 
-            if current_volume > avg_volume * 2:
+            if avg_volume > 0 and current_volume > avg_volume * 2:
                 analysis_points.append({
                     'type': 'volume',
                     'signal': 'breakout',
                     'description': f'거래량 급증 (평균 대비 {(current_volume/avg_volume):.1f}배)',
                     'date': daily_data[-1].get('date'),
-                    'price': recent_prices[-1],
+                    'price': recent_prices[-1] if recent_prices else 0,
                     'confidence': 'high'
                 })
 
-        # Support/Resistance levels
-        all_prices = [item.get('close', 0) for item in daily_data]
-        support = min(recent_prices[-20:])
-        resistance = max(recent_prices[-20:])
-        current_price = recent_prices[-1]
+        # Support/Resistance levels - with safety checks
+        all_prices = [item.get('close', 0) for item in daily_data] if daily_data else []
+        if len(recent_prices) >= 20:
+            support = min(recent_prices[-20:])
+            resistance = max(recent_prices[-20:])
+            current_price = recent_prices[-1]
+        elif len(recent_prices) > 0:
+            support = min(recent_prices)
+            resistance = max(recent_prices)
+            current_price = recent_prices[-1]
+        else:
+            support = 0
+            resistance = 0
+            current_price = 0
 
-        if abs(current_price - support) / support < 0.02:
+        # Test support/resistance only if we have valid values
+        if support > 0 and abs(current_price - support) / support < 0.02:
             analysis_points.append({
                 'type': 'support',
                 'signal': 'support_test',
                 'description': f'지지선 테스트 ({support:,.0f}원)',
-                'date': daily_data[-1].get('date'),
+                'date': daily_data[-1].get('date') if daily_data else '',
                 'price': support,
                 'confidence': 'medium'
             })
 
-        if abs(current_price - resistance) / resistance < 0.02:
+        if resistance > 0 and abs(current_price - resistance) / resistance < 0.02:
             analysis_points.append({
                 'type': 'resistance',
                 'signal': 'resistance_test',
                 'description': f'저항선 테스트 ({resistance:,.0f}원)',
-                'date': daily_data[-1].get('date'),
+                'date': daily_data[-1].get('date') if daily_data else '',
                 'price': resistance,
                 'confidence': 'medium'
             })

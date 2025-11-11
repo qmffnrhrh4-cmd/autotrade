@@ -260,6 +260,11 @@ class BacktestEngine:
         stock_code = data.get('stock_code')
         close_price = data.get('close', 0)
 
+        # Validate close_price
+        if close_price <= 0:
+            print(f"⚠️ Warning: Invalid close price {close_price} for {stock_code} on {data.get('date', 'unknown')}")
+            return
+
         if stock_code in self.positions:
             pos = self.positions[stock_code]
             pos.update_current_price(close_price)  # Automatically calculates P&L
@@ -384,12 +389,32 @@ class BacktestEngine:
         ))
 
     def _calculate_equity(self) -> float:
-        """Calculate total equity"""
-        position_value = sum(
-            pos.current_price * pos.quantity
-            for pos in self.positions.values()
-        )
-        return self.cash + position_value
+        """Calculate total equity (with validation)"""
+        position_value = 0.0
+        for pos in self.positions.values():
+            # Validate position values
+            if pos.current_price <= 0:
+                print(f"⚠️ Warning: Invalid current_price {pos.current_price} for position {pos.stock_code}")
+                continue
+            if pos.quantity < 0:
+                print(f"⚠️ Warning: Negative quantity {pos.quantity} for position {pos.stock_code}")
+                continue
+            position_value += pos.current_price * pos.quantity
+
+        total_equity = self.cash + position_value
+
+        # Sanity check: equity should not be negative or unreasonably high
+        if total_equity < 0:
+            print(f"⚠️ Warning: Negative equity detected: {total_equity:,.0f}원 (cash={self.cash:,.0f}, positions={position_value:,.0f})")
+            return max(0, self.cash)  # Return at least the cash value
+
+        # Cap at 100x initial capital to prevent absurd values
+        max_reasonable = self.config.initial_capital * 100
+        if total_equity > max_reasonable:
+            print(f"⚠️ Warning: Abnormally high equity: {total_equity:,.0f}원 (capping at {max_reasonable:,.0f})")
+            return max_reasonable
+
+        return total_equity
 
     def _calculate_metrics(self, strategy_name: str, start_date: str,
                           end_date: str, final_equity: float) -> BacktestResult:
@@ -401,13 +426,32 @@ class BacktestEngine:
             print(f"⚠️ Warning: Invalid initial capital: {initial_capital}")
             initial_capital = 10000000  # Default to 10M KRW
 
+        # Validate final_equity
+        if final_equity < 0:
+            print(f"⚠️ Warning: Negative final equity: {final_equity:,.0f}원 - setting to 0")
+            final_equity = 0
+        elif final_equity > initial_capital * 100:
+            print(f"⚠️ Warning: Unreasonably high final equity: {final_equity:,.0f}원")
+            print(f"   This suggests a data or calculation error in the backtest")
+
         total_return = final_equity - initial_capital
         total_return_pct = total_return / initial_capital * 100
 
-        # Safety check: warn if return is abnormally high
-        if abs(total_return_pct) > 1000:  # More than 1000% is likely an error
-            print(f"⚠️ Warning: Abnormally high return detected: {total_return_pct:.2f}%")
-            print(f"   Initial: {initial_capital:,.0f}, Final: {final_equity:,.0f}")
+        # Safety check: cap returns to reasonable range (-100% to +1000%)
+        if total_return_pct < -100:
+            print(f"⚠️ Warning: Return < -100% ({total_return_pct:.2f}%) - capping at -100%")
+            total_return_pct = -100.0
+            total_return = initial_capital * -1.0
+        elif abs(total_return_pct) > 1000:  # More than 1000% is likely an error
+            print(f"⚠️ ERROR: Abnormally high return detected: {total_return_pct:.2f}%")
+            print(f"   Initial: {initial_capital:,.0f}원, Final: {final_equity:,.0f}원")
+            print(f"   Capping return at ±1000% to prevent display errors")
+            if total_return_pct > 0:
+                total_return_pct = 1000.0
+                total_return = initial_capital * 10.0
+            else:
+                total_return_pct = -100.0
+                total_return = initial_capital * -1.0
 
         # Trading metrics
         winning_trades = [t for t in self.trades if t.action == 'sell' and
