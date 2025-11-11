@@ -1504,14 +1504,16 @@
 
         // ==================== Data Refresh Functions ====================
         function refreshVirtualTrading() {
-            fetch('/api/virtual_trading/status')
+            fetch('/api/virtual-trading/strategies')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.strategies) {
                         updateVirtualTradingDisplay(data.strategies);
+                    } else {
+                        console.warn('No strategies data:', data);
                     }
                 })
-                .catch(error => console.error('Error:', error));
+                .catch(error => console.error('Error fetching virtual trading strategies:', error));
         }
 
         function refreshPortfolio() {
@@ -1848,12 +1850,25 @@
 
                 const labels = chartData.map((item, index) => {
                     try {
-                        // Try all possible date key names
-                        let dateValue = item['일자'] || item['날짜'] || item['date'] || item['일'] || item['Date'] || item['DATE'];
+                        // Try all possible date/time key names
+                        let dateValue = item['일자'] || item['날짜'] || item['date'] || item['Date'] || item['DATE'];
                         let timeValue = item['체결시간'] || item['시간'] || item['time'] || item['Time'] || item['TIME'];
 
+                        // 체결시간이 YYYYMMDDHHMMSS 형식인 경우 (14자리)
+                        if (!dateValue && timeValue && String(timeValue).length >= 14) {
+                            const fullTime = String(timeValue);
+                            dateValue = fullTime.slice(0, 8);  // YYYYMMDD
+                            timeValue = fullTime.slice(8);      // HHMMSS
+                        }
+
                         if (!dateValue) {
-                            console.warn(`No date found in item ${index}:`, item);
+                            // 체결시간만 있으면 시간만 표시
+                            if (timeValue && String(timeValue).length >= 4) {
+                                const timeStr = String(timeValue);
+                                const hour = timeStr.slice(0, 2);
+                                const minute = timeStr.slice(2, 4);
+                                return `${hour}:${minute}`;
+                            }
                             return `#${index + 1}`;
                         }
 

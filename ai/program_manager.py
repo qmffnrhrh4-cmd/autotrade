@@ -123,15 +123,29 @@ class ProgramManager:
 
         # 종합 상태 판단
         issues = []
+        total_score = 0
+        component_count = 0
+
         for component, status in health_report['components'].items():
-            if status.get('status') == 'error':
+            component_count += 1
+            if status.get('status') == 'healthy':
+                total_score += 100
+            elif status.get('status') == 'warning':
+                total_score += 50
+                issues.append(f"{component}: {status.get('message', '경고')}")
+            elif status.get('status') == 'error':
                 issues.append(f"{component}: {status.get('message', '오류')}")
+
+        # 평균 점수 계산
+        overall_score = int(total_score / component_count) if component_count > 0 else 0
 
         if len(issues) > 0:
             health_report['overall_status'] = 'warning' if len(issues) < 3 else 'critical'
             health_report['issues'] = issues
 
-        logger.info(f"✅ 종합 건강 검진 완료: {health_report['overall_status']}")
+        health_report['score'] = overall_score
+
+        logger.info(f"✅ 종합 건강 검진 완료: {health_report['overall_status']} (점수: {overall_score}/100)")
 
         return health_report
 
@@ -402,26 +416,72 @@ class ProgramManager:
 
     def get_system_status(self) -> Dict[str, Any]:
         """
-        현재 시스템 상태 조회
+        현재 시스템 상태 조회 (실제 데이터)
 
         Returns:
             시스템 상태
         """
-        return {
-            'timestamp': datetime.now().isoformat(),
-            'status': 'running',
-            'components': {
-                'data_connection': 'connected',
-                'trading_system': 'active',
-                'virtual_trading': 'active',
-                'automation': 'enabled',
-                'risk_management': 'enabled'
-            },
-            'quick_stats': {
-                'uptime': '정보 없음',
-                'health_score': 95
+        import psutil
+        import time as time_module
+
+        try:
+            # CPU 및 메모리 사용률
+            cpu_usage = psutil.cpu_percent(interval=0.5)
+            memory = psutil.virtual_memory()
+            memory_usage = memory.percent
+
+            # 프로세스 시작 시간
+            process = psutil.Process()
+            create_time = process.create_time()
+            uptime_seconds = time_module.time() - create_time
+
+            # Uptime을 읽기 쉬운 형식으로
+            hours = int(uptime_seconds // 3600)
+            minutes = int((uptime_seconds % 3600) // 60)
+            uptime_str = f"{hours}시간 {minutes}분"
+
+            # 건강 점수 계산 (간단한 로직)
+            health_score = 100
+            if cpu_usage > 80:
+                health_score -= 20
+            if memory_usage > 80:
+                health_score -= 20
+            if not self.bot:
+                health_score -= 10
+
+            return {
+                'timestamp': datetime.now().isoformat(),
+                'status': 'running',
+                'cpu_usage': round(cpu_usage, 1),
+                'memory_usage': round(memory_usage, 1),
+                'uptime': uptime_str,
+                'health_score': health_score,
+                'components': {
+                    'data_connection': 'connected' if self.bot and hasattr(self.bot, 'market_api') else 'disconnected',
+                    'trading_system': 'active' if self.bot and hasattr(self.bot, 'trader') else 'inactive',
+                    'virtual_trading': 'active',
+                    'automation': 'enabled',
+                    'risk_management': 'enabled'
+                }
             }
-        }
+        except Exception as e:
+            logger.error(f"시스템 상태 조회 실패: {e}")
+            return {
+                'timestamp': datetime.now().isoformat(),
+                'status': 'error',
+                'cpu_usage': 0,
+                'memory_usage': 0,
+                'uptime': 'N/A',
+                'health_score': 0,
+                'components': {
+                    'data_connection': 'unknown',
+                    'trading_system': 'unknown',
+                    'virtual_trading': 'unknown',
+                    'automation': 'unknown',
+                    'risk_management': 'unknown'
+                },
+                'error': str(e)
+            }
 
 
 # 전역 인스턴스
