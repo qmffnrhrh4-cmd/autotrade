@@ -426,9 +426,14 @@
     <script>
         let chart = null;
         let candlestickSeries = null;
+        let ma20Series = null;
+        let ma60Series = null;
+        let volumeSeries = null;
         let currentStockCode = null;
         let currentTimeframe = 'D';
         let markers = [];
+        let supportLine = null;
+        let resistanceLine = null;
 
         // Initialize chart
         function initChart() {
@@ -464,6 +469,20 @@
                 borderDownColor: '#3b82f6',
                 wickUpColor: '#ef4444',
                 wickDownColor: '#3b82f6',
+            });
+
+            // Add 20-day moving average
+            ma20Series = chart.addLineSeries({
+                color: '#f59e0b',
+                lineWidth: 2,
+                title: 'MA20',
+            });
+
+            // Add 60-day moving average
+            ma60Series = chart.addLineSeries({
+                color: '#06b6d4',
+                lineWidth: 2,
+                title: 'MA60',
             });
 
             // Responsive
@@ -546,6 +565,14 @@
                 displayAIAnalysis(data);
                 addAIMarkersToChart(data.analysis_points);
 
+                // Add support/resistance lines
+                if (data.summary && data.summary.key_levels) {
+                    addSupportResistanceLines(
+                        data.summary.key_levels.support,
+                        data.summary.key_levels.resistance
+                    );
+                }
+
             } catch (error) {
                 console.error('AI analysis error:', error);
                 showError('AI 분석 중 오류가 발생했습니다.');
@@ -602,7 +629,7 @@
             document.getElementById('aiAnalysis').innerHTML = html;
         }
 
-        // Add AI markers to chart
+        // Add AI markers to chart with support/resistance lines
         function addAIMarkersToChart(points) {
             if (!points || points.length === 0) return;
 
@@ -610,16 +637,60 @@
                 const color = point.signal === 'bullish' ? '#ef4444' :     // Red for bullish
                               point.signal === 'bearish' ? '#3b82f6' : '#06b6d4';  // Blue for bearish
 
+                // Add detailed text with price and reason
+                let markerText = point.type.toUpperCase();
+                if (point.price) {
+                    markerText += ` ${Number(point.price).toLocaleString()}`;
+                }
+                if (point.description) {
+                    markerText += ` - ${point.description.substring(0, 30)}...`;
+                }
+
                 return {
                     time: point.date,
                     position: point.signal === 'bullish' ? 'belowBar' : 'aboveBar',
                     color: color,
                     shape: point.signal === 'bullish' ? 'arrowUp' : 'arrowDown',
-                    text: point.type.toUpperCase()
+                    text: markerText
                 };
             });
 
             candlestickSeries.setMarkers(chartMarkers);
+        }
+
+        // Add support and resistance lines to chart
+        function addSupportResistanceLines(support, resistance) {
+            // Remove existing lines
+            if (supportLine) {
+                candlestickSeries.removePriceLine(supportLine);
+            }
+            if (resistanceLine) {
+                candlestickSeries.removePriceLine(resistanceLine);
+            }
+
+            // Add support line (green)
+            if (support) {
+                supportLine = candlestickSeries.createPriceLine({
+                    price: support,
+                    color: '#10b981',
+                    lineWidth: 2,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: `지지선: ${Number(support).toLocaleString()}원`,
+                });
+            }
+
+            // Add resistance line (red)
+            if (resistance) {
+                resistanceLine = candlestickSeries.createPriceLine({
+                    price: resistance,
+                    color: '#ef4444',
+                    lineWidth: 2,
+                    lineStyle: LightweightCharts.LineStyle.Dashed,
+                    axisLabelVisible: true,
+                    title: `저항선: ${Number(resistance).toLocaleString()}원`,
+                });
+            }
         }
 
         // Helper functions
