@@ -447,38 +447,55 @@
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
-            color: white;
+            background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)) !important;
+            color: white !important;
             box-shadow: var(--shadow-md);
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
             box-shadow: var(--shadow-lg);
+            background: linear-gradient(135deg, #5a6de8, #6a3d96) !important;
         }
 
         .btn-success {
-            background: var(--color-success);
-            color: white;
+            background: var(--color-success) !important;
+            color: white !important;
             box-shadow: var(--shadow-md);
+        }
+
+        .btn-success:hover {
+            background: #dc2626 !important;
         }
 
         .btn-danger {
-            background: var(--color-danger);
-            color: white;
+            background: var(--color-danger) !important;
+            color: white !important;
             box-shadow: var(--shadow-md);
+        }
+
+        .btn-danger:hover {
+            background: #2563eb !important;
         }
 
         .btn-warning {
-            background: var(--color-warning);
-            color: white;
+            background: var(--color-warning) !important;
+            color: white !important;
             box-shadow: var(--shadow-md);
         }
 
+        .btn-warning:hover {
+            background: #d97706 !important;
+        }
+
         .btn-info {
-            background: var(--color-info);
-            color: white;
+            background: var(--color-info) !important;
+            color: white !important;
             box-shadow: var(--shadow-md);
+        }
+
+        .btn-info:hover {
+            background: #0891b2 !important;
         }
 
         .btn-outline {
@@ -2630,23 +2647,44 @@
         }
 
         function runBacktest() {
-            showToast('백테스트를 실행 중...', 'info');
-            fetch('/api/v4.1/backtest/run', {
+            showToast('백테스트를 실행 중... (삼성전자, LG전자 3개월)', 'info');
+
+            // 3개월 전 날짜 계산
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setMonth(startDate.getMonth() - 3);
+
+            const formatDate = (date) => {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}${month}${day}`;
+            };
+
+            fetch('/api/backtest/run', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    strategy_name: 'Moving Average Crossover',
-                    initial_capital: 10000000
+                    stock_codes: ['005930', '066570'],  // 삼성전자, LG전자
+                    start_date: formatDate(startDate),
+                    end_date: formatDate(endDate),
+                    interval: '5',  // 5분봉
+                    parallel: true
                 })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     showToast('백테스트 완료', 'success');
-                    updateBacktestDisplay(data.result);
+                    updateBacktestDisplay(data);
+                } else {
+                    showToast(`백테스트 실패: ${data.error}`, 'error');
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Backtest error:', error);
+                showToast('백테스트 실행 중 오류 발생', 'error');
+            });
         }
 
         // ==================== UI Update Functions ====================
@@ -2815,90 +2853,195 @@
                 });
         }
 
-        function updateBacktestDisplay(result) {
+        function updateBacktestDisplay(data) {
             const content = document.getElementById('backtest-results');
 
-            // 상세한 백테스팅 결과 표시 (백테스팅 탭용)
-            const html = `
+            if (!data.success || !data.results) {
+                content.innerHTML = '<div class="empty-state"><h3>백테스트 결과 없음</h3></div>';
+                return;
+            }
+
+            const { results, best_strategy, config, summary } = data;
+
+            // 베스트 전략 가져오기
+            const bestResult = best_strategy ? results[best_strategy.name] : null;
+
+            // 백테스팅 개요 정보
+            let html = `
                 <div style="margin-top: 1rem;">
-                    <div class="grid grid-3" style="margin-bottom: 1.5rem;">
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); margin-bottom: 0.5rem;">총 수익률</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: ${result.total_return_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
-                                ${result.total_return_pct?.toFixed(2) || 0}%
+                    <!-- 백테스팅 설정 정보 -->
+                    <div style="padding: 1.5rem; background: var(--bg-glass); border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+                        <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 1rem;">
+                            <i class="fas fa-info-circle" style="color: var(--color-info);"></i> 백테스팅 개요
+                        </div>
+                        <div class="grid grid-4" style="gap: 1rem;">
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.85rem;">테스트 기간</div>
+                                <div style="font-weight: 600; margin-top: 0.25rem;">${summary.test_period || ''}</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.85rem;">테스트 종목</div>
+                                <div style="font-weight: 600; margin-top: 0.25rem;">${summary.tested_stocks || ''}</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.85rem;">전략 수</div>
+                                <div style="font-weight: 600; margin-top: 0.25rem;">${summary.total_strategies_tested || 0}개</div>
+                            </div>
+                            <div>
+                                <div style="color: var(--text-muted); font-size: 0.85rem;">총 거래 (모든 전략)</div>
+                                <div style="font-weight: 600; margin-top: 0.25rem; color: var(--color-success);">${summary.total_trades_all_strategies || 0}회</div>
                             </div>
                         </div>
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); margin-bottom: 0.5rem;">Sharpe Ratio</div>
-                            <div style="font-size: 1.5rem; font-weight: 700;">
-                                ${result.sharpe_ratio?.toFixed(2) || 0}
-                            </div>
-                        </div>
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); margin-bottom: 0.5rem;">최대 낙폭</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-danger);">
-                                ${result.max_drawdown_pct?.toFixed(2) || 0}%
-                            </div>
-                        </div>
-                    </div>
-                    <div class="grid grid-4">
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 거래</div>
-                            <div style="font-size: 1.25rem; font-weight: 700;">${result.total_trades || 0}</div>
-                        </div>
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">승률</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: ${(result.win_rate || 0) >= 50 ? 'var(--color-success)' : 'var(--color-danger)'};">
-                                ${result.win_rate?.toFixed(1) || 0}%
-                            </div>
-                        </div>
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">평균 수익</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-success);">
-                                ${result.avg_profit?.toFixed(2) || 0}%
-                            </div>
-                        </div>
-                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
-                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">평균 손실</div>
-                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-danger);">
-                                ${result.avg_loss?.toFixed(2) || 0}%
-                            </div>
+                        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                            <div style="color: var(--text-muted); font-size: 0.9rem;">${summary.description || ''}</div>
                         </div>
                     </div>
-                    ${result.recommendation ? `
-                        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md);">
-                            <div style="font-weight: 600; margin-bottom: 0.75rem;">
-                                <i class="fas fa-lightbulb" style="color: var(--color-primary);"></i> 최적 조건 추천
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;">
-                                <div>
-                                    <span style="color: var(--text-muted);">손절:</span>
-                                    <strong style="margin-left: 0.5rem;">${result.recommendation.stop_loss || '-'}%</strong>
-                                </div>
-                                <div>
-                                    <span style="color: var(--text-muted);">익절:</span>
-                                    <strong style="margin-left: 0.5rem;">${result.recommendation.take_profit || '-'}%</strong>
-                                </div>
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
             `;
+
+            if (bestResult) {
+                // 베스트 전략 상세 정보
+                html += `
+                    <div style="padding: 1.5rem; background: rgba(102, 126, 234, 0.1); border: 2px solid var(--color-primary); border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+                        <div style="font-weight: 700; font-size: 1.25rem; margin-bottom: 1rem;">
+                            <i class="fas fa-trophy" style="color: gold;"></i> 최우수 전략: ${best_strategy.name}
+                        </div>
+                        <div class="grid grid-3" style="margin-bottom: 1rem;">
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 수익률</div>
+                                <div style="font-size: 1.75rem; font-weight: 700; color: ${bestResult.total_return_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                    ${bestResult.total_return_pct >= 0 ? '+' : ''}${bestResult.total_return_pct?.toFixed(2) || 0}%
+                                </div>
+                            </div>
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Sharpe Ratio</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;">
+                                    ${bestResult.sharpe_ratio?.toFixed(2) || 0}
+                                </div>
+                            </div>
+                            <div style="text-align: center; padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">승률</div>
+                                <div style="font-size: 1.75rem; font-weight: 700; color: ${bestResult.win_rate >= 50 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                    ${bestResult.win_rate?.toFixed(1) || 0}%
+                                </div>
+                            </div>
+                        </div>
+                        <div class="grid grid-4">
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.8rem;">총 거래</div>
+                                <div style="font-size: 1.25rem; font-weight: 700;">${bestResult.total_trades || 0}</div>
+                            </div>
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.8rem;">최대 낙폭</div>
+                                <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-danger);">
+                                    ${bestResult.max_drawdown_pct?.toFixed(2) || 0}%
+                                </div>
+                            </div>
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.8rem;">평균 보유일</div>
+                                <div style="font-size: 1.25rem; font-weight: 700;">
+                                    ${bestResult.avg_holding_days?.toFixed(1) || 0}일
+                                </div>
+                            </div>
+                            <div style="padding: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.8rem;">손익비</div>
+                                <div style="font-size: 1.25rem; font-weight: 700;">
+                                    ${bestResult.profit_factor?.toFixed(2) || 0}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // 전략 조건 정보
+                if (bestResult.strategy_info) {
+                    const info = bestResult.strategy_info;
+                    html += `
+                        <div style="padding: 1.5rem; background: var(--bg-glass); border-radius: var(--radius-md); margin-bottom: 1.5rem;">
+                            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 1rem;">
+                                <i class="fas fa-cogs" style="color: var(--color-primary);"></i> 전략 조건
+                            </div>
+                            <div style="margin-bottom: 0.75rem;">
+                                <strong>설명:</strong> ${info.description || ''}
+                            </div>
+                            <div style="margin-bottom: 0.75rem;">
+                                <strong>매수 조건:</strong> ${info.buy_conditions || ''}
+                            </div>
+                            <div>
+                                <strong>매도 조건:</strong> ${info.sell_conditions || ''}
+                            </div>
+                        </div>
+                    `;
+                }
+
+                // 거래 내역
+                if (bestResult.trades && bestResult.trades.length > 0) {
+                    html += `
+                        <div style="padding: 1.5rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                            <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 1rem;">
+                                <i class="fas fa-list" style="color: var(--color-primary);"></i> 거래 내역 (최근 20건)
+                            </div>
+                            <div style="overflow-x: auto;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>종목</th>
+                                            <th>매수일</th>
+                                            <th>매도일</th>
+                                            <th>매수가</th>
+                                            <th>매도가</th>
+                                            <th>수익률</th>
+                                            <th>보유일</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                    `;
+
+                    bestResult.trades.slice(0, 20).forEach(trade => {
+                        const profitPct = trade.profit_pct || 0;
+                        const profitColor = profitPct >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+
+                        html += `
+                            <tr>
+                                <td>${trade.stock_code || ''}</td>
+                                <td>${trade.buy_date || ''}</td>
+                                <td>${trade.sell_date || ''}</td>
+                                <td>${(trade.buy_price || 0).toLocaleString()}원</td>
+                                <td>${(trade.sell_price || 0).toLocaleString()}원</td>
+                                <td style="color: ${profitColor}; font-weight: 600;">
+                                    ${profitPct >= 0 ? '+' : ''}${profitPct.toFixed(2)}%
+                                </td>
+                                <td>${trade.holding_days || 0}일</td>
+                            </tr>
+                        `;
+                    });
+
+                    html += `
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            html += '</div>';
             content.innerHTML = html;
 
             // 개요 탭의 최근 백테스팅 결과에도 표시
-            updateLatestBacktestResults(result);
+            if (bestResult) {
+                updateLatestBacktestResults(bestResult, config, summary);
+            }
         }
 
         // 개요 탭의 최근 백테스팅 결과 업데이트
-        function updateLatestBacktestResults(result) {
+        function updateLatestBacktestResults(result, config, summary) {
             const container = document.getElementById('latestBacktestResults');
             if (!container) return;
 
             const html = `
                 <div style="margin-top: 1rem;">
                     <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); margin-bottom: 1rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <div>
                                 <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
                                     <i class="fas fa-clock"></i> ${new Date().toLocaleString('ko-KR')}
@@ -2912,8 +3055,13 @@
                                 <div style="font-size: 0.85rem; color: var(--text-muted);">총 수익률</div>
                             </div>
                         </div>
+                        ${summary ? `
+                            <div style="font-size: 0.85rem; color: var(--text-muted); padding-top: 0.75rem; border-top: 1px solid var(--border-color);">
+                                ${summary.description || ''}
+                            </div>
+                        ` : ''}
                     </div>
-                    <div class="grid grid-3" style="gap: 1rem;">
+                    <div class="grid grid-4" style="gap: 1rem; margin-bottom: 1rem;">
                         <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
                             <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Sharpe Ratio</div>
                             <div style="font-size: 1.5rem; font-weight: 700;">${result.sharpe_ratio?.toFixed(2) || 0}</div>
@@ -2923,6 +3071,10 @@
                             <div style="font-size: 1.5rem; font-weight: 700; color: ${(result.win_rate || 0) >= 50 ? 'var(--color-success)' : 'var(--color-danger)'};">
                                 ${result.win_rate?.toFixed(1) || 0}%
                             </div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 거래</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">${result.total_trades || 0}</div>
                         </div>
                         <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
                             <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">최대 낙폭</div>
