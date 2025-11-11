@@ -1246,6 +1246,8 @@ def detect_market_sentiment():
         
         return jsonify({
             'success': True,
+            'is_demo': True,
+            'warning': '⚠️ [데모] 실제 AI 감성 분석이 아닌 간단한 지표 기반 시뮬레이션입니다',
             'sentiment': sentiment,
             'sentiment_score': sentiment_score,
             'recommendation': recommendation,
