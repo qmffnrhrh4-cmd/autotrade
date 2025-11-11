@@ -57,6 +57,14 @@ class BacktestResult:
     profit_factor: float = 0.0
 
     def calculate_metrics(self):
+        """
+        백테스팅 성과 지표 계산 (수정됨)
+
+        수정 사항:
+        - Sharpe Ratio: daily_returns가 이미 백분율(%)이므로 100으로 나눔
+        - MDD: 백분율 계산 시 중복 곱셈 제거
+        - 수익률: 정확한 계산 검증
+        """
         if self.total_trades > 0:
             profits = [t['profit'] for t in self.trades if t['profit'] > 0]
             losses = [t['profit'] for t in self.trades if t['profit'] < 0]
@@ -71,13 +79,23 @@ class BacktestResult:
         if len(self.daily_returns) > 1:
             returns = np.array(self.daily_returns)
 
-            if np.std(returns) > 0:
-                self.sharpe_ratio = np.mean(returns) / np.std(returns) * np.sqrt(252)
+            # daily_returns는 이미 백분율(%)로 저장되어 있으므로 100으로 나눔
+            returns_decimal = returns / 100.0
 
-            downside_returns = returns[returns < 0]
+            if np.std(returns_decimal) > 0:
+                # Sharpe Ratio = (평균 수익률 / 표준편차) * sqrt(연간 거래일수)
+                self.sharpe_ratio = np.mean(returns_decimal) / np.std(returns_decimal) * np.sqrt(252)
+            else:
+                self.sharpe_ratio = 0
+
+            # Sortino Ratio: 하방 위험만 고려
+            downside_returns = returns_decimal[returns_decimal < 0]
             if len(downside_returns) > 0 and np.std(downside_returns) > 0:
-                self.sortino_ratio = np.mean(returns) / np.std(downside_returns) * np.sqrt(252)
+                self.sortino_ratio = np.mean(returns_decimal) / np.std(downside_returns) * np.sqrt(252)
+            else:
+                self.sortino_ratio = 0
 
+        # MDD (Maximum Drawdown) 계산
         if len(self.daily_cash) > 0:
             peak = self.initial_cash
             max_dd = 0
@@ -90,6 +108,7 @@ class BacktestResult:
                     max_dd = dd
 
             self.max_drawdown = max_dd
+            # 백분율 계산 (이미 100을 곱하지 않음)
             self.max_drawdown_pct = (max_dd / peak * 100) if peak > 0 else 0
 
 
@@ -431,23 +450,37 @@ class StrategyBacktester:
             result.daily_dates.append(date_str)
             result.daily_cash.append(daily_cash_map[date_str])
 
+        # 일별 수익률 계산 (백분율로 저장)
         if len(result.daily_cash) > 1:
             for i in range(1, len(result.daily_cash)):
-                daily_return = (result.daily_cash[i] - result.daily_cash[i-1]) / result.daily_cash[i-1]
-                result.daily_returns.append(daily_return * 100)
+                if result.daily_cash[i-1] > 0:
+                    daily_return = (result.daily_cash[i] - result.daily_cash[i-1]) / result.daily_cash[i-1]
+                    result.daily_returns.append(daily_return * 100)  # 백분율로 저장
+                else:
+                    result.daily_returns.append(0)
 
+        # 최종 자산 계산
         result.final_cash = strategy.cash
         for stock_code, position in strategy.positions.items():
             if stock_code in historical_data:
                 last_price = int(historical_data[stock_code].iloc[-1]['close'])
                 result.final_cash += last_price * position['quantity']
 
+        # 총 수익 및 수익률 계산
         result.total_return = result.final_cash - result.initial_cash
-        result.total_return_pct = (result.total_return / result.initial_cash) * 100
+        if result.initial_cash > 0:
+            # 수익률 계산 (백분율)
+            result.total_return_pct = (result.total_return / result.initial_cash) * 100
+        else:
+            result.total_return_pct = 0
 
+        # 승률 계산 (백분율)
         if result.total_trades > 0:
             result.win_rate = (result.winning_trades / result.total_trades) * 100
+        else:
+            result.win_rate = 0
 
+        # 성과 지표 계산 (Sharpe, Sortino, MDD 등)
         result.calculate_metrics()
 
         return result

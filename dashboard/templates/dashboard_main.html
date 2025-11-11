@@ -1721,7 +1721,13 @@
                 }
 
                 // Process data for Chart.js
-                const chartData = data.data.slice(0, 100).reverse(); // Show last 100 candles
+                // Validate data.data exists before using slice
+                const rawData = data.data || [];
+                if (rawData.length === 0) {
+                    showToast('차트 데이터가 없습니다', 'warning');
+                    return;
+                }
+                const chartData = rawData.slice(0, 100).reverse(); // Show last 100 candles
                 const labels = chartData.map(item => {
                     const date = item['일자'] || item['날짜'];
                     const time = item['체결시간'] || item['시간'] || '';

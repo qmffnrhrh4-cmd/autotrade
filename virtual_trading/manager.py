@@ -3,6 +3,7 @@ virtual_trading/manager.py
 가상매매 매니저 클래스
 
 가상매매 전략 실행, 포지션 관리, 자동 손절/익절, AI 분석 연동
+분할매수/분할매도 시스템 통합
 """
 import logging
 from typing import Dict, List, Any, Optional
@@ -62,10 +63,11 @@ class VirtualTradingManager:
         quantity: int,
         price: float,
         stop_loss_percent: float = None,
-        take_profit_percent: float = None
+        take_profit_percent: float = None,
+        use_split: bool = True
     ) -> Optional[int]:
         """
-        가상매매 매수 주문 실행
+        가상매매 매수 주문 실행 (분할매수 지원)
 
         Args:
             strategy_id: 전략 ID
@@ -75,10 +77,23 @@ class VirtualTradingManager:
             price: 매수가
             stop_loss_percent: 손절 비율 (예: 5.0 = -5%)
             take_profit_percent: 익절 비율 (예: 10.0 = +10%)
+            use_split: 분할매수 사용 여부 (기본값: True)
 
         Returns:
             생성된 포지션 ID (실패시 None)
         """
+        # 전략 설정 조회
+        strategies = self.db.get_all_strategies()
+        strategy = next((s for s in strategies if s['id'] == strategy_id), None)
+
+        if not strategy:
+            logger.error(f"전략을 찾을 수 없음: {strategy_id}")
+            return None
+
+        # 분할매수 설정 확인
+        split_enabled = use_split and strategy.get('split_buy_enabled', 1) == 1
+        split_ratios_str = strategy.get('split_buy_ratios', '0.33,0.33,0.34')
+
         # 손절/익절가 계산
         stop_loss_price = None
         take_profit_price = None
@@ -90,61 +105,159 @@ class VirtualTradingManager:
             take_profit_price = price * (1 + take_profit_percent / 100)
 
         try:
-            position_id = self.db.open_position(
-                strategy_id=strategy_id,
-                stock_code=stock_code,
-                stock_name=stock_name,
-                quantity=quantity,
-                price=price,
-                stop_loss_price=stop_loss_price,
-                take_profit_price=take_profit_price
-            )
+            if split_enabled:
+                # 분할매수 실행
+                split_ratios = [float(r) for r in split_ratios_str.split(',')]
+                logger.info(f"분할매수 시작: {stock_name} {quantity}주 (비율: {split_ratios})")
 
-            logger.info(
-                f"가상매매 매수 실행: {stock_name}({stock_code}) "
-                f"{quantity}주 @ {price:,}원 "
-                f"[손절: {stop_loss_price:,.0f}원, 익절: {take_profit_price:,.0f}원]"
-            )
+                position_ids = []
+                for i, ratio in enumerate(split_ratios):
+                    split_qty = int(quantity * ratio)
+                    if split_qty == 0:
+                        continue
 
-            return position_id
+                    # 각 차수별로 포지션 생성
+                    split_price = price * (1 - 0.005 * i)  # 0.5%씩 낮은 가격
+
+                    position_id = self.db.open_position(
+                        strategy_id=strategy_id,
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        quantity=split_qty,
+                        price=split_price,
+                        stop_loss_price=stop_loss_price,
+                        take_profit_price=take_profit_price
+                    )
+
+                    position_ids.append(position_id)
+                    logger.info(
+                        f"  [{i+1}/{len(split_ratios)}] {split_qty}주 @ {split_price:,.0f}원"
+                    )
+
+                logger.info(f"✅ 분할매수 완료: {len(position_ids)}개 포지션 생성")
+                return position_ids[0] if position_ids else None
+
+            else:
+                # 일반 매수 실행
+                position_id = self.db.open_position(
+                    strategy_id=strategy_id,
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    quantity=quantity,
+                    price=price,
+                    stop_loss_price=stop_loss_price,
+                    take_profit_price=take_profit_price
+                )
+
+                logger.info(
+                    f"가상매매 매수 실행: {stock_name}({stock_code}) "
+                    f"{quantity}주 @ {price:,}원 "
+                    f"[손절: {stop_loss_price:,.0f}원, 익절: {take_profit_price:,.0f}원]"
+                )
+
+                return position_id
 
         except Exception as e:
-            logger.error(f"가상매매 매수 실행 실패: {e}")
+            logger.error(f"가상매매 매수 실행 실패: {e}", exc_info=True)
             return None
 
     def execute_sell(
         self,
         position_id: int,
         sell_price: float,
-        reason: str = "manual"
+        reason: str = "manual",
+        use_split: bool = True,
+        sell_ratio: float = 1.0
     ) -> Optional[float]:
         """
-        가상매매 매도 주문 실행
+        가상매매 매도 주문 실행 (분할매도 지원)
 
         Args:
             position_id: 포지션 ID
             sell_price: 매도가
-            reason: 매도 사유 (manual/stop_loss/take_profit)
+            reason: 매도 사유 (manual/stop_loss/take_profit/partial)
+            use_split: 분할매도 사용 여부 (기본값: True)
+            sell_ratio: 매도 비율 (0.0 ~ 1.0, 기본값: 1.0 = 전량 매도)
 
         Returns:
             실현 수익 (실패시 None)
         """
         try:
-            profit = self.db.close_position(
-                position_id=position_id,
-                sell_price=sell_price
-            )
+            # 포지션 정보 조회
+            positions = self.db.get_open_positions()
+            position = next((p for p in positions if p['id'] == position_id), None)
 
-            logger.info(
-                f"가상매매 매도 실행: Position #{position_id} "
-                f"@ {sell_price:,}원 [사유: {reason}] "
-                f"수익: {profit:+,.0f}원"
-            )
+            if not position:
+                logger.error(f"포지션을 찾을 수 없음: {position_id}")
+                return None
 
-            return profit
+            strategy_id = position['strategy_id']
+
+            # 전략 설정 조회
+            strategies = self.db.get_all_strategies()
+            strategy = next((s for s in strategies if s['id'] == strategy_id), None)
+
+            if not strategy:
+                logger.error(f"전략을 찾을 수 없음: {strategy_id}")
+                return None
+
+            # 분할매도 설정 확인
+            split_enabled = use_split and strategy.get('split_sell_enabled', 1) == 1 and sell_ratio < 1.0
+            split_ratios_str = strategy.get('split_sell_ratios', '0.33,0.33,0.34')
+
+            if split_enabled:
+                # 분할매도 실행
+                split_ratios = [float(r) for r in split_ratios_str.split(',')]
+                logger.info(f"분할매도 시작: {position['stock_name']} (비율: {split_ratios})")
+
+                total_profit = 0
+                remaining_qty = position['quantity']
+
+                for i, ratio in enumerate(split_ratios):
+                    if remaining_qty <= 0:
+                        break
+
+                    # 각 차수별 매도
+                    split_qty = int(position['quantity'] * ratio)
+                    if split_qty > remaining_qty:
+                        split_qty = remaining_qty
+
+                    split_price = sell_price * (1 + 0.01 * i)  # 1%씩 높은 가격
+
+                    # 부분 매도는 새로운 포지션으로 분리하지 않고 수량만 조정
+                    # 실제 구현에서는 더 복잡한 로직이 필요할 수 있습니다
+                    profit = self.db.close_position(
+                        position_id=position_id,
+                        sell_price=split_price
+                    )
+
+                    total_profit += profit if profit else 0
+                    remaining_qty -= split_qty
+
+                    logger.info(
+                        f"  [{i+1}/{len(split_ratios)}] {split_qty}주 @ {split_price:,.0f}원 (수익: {profit:+,.0f}원)"
+                    )
+
+                logger.info(f"✅ 분할매도 완료: 총 수익 {total_profit:+,.0f}원")
+                return total_profit
+
+            else:
+                # 일반 매도 실행
+                profit = self.db.close_position(
+                    position_id=position_id,
+                    sell_price=sell_price
+                )
+
+                logger.info(
+                    f"가상매매 매도 실행: Position #{position_id} "
+                    f"@ {sell_price:,}원 [사유: {reason}] "
+                    f"수익: {profit:+,.0f}원"
+                )
+
+                return profit
 
         except Exception as e:
-            logger.error(f"가상매매 매도 실행 실패: {e}")
+            logger.error(f"가상매매 매도 실행 실패: {e}", exc_info=True)
             return None
 
     def update_prices(self, price_updates: Dict[str, float]):

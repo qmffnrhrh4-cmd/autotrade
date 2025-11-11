@@ -35,22 +35,88 @@ def init_virtual_trading_manager(bot=None, db_path: str = "data/virtual_trading.
 
 
 def _get_data_fetcher():
-    """DataFetcher 가져오기 (없으면 생성)"""
+    """
+    DataFetcher 가져오기 (없으면 생성)
+
+    Returns:
+        DataFetcher instance or None
+    """
+    # 1차: bot_instance에서 가져오기
     if _bot_instance and hasattr(_bot_instance, 'data_fetcher'):
+        logger.info("✅ DataFetcher: bot_instance에서 가져옴")
         return _bot_instance.data_fetcher
 
-    # bot_instance가 없으면 새로 생성
+    # 2차: 새로 생성 시도 (config 파일에서 API 정보 읽기)
     try:
+        import yaml
+        import os
+        from pathlib import Path
         from research import DataFetcher
         from core import KiwoomRESTClient
 
-        logger.info("DataFetcher 없음 - 새로 생성 중...")
-        client = KiwoomRESTClient()
+        logger.info("DataFetcher 없음 - 새로 생성 시도 중...")
+
+        # config.yaml 파일에서 설정 읽기
+        config_path = Path(__file__).parent.parent.parent / 'config' / 'config.yaml'
+
+        if not config_path.exists():
+            logger.warning(f"⚠️ config.yaml 파일이 없음: {config_path}")
+            logger.info("Fallback: 환경 변수에서 API 정보 읽기 시도...")
+
+            # 환경 변수에서 읽기
+            api_url = os.getenv('KIWOOM_REST_URL')
+            api_key = os.getenv('KIWOOM_API_KEY')
+            api_secret = os.getenv('KIWOOM_API_SECRET')
+
+            if not all([api_url, api_key, api_secret]):
+                logger.error("❌ 환경 변수에도 API 정보가 없습니다")
+                return None
+
+            client = KiwoomRESTClient(
+                base_url=api_url,
+                api_key=api_key,
+                api_secret=api_secret
+            )
+        else:
+            # config 파일에서 읽기
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+
+            # secrets.json에서 API 정보 읽기
+            secrets_path = Path(__file__).parent.parent.parent / '_immutable' / 'credentials' / 'secrets.json'
+
+            if not secrets_path.exists():
+                logger.error(f"❌ secrets.json 파일이 없음: {secrets_path}")
+                return None
+
+            import json
+            with open(secrets_path, 'r', encoding='utf-8') as f:
+                secrets = json.load(f)
+
+            kiwoom_config = secrets.get('kiwoom', {})
+            api_url = kiwoom_config.get('rest_url')
+            api_key = kiwoom_config.get('api_key')
+            api_secret = kiwoom_config.get('api_secret')
+
+            if not all([api_url, api_key, api_secret]):
+                logger.error("❌ secrets.json에 Kiwoom API 정보가 없습니다")
+                return None
+
+            logger.info(f"✅ API 정보 로드 완료: {api_url}")
+            client = KiwoomRESTClient(
+                base_url=api_url,
+                api_key=api_key,
+                api_secret=api_secret
+            )
+
+        # DataFetcher 생성
         data_fetcher = DataFetcher(client)
         logger.info("✅ DataFetcher 생성 완료")
         return data_fetcher
+
     except Exception as e:
-        logger.error(f"❌ DataFetcher 생성 실패: {e}")
+        logger.error(f"❌ DataFetcher 생성 실패: {e}", exc_info=True)
+        logger.info("💡 Tip: config/config.yaml과 _immutable/credentials/secrets.json을 확인하세요")
         return None
 
 
