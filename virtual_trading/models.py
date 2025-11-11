@@ -257,12 +257,13 @@ class VirtualTradingDB:
 
         strategies = []
         for row in cursor.fetchall():
-            # 활성 포지션 수 계산
+            # 활성 포지션 수 계산 (Fix: None 체크 추가)
             cursor.execute("""
                 SELECT COUNT(*) as cnt FROM virtual_positions
                 WHERE strategy_id = ? AND is_closed = 0
             """, (row['id'],))
-            position_count = cursor.fetchone()['cnt']
+            result = cursor.fetchone()
+            position_count = result['cnt'] if result else 0
 
             strategies.append({
                 'id': row['id'],

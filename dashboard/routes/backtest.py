@@ -126,10 +126,28 @@ def run_backtest():
             # 거래 내역에 더 상세한 정보 추가
             detailed_trades = []
             for trade in result.trades[:100]:  # 최대 100개
+                # Fix: datetime 사용 시 안전하게 처리
+                buy_price = trade.get('buy_price', 0)
+                sell_price = trade.get('sell_price', 0)
+                profit_pct = ((sell_price - buy_price) / buy_price * 100) if buy_price > 0 else 0
+
+                # Fix: 날짜 계산 안전하게 처리
+                holding_days = 0
+                try:
+                    sell_date = trade.get('sell_date')
+                    buy_date = trade.get('buy_date')
+                    if sell_date and buy_date:
+                        from datetime import datetime as dt
+                        sell_dt = dt.strptime(str(sell_date), '%Y%m%d')
+                        buy_dt = dt.strptime(str(buy_date), '%Y%m%d')
+                        holding_days = (sell_dt - buy_dt).days
+                except:
+                    holding_days = 0
+
                 detailed_trades.append({
                     **trade,  # 기존 정보 유지
-                    'profit_pct': ((trade.get('sell_price', 0) - trade.get('buy_price', 0)) / trade.get('buy_price', 1) * 100) if trade.get('buy_price', 0) > 0 else 0,
-                    'holding_days': (datetime.strptime(str(trade.get('sell_date', '')), '%Y%m%d') - datetime.strptime(str(trade.get('buy_date', '')), '%Y%m%d')).days if trade.get('sell_date') and trade.get('buy_date') else 0,
+                    'profit_pct': profit_pct,
+                    'holding_days': holding_days,
                 })
 
             response_data[strategy_name] = {
