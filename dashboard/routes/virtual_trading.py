@@ -27,7 +27,31 @@ def init_virtual_trading_manager(bot=None, db_path: str = "data/virtual_trading.
     global virtual_manager, _bot_instance
     virtual_manager = VirtualTradingManager(db_path)
     _bot_instance = bot
-    logger.info("가상매매 매니저 초기화 완료")
+
+    if bot and hasattr(bot, 'data_fetcher'):
+        logger.info("✅ 가상매매 매니저 초기화 완료 (DataFetcher 사용 가능)")
+    else:
+        logger.warning("⚠️ 가상매매 매니저 초기화 완료 (DataFetcher 없음 - 일부 기능 제한)")
+
+
+def _get_data_fetcher():
+    """DataFetcher 가져오기 (없으면 생성)"""
+    if _bot_instance and hasattr(_bot_instance, 'data_fetcher'):
+        return _bot_instance.data_fetcher
+
+    # bot_instance가 없으면 새로 생성
+    try:
+        from research import DataFetcher
+        from core import KiwoomRESTClient
+
+        logger.info("DataFetcher 없음 - 새로 생성 중...")
+        client = KiwoomRESTClient()
+        data_fetcher = DataFetcher(client)
+        logger.info("✅ DataFetcher 생성 완료")
+        return data_fetcher
+    except Exception as e:
+        logger.error(f"❌ DataFetcher 생성 실패: {e}")
+        return None
 
 
 @virtual_trading_bp.route('/api/virtual-trading/strategies', methods=['GET'])
@@ -352,13 +376,14 @@ def run_backtest():
         # BacktestAdapter 임포트 및 실행
         from virtual_trading import BacktestAdapter
 
-        # data_fetcher를 _bot_instance에서 가져오기
-        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+        # data_fetcher 가져오기 (없으면 생성)
+        data_fetcher = _get_data_fetcher()
+        if not data_fetcher:
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
 
         adapter = BacktestAdapter(
             virtual_manager=virtual_manager,
-            data_fetcher=_bot_instance.data_fetcher
+            data_fetcher=data_fetcher
         )
 
         result = adapter.run_backtest(
@@ -399,12 +424,13 @@ def apply_backtest_result():
 
         from virtual_trading import BacktestAdapter
 
-        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+        data_fetcher = _get_data_fetcher()
+        if not data_fetcher:
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
 
         adapter = BacktestAdapter(
             virtual_manager=virtual_manager,
-            data_fetcher=_bot_instance.data_fetcher
+            data_fetcher=data_fetcher
         )
 
         success = adapter.apply_best_conditions(strategy_id, backtest_result)
@@ -434,12 +460,13 @@ def ai_initialize_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+        data_fetcher = _get_data_fetcher()
+        if not data_fetcher:
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, data_fetcher)
 
         data = request.json or {}
         initial_capital = data.get('initial_capital', 10000000)
@@ -464,12 +491,13 @@ def ai_review_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+        data_fetcher = _get_data_fetcher()
+        if not data_fetcher:
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, data_fetcher)
 
         # 모든 전략 가져오기
         strategies = virtual_manager.get_strategy_summary()
@@ -494,12 +522,13 @@ def ai_improve_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+        data_fetcher = _get_data_fetcher()
+        if not data_fetcher:
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, data_fetcher)
 
         # 모든 전략 가져오기
         strategies = virtual_manager.get_strategy_summary()
@@ -527,12 +556,13 @@ def ai_auto_manage():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
+        data_fetcher = _get_data_fetcher()
+        if not data_fetcher:
+            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, data_fetcher)
 
         # 모든 전략 가져오기
         strategies = virtual_manager.get_strategy_summary()
