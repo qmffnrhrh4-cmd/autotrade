@@ -17,6 +17,11 @@ from strategy.emergency_manager import get_emergency_manager, EmergencyLevel
 from strategy.liquidity_splitter import get_liquidity_splitter
 from utils.cache_manager import get_cache_manager
 
+# Import AI systems
+from ai.split_order_ai import get_split_order_ai
+from ai.parameter_optimizer import get_parameter_optimizer
+from ai.self_learning_system import get_self_learning_system
+
 logger = logging.getLogger(__name__)
 
 # Blueprint
@@ -842,6 +847,335 @@ def delete_cache_key(key):
 
     except Exception as e:
         logger.error(f"Delete cache key error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+# ============================================================
+# AI Learning & Optimization Endpoints
+# ============================================================
+
+@automation_bp.route('/ai/split-decision', methods=['POST'])
+def ai_split_decision():
+    """
+    AI 기반 분할 주문 결정
+
+    POST Body:
+    {
+        "stock_code": "005930",
+        "stock_name": "삼성전자",
+        "total_quantity": 100,
+        "current_price": 73000,
+        "is_buy": true,
+        "market_data": {...},
+        "entry_price": 70000  # 매도 시만
+    }
+    """
+    try:
+        data = request.get_json()
+        ai_system = get_split_order_ai()
+
+        stock_code = data.get('stock_code')
+        stock_name = data.get('stock_name')
+        total_quantity = data.get('total_quantity')
+        current_price = data.get('current_price')
+        is_buy = data.get('is_buy', True)
+        market_data = data.get('market_data', {})
+
+        if not all([stock_code, stock_name, total_quantity, current_price]):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+
+        # AI 분할 결정
+        if is_buy:
+            decision = ai_system.decide_split_buy_strategy(
+                stock_code=stock_code,
+                stock_name=stock_name,
+                total_quantity=total_quantity,
+                current_price=current_price,
+                market_data=market_data,
+                ai_analysis=data.get('ai_analysis')
+            )
+        else:
+            entry_price = data.get('entry_price', current_price)
+            decision = ai_system.decide_split_sell_strategy(
+                stock_code=stock_code,
+                stock_name=stock_name,
+                total_quantity=total_quantity,
+                current_price=current_price,
+                entry_price=entry_price,
+                market_data=market_data
+            )
+
+        return jsonify({
+            'success': True,
+            'decision': {
+                'num_splits': decision.num_splits,
+                'price_gaps': decision.price_gaps,
+                'time_intervals': decision.time_intervals,
+                'strategy': decision.strategy,
+                'quantities': decision.quantities,
+                'confidence': decision.confidence,
+                'reasoning': decision.reasoning
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"AI split decision error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@automation_bp.route('/ai/optimize-parameter', methods=['POST'])
+def optimize_parameter():
+    """
+    파라미터 최적화
+
+    POST Body:
+    {
+        "parameter_name": "split_order_count",
+        "current_value": 3,
+        "recent_performance": {
+            "win_rate": 0.6,
+            "avg_profit": 0.03,
+            "total_trades": 10
+        },
+        "market_condition": "neutral"
+    }
+    """
+    try:
+        data = request.get_json()
+        optimizer = get_parameter_optimizer()
+
+        parameter_name = data.get('parameter_name')
+        current_value = data.get('current_value')
+        recent_performance = data.get('recent_performance', {})
+        market_condition = data.get('market_condition', 'neutral')
+
+        if not all([parameter_name, current_value is not None]):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+
+        # 파라미터 최적화
+        next_value, expected_score = optimizer.optimize_parameter(
+            parameter_name=parameter_name,
+            current_value=current_value,
+            recent_performance=recent_performance,
+            market_condition=market_condition
+        )
+
+        return jsonify({
+            'success': True,
+            'optimized_value': next_value,
+            'expected_score': expected_score,
+            'current_best': optimizer.history.get(parameter_name).best_value if parameter_name in optimizer.history else None
+        })
+
+    except Exception as e:
+        logger.error(f"Parameter optimization error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@automation_bp.route('/ai/record-trade', methods=['POST'])
+def record_trade_experience():
+    """
+    거래 경험 기록 (학습)
+
+    POST Body:
+    {
+        "trade_id": "TRADE_001",
+        "stock_code": "005930",
+        "stock_name": "삼성전자",
+        "entry_state": {...},
+        "action_params": {...},
+        "result": {
+            "profit_pct": 0.03,
+            "duration_hours": 24,
+            "max_drawdown": -0.01
+        }
+    }
+    """
+    try:
+        data = request.get_json()
+        learning_system = get_self_learning_system()
+
+        trade_id = data.get('trade_id')
+        stock_code = data.get('stock_code')
+        stock_name = data.get('stock_name')
+        entry_state = data.get('entry_state', {})
+        action_params = data.get('action_params', {})
+        result = data.get('result', {})
+
+        if not all([trade_id, stock_code, stock_name]):
+            return jsonify({
+                'success': False,
+                'message': 'Missing required fields'
+            }), 400
+
+        # 경험 기록 및 학습
+        q_value = learning_system.record_trade_experience(
+            trade_id=trade_id,
+            stock_code=stock_code,
+            stock_name=stock_name,
+            entry_state=entry_state,
+            action_params=action_params,
+            result=result
+        )
+
+        return jsonify({
+            'success': True,
+            'learned_q_value': q_value,
+            'total_experiences': learning_system.stats.total_experiences,
+            'current_win_rate': learning_system.stats.total_wins / max(learning_system.stats.total_experiences, 1)
+        })
+
+    except Exception as e:
+        logger.error(f"Record trade experience error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@automation_bp.route('/ai/learning-insights', methods=['GET'])
+def get_learning_insights():
+    """학습 인사이트 조회"""
+    try:
+        learning_system = get_self_learning_system()
+        insights = learning_system.get_learned_insights()
+
+        return jsonify({
+            'success': True,
+            **insights
+        })
+
+    except Exception as e:
+        logger.error(f"Get learning insights error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@automation_bp.route('/ai/batch-learn', methods=['POST'])
+def batch_learn():
+    """
+    배치 학습 (Experience Replay)
+
+    POST Body:
+    {
+        "batch_size": 32
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        batch_size = data.get('batch_size', 32)
+
+        learning_system = get_self_learning_system()
+        avg_error = learning_system.batch_learn_from_memory(batch_size=batch_size)
+
+        return jsonify({
+            'success': True,
+            'avg_error': avg_error,
+            'memory_size': len(learning_system.memory),
+            'learning_episodes': learning_system.stats.learning_episodes
+        })
+
+    except Exception as e:
+        logger.error(f"Batch learn error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@automation_bp.route('/ai/suggest-action', methods=['POST'])
+def suggest_action():
+    """
+    현재 상태에서 최적 행동 추천
+
+    POST Body:
+    {
+        "current_state": {...},
+        "available_actions": [...]
+    }
+    """
+    try:
+        data = request.get_json()
+        learning_system = get_self_learning_system()
+
+        current_state = data.get('current_state', {})
+        available_actions = data.get('available_actions', [])
+
+        if not available_actions:
+            return jsonify({
+                'success': False,
+                'message': 'No available actions provided'
+            }), 400
+
+        # 최적 행동 추천
+        action, q_value = learning_system.suggest_action(
+            current_state=current_state,
+            available_actions=available_actions
+        )
+
+        return jsonify({
+            'success': True,
+            'recommended_action': action,
+            'expected_q_value': q_value,
+            'exploration_rate': learning_system.epsilon
+        })
+
+    except Exception as e:
+        logger.error(f"Suggest action error: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 500
+
+
+@automation_bp.route('/ai/adapt-to-market', methods=['POST'])
+def adapt_to_market():
+    """
+    시장 레짐에 따른 파라미터 적응
+
+    POST Body:
+    {
+        "market_regime": "bull",
+        "recent_results": [...]
+    }
+    """
+    try:
+        data = request.get_json()
+        optimizer = get_parameter_optimizer()
+
+        market_regime = data.get('market_regime', 'neutral')
+        recent_results = data.get('recent_results', [])
+
+        adapted_params = optimizer.adapt_to_market_regime(
+            market_regime=market_regime,
+            recent_results=recent_results
+        )
+
+        return jsonify({
+            'success': True,
+            'adapted_parameters': adapted_params,
+            'market_regime': market_regime
+        })
+
+    except Exception as e:
+        logger.error(f"Adapt to market error: {e}", exc_info=True)
         return jsonify({
             'success': False,
             'message': str(e)

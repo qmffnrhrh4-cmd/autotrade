@@ -89,6 +89,11 @@ class AutoTradingBot:
         self.liquidity_splitter = None
         self.cache_manager = None
 
+        # v6.0: AI 학습 시스템
+        self.split_order_ai = None
+        self.parameter_optimizer = None
+        self.self_learning_system = None
+
         self.virtual_trader = None
         self.trade_logger = None
         self.virtual_trading_manager = None
@@ -394,6 +399,33 @@ class AutoTradingBot:
             except Exception as e:
                 logger.warning(f"자동화 시스템 초기화 실패: {e}")
                 logger.warning("자동화 기능은 제한적으로 작동합니다")
+
+            # v6.0: AI 학습 시스템 초기화
+            logger.info("AI 학습 시스템 초기화 중...")
+            try:
+                from ai.split_order_ai import get_split_order_ai
+                from ai.parameter_optimizer import get_parameter_optimizer
+                from ai.self_learning_system import get_self_learning_system
+
+                # Split order AI
+                self.split_order_ai = get_split_order_ai()
+                logger.info("  ✅ Split order AI")
+
+                # Parameter optimizer
+                self.parameter_optimizer = get_parameter_optimizer()
+                logger.info("  ✅ Parameter optimizer")
+
+                # Self-learning system
+                self.self_learning_system = get_self_learning_system()
+                logger.info("  ✅ Self-learning system")
+
+                logger.info("AI 학습 시스템 초기화 완료")
+                logger.info(f"  📚 학습된 경험: {self.self_learning_system.stats.total_experiences}개")
+                logger.info(f"  🎯 학습된 상태: {len(self.self_learning_system.q_table)}개")
+
+            except Exception as e:
+                logger.warning(f"AI 학습 시스템 초기화 실패: {e}")
+                logger.warning("AI 학습 기능은 제한적으로 작동합니다")
 
             logger.info("가상매매 시스템 초기화 중...")
             try:
