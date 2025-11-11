@@ -312,8 +312,19 @@ class StrategyBacktester:
         try:
             from api.market.chart_data import ChartDataAPI
 
+            # Fix: API 연결 상태 확인
+            if not self.market_api:
+                logger.error("❌ market_api가 초기화되지 않음 - 백테스터 초기화 실패")
+                return {}
+
+            if not hasattr(self.market_api, 'client') or not self.market_api.client:
+                logger.error("❌ market_api.client가 초기화되지 않음 - REST API 연결 필요")
+                return {}
+
             if not self.chart_api:
+                logger.info("📊 ChartDataAPI 초기화 중...")
                 self.chart_api = ChartDataAPI(self.market_api.client)
+                logger.info("✅ ChartDataAPI 초기화 완료")
 
             # 기간에 따라 필요한 데이터 개수 계산
             # 3개월 = 60거래일 * 390분(장 시간) / 분봉 간격
@@ -327,11 +338,17 @@ class StrategyBacktester:
 
             for stock_code in stock_codes:
                 try:
+                    # Fix: 더 상세한 로깅 추가
+                    logger.info(f"  {stock_code}: 데이터 요청 중 (interval={interval_int}, count={data_count})...")
+
                     data = self.chart_api.get_minute_chart(
                         stock_code=stock_code,
                         interval=interval_int,
                         count=data_count
                     )
+
+                    # Fix: 데이터 응답 타입과 길이 로깅
+                    logger.debug(f"  {stock_code}: 응답 타입={type(data)}, 길이={len(data) if data else 0}")
 
                     if data and isinstance(data, list) and len(data) > 0:
                         df = pd.DataFrame(data)
@@ -356,7 +373,11 @@ class StrategyBacktester:
                         else:
                             logger.warning(f"  {stock_code}: No data in date range")
                     else:
-                        logger.warning(f"  {stock_code}: No data returned")
+                        # Fix: 더 상세한 에러 메시지
+                        logger.warning(f"  {stock_code}: API에서 데이터가 반환되지 않음")
+                        logger.warning(f"  → API 인증 확인: REST client 연결 상태 확인 필요")
+                        logger.warning(f"  → 종목 코드 확인: {stock_code}가 올바른 코드인지 확인")
+                        logger.warning(f"  → 시간대 확인: 장 운영 시간 또는 데이터 제공 여부 확인")
 
                 except Exception as e:
                     logger.error(f"  {stock_code}: Failed - {e}")
@@ -364,10 +385,19 @@ class StrategyBacktester:
                 time.sleep(0.2)
 
         except Exception as e:
-            logger.error(f"Failed to fetch historical data: {e}")
+            logger.error(f"❌ 히스토리컬 데이터 로드 실패: {e}")
+            logger.error(f"   스택 트레이스:", exc_info=True)
 
-            logger.warning("⚠️ 실제 데이터 로드 실패 - 시뮬레이션 데이터 생성 중...")
-            logger.warning("⚠️ 시뮬레이션 데이터는 백테스팅 결과가 비현실적일 수 있습니다!")
+            logger.warning("="*80)
+            logger.warning("⚠️  실제 데이터 로드 실패 - 시뮬레이션 데이터 생성 중...")
+            logger.warning("⚠️  시뮬레이션 데이터는 백테스팅 결과가 비현실적일 수 있습니다!")
+            logger.warning("")
+            logger.warning("💡 해결 방법:")
+            logger.warning("   1. REST API 인증 정보 확인 (secrets.json)")
+            logger.warning("   2. 한국투자증권 API 서비스 상태 확인")
+            logger.warning("   3. 네트워크 연결 상태 확인")
+            logger.warning("   4. API 호출 제한(rate limit) 확인")
+            logger.warning("="*80)
             historical_data = self._generate_simulated_data(stock_codes, start_date, end_date)
 
         if historical_data:

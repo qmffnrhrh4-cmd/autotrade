@@ -18,6 +18,17 @@ DB_PATH = "data/strategy_evolution.db"
 def get_status():
     """현재 진화 상태 조회"""
     try:
+        # Fix: 데이터베이스 파일 존재 여부 확인
+        import os
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
+            return jsonify({
+                'success': True,
+                'running': False,
+                'message': '전략 진화 엔진이 아직 실행되지 않았습니다',
+                'note': '실행 명령: python run_strategy_optimizer.py --auto-deploy'
+            })
+
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -64,6 +75,17 @@ def get_status():
 def get_history():
     """세대별 진화 히스토리"""
     try:
+        # Fix: 데이터베이스 파일 존재 여부 확인
+        import os
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
+            return jsonify({
+                'success': False,
+                'history': [],
+                'total_generations': 0,
+                'message': '진화 데이터가 없습니다'
+            })
+
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -101,6 +123,15 @@ def get_history():
 def get_best_strategy():
     """현재 최우수 전략 조회"""
     try:
+        # Fix: 데이터베이스 파일 존재 여부 확인
+        import os
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
+            return jsonify({
+                'success': False,
+                'message': '전략 진화 엔진이 실행되지 않았습니다'
+            })
+
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -192,6 +223,17 @@ def get_generation_detail(generation: int):
 def get_deployment_status():
     """배포된 전략 현황 조회"""
     try:
+        # Fix: 데이터베이스 파일 존재 여부 확인
+        import os
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
+            return jsonify({
+                'success': False,
+                'deployable_strategies': [],
+                'total': 0,
+                'message': '전략 진화 엔진이 실행되지 않았습니다'
+            })
+
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()

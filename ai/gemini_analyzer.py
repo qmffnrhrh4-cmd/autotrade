@@ -554,9 +554,28 @@ class GeminiAnalyzer(BaseAnalyzer):
 
             if json_str:
                 try:
+                    # Fix: 더 강력한 JSON 정제 - 줄바꿈, 탭, 추가 공백 제거
                     json_str = json_str.strip()
+
+                    # Fix: JSON 시작 전 불필요한 텍스트 제거 (예: '\n  "decision"')
+                    first_brace = json_str.find('{')
+                    if first_brace > 0:
+                        json_str = json_str[first_brace:]
+
+                    # Fix: JSON 끝 이후 불필요한 텍스트 제거
+                    last_brace = json_str.rfind('}')
+                    if last_brace > 0 and last_brace < len(json_str) - 1:
+                        json_str = json_str[:last_brace + 1]
+
+                    # Fix: 줄바꿈과 탭을 공백으로 정규화
+                    json_str = re.sub(r'\s+', ' ', json_str)
+
+                    # Fix: trailing commas 제거
                     json_str = re.sub(r',\s*}', '}', json_str)
                     json_str = re.sub(r',\s*]', ']', json_str)
+
+                    # Fix: 문자열 내부가 아닌 곳의 불필요한 공백 제거
+                    json_str = json_str.strip()
 
                     data = json.loads(json_str)
 
@@ -634,9 +653,11 @@ class GeminiAnalyzer(BaseAnalyzer):
                     return result
 
                 except json.JSONDecodeError as e:
-                    logger.warning(f"JSON 파싱 실패, 텍스트 파싱으로 전환")
+                    logger.warning(f"JSON 파싱 실패 (위치: {e.pos}, 줄: {e.lineno}), 텍스트 파싱으로 전환")
+                    logger.debug(f"파싱 실패한 JSON: {json_str[:200]}")  # Fix: 디버깅을 위한 JSON 일부 출력
                 except Exception as e:
                     logger.warning(f"JSON 처리 중 예외: {type(e).__name__}: {e}, 텍스트 파싱으로 전환")
+                    logger.debug(f"처리 실패한 원본 텍스트: {response_text[:200]}")  # Fix: 디버깅 정보 추가
 
         except Exception as e:
             logger.warning(f"JSON 추출 중 예외 발생: {type(e).__name__}: {e}, 텍스트 파싱으로 전환")

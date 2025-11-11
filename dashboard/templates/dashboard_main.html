@@ -444,6 +444,8 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            color: var(--text-primary) !important;  /* Fix: 명시적 색상 지정으로 가독성 보장 */
+            background: var(--bg-glass) !important;  /* Fix: 기본 배경색으로 버튼 가시성 확보 */
         }
 
         .btn-primary {
@@ -499,16 +501,18 @@
         }
 
         .btn-outline {
-            background: rgba(102, 126, 234, 0.2);
-            border: 2px solid rgba(102, 126, 234, 0.6);
-            color: var(--color-primary);  /* 명확한 색상으로 변경 - 가독성 개선 */
+            background: rgba(102, 126, 234, 0.3) !important;  /* Fix: 더 진한 배경으로 가시성 개선 */
+            border: 2px solid var(--color-primary) !important;  /* Fix: 테두리를 더 명확하게 */
+            color: white !important;  /* Fix: 흰색 글자로 명확한 대비 */
             font-weight: 600;
         }
 
         .btn-outline:hover {
-            background: rgba(102, 126, 234, 0.3);
-            border-color: var(--color-primary);
-            color: white;  /* 호버 시 흰색 글자로 대비 강화 */
+            background: var(--color-primary) !important;  /* Fix: 호버시 완전한 primary 색상 */
+            border-color: var(--color-primary) !important;
+            color: white !important;
+            transform: translateY(-2px);  /* Fix: 호버 효과 추가 */
+            box-shadow: var(--shadow-lg);
         }
 
         .btn-sm {
@@ -2575,56 +2579,202 @@
             content.innerHTML = html;
         }
 
+        // Fix: 헬퍼 함수 - 가격으로 차트 인덱스 찾기
+        function findPriceIndex(chartData, targetPrice) {
+            if (!chartData || chartData.length === 0) return -1;
+
+            let closestIndex = -1;
+            let minDiff = Infinity;
+
+            for (let i = 0; i < chartData.length; i++) {
+                const price = parseInt(chartData[i]['현재가'] || chartData[i]['종가'] || chartData[i]['close'] || 0);
+                const diff = Math.abs(price - targetPrice);
+
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestIndex = i;
+                }
+            }
+
+            return closestIndex;
+        }
+
         function addChartAnnotations(analysis, chartData) {
-            if (!stockChartInstance || !analysis.annotations) return;
+            if (!stockChartInstance) return;
 
             const annotations = {};
 
-            analysis.annotations.forEach((anno, index) => {
-                const annoType = anno.type || 'point';  // point, line, box
-                const label = anno.label || anno.text || '';
-                const position = anno.position || anno.index || 0;
-
-                if (annoType === 'point') {
-                    // Add arrow annotation
-                    annotations[`point_${index}`] = {
-                        type: 'point',
-                        xValue: position,
-                        yValue: anno.price || chartData[position]?.['현재가'] || 0,
-                        backgroundColor: anno.color || (anno.signal === 'buy' ? 'rgba(255, 99, 132, 0.8)' : 'rgba(54, 162, 235, 0.8)'),
-                        borderColor: anno.color || (anno.signal === 'buy' ? 'rgb(255, 99, 132)' : 'rgb(54, 162, 235)'),
-                        borderWidth: 2,
-                        radius: 8,
-                        label: {
-                            content: [label],
-                            enabled: true,
-                            position: 'top',
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            color: 'white',
-                            font: {
-                                size: 11
+            // Fix: AI 분석 결과에서 매매 포인트 자동 추출
+            if (analysis.buy_points && analysis.buy_points.length > 0) {
+                analysis.buy_points.forEach((point, index) => {
+                    // 가격으로 차트 인덱스 찾기
+                    const chartIndex = findPriceIndex(chartData, point.price);
+                    if (chartIndex >= 0) {
+                        annotations[`buy_${index}`] = {
+                            type: 'point',
+                            xValue: chartIndex,
+                            yValue: point.price,
+                            backgroundColor: 'rgba(34, 197, 94, 0.9)',  // Fix: 초록색 (매수)
+                            borderColor: 'rgb(34, 197, 94)',
+                            borderWidth: 3,
+                            radius: 10,
+                            label: {
+                                content: [`▲ 매수`, point.reason || ''],
+                                enabled: true,
+                                position: 'bottom',  // Fix: 아래에 표시
+                                backgroundColor: 'rgba(34, 197, 94, 0.95)',
+                                color: 'white',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                padding: 6
                             }
+                        };
+                    }
+                });
+            }
+
+            // Fix: 매도 포인트 추가
+            if (analysis.sell_points && analysis.sell_points.length > 0) {
+                analysis.sell_points.forEach((point, index) => {
+                    const chartIndex = findPriceIndex(chartData, point.price);
+                    if (chartIndex >= 0) {
+                        annotations[`sell_${index}`] = {
+                            type: 'point',
+                            xValue: chartIndex,
+                            yValue: point.price,
+                            backgroundColor: 'rgba(239, 68, 68, 0.9)',  // Fix: 빨간색 (매도)
+                            borderColor: 'rgb(239, 68, 68)',
+                            borderWidth: 3,
+                            radius: 10,
+                            label: {
+                                content: [`▼ 매도`, point.reason || ''],
+                                enabled: true,
+                                position: 'top',  // Fix: 위에 표시
+                                backgroundColor: 'rgba(239, 68, 68, 0.95)',
+                                color: 'white',
+                                font: {
+                                    size: 12,
+                                    weight: 'bold'
+                                },
+                                padding: 6
+                            }
+                        };
+                    }
+                });
+            }
+
+            // Fix: 지지선/저항선 추가
+            if (analysis.support_level) {
+                annotations['support'] = {
+                    type: 'line',
+                    yMin: analysis.support_level,
+                    yMax: analysis.support_level,
+                    borderColor: 'rgba(34, 197, 94, 0.7)',  // Fix: 초록 점선 (지지선)
+                    borderWidth: 2,
+                    borderDash: [10, 5],
+                    label: {
+                        content: `지지선: ${analysis.support_level.toLocaleString()}원`,
+                        enabled: true,
+                        position: 'start',
+                        backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                        color: 'white',
+                        font: {
+                            size: 11,
+                            weight: 'bold'
                         }
-                    };
-                } else if (annoType === 'line') {
-                    // Add horizontal line (support/resistance)
-                    annotations[`line_${index}`] = {
-                        type: 'line',
-                        yMin: anno.price,
-                        yMax: anno.price,
-                        borderColor: anno.color || 'rgb(255, 205, 86)',
-                        borderWidth: 2,
-                        borderDash: [5, 5],
-                        label: {
-                            content: label,
-                            enabled: true,
-                            position: 'end',
-                            backgroundColor: 'rgba(255, 205, 86, 0.8)',
-                            color: 'black'
+                    }
+                };
+            }
+
+            if (analysis.resistance_level) {
+                annotations['resistance'] = {
+                    type: 'line',
+                    yMin: analysis.resistance_level,
+                    yMax: analysis.resistance_level,
+                    borderColor: 'rgba(239, 68, 68, 0.7)',  // Fix: 빨간 점선 (저항선)
+                    borderWidth: 2,
+                    borderDash: [10, 5],
+                    label: {
+                        content: `저항선: ${analysis.resistance_level.toLocaleString()}원`,
+                        enabled: true,
+                        position: 'start',
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                        color: 'white',
+                        font: {
+                            size: 11,
+                            weight: 'bold'
                         }
-                    };
-                }
-            });
+                    }
+                };
+            }
+
+            // Fix: 추세선 추가 (있는 경우)
+            if (analysis.trend_line && analysis.trend_line.start && analysis.trend_line.end) {
+                annotations['trend'] = {
+                    type: 'line',
+                    xMin: analysis.trend_line.start.index,
+                    yMin: analysis.trend_line.start.price,
+                    xMax: analysis.trend_line.end.index,
+                    yMax: analysis.trend_line.end.price,
+                    borderColor: 'rgba(147, 51, 234, 0.8)',  // Fix: 보라색 (추세선)
+                    borderWidth: 3,
+                    borderDash: [5, 3],
+                    label: {
+                        content: '추세선',
+                        enabled: true,
+                        position: 'center',
+                        backgroundColor: 'rgba(147, 51, 234, 0.8)',
+                        color: 'white'
+                    }
+                };
+            }
+
+            // Fix: 기존 annotations 데이터도 처리 (하위 호환성)
+            if (analysis.annotations && Array.isArray(analysis.annotations)) {
+                analysis.annotations.forEach((anno, index) => {
+                    const annoType = anno.type || 'point';
+                    const label = anno.label || anno.text || '';
+                    const position = anno.position || anno.index || 0;
+
+                    if (annoType === 'point') {
+                        annotations[`custom_point_${index}`] = {
+                            type: 'point',
+                            xValue: position,
+                            yValue: anno.price || chartData[position]?.['현재가'] || 0,
+                            backgroundColor: anno.color || 'rgba(59, 130, 246, 0.8)',
+                            borderColor: anno.color || 'rgb(59, 130, 246)',
+                            borderWidth: 2,
+                            radius: 8,
+                            label: {
+                                content: [label],
+                                enabled: true,
+                                position: 'top',
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                color: 'white',
+                                font: { size: 11 }
+                            }
+                        };
+                    } else if (annoType === 'line') {
+                        annotations[`custom_line_${index}`] = {
+                            type: 'line',
+                            yMin: anno.price,
+                            yMax: anno.price,
+                            borderColor: anno.color || 'rgb(255, 205, 86)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            label: {
+                                content: label,
+                                enabled: true,
+                                position: 'end',
+                                backgroundColor: 'rgba(255, 205, 86, 0.8)',
+                                color: 'black'
+                            }
+                        };
+                    }
+                });
+            }
 
             // Update chart with annotations
             stockChartInstance.options.plugins.annotation = {

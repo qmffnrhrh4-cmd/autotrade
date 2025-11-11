@@ -16,6 +16,7 @@ from .backtest import backtest_bp
 from .virtual_trading import virtual_trading_bp
 from .automation import automation_bp
 from .program_manager import program_manager_bp
+from .strategy_evolution import evolution_bp  # Fix: 전략 진화 API 추가
 
 __all__ = [
     'account_bp',
@@ -29,7 +30,8 @@ __all__ = [
     'backtest_bp',
     'virtual_trading_bp',
     'automation_bp',
-    'program_manager_bp'
+    'program_manager_bp',
+    'evolution_bp'  # Fix: 전략 진화 API 추가
 ]
 
 

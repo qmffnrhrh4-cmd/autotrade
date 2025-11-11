@@ -66,7 +66,8 @@ realtime_chart_manager = None
 # Import all route blueprints
 from .routes import (
     account_bp, trading_bp, market_bp,
-    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp, program_manager_bp
+    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp, program_manager_bp,
+    evolution_bp  # Fix: 전략 진화 API 추가
 )
 
 # Import automation routes (v5.5: 고급 자동화 시스템)
@@ -102,6 +103,7 @@ app.register_blueprint(backtest_bp)  # 백테스팅 시스템
 app.register_blueprint(virtual_trading_bp)  # 가상매매 시스템
 app.register_blueprint(automation_bp)  # v5.5: 고급 자동화 시스템
 app.register_blueprint(program_manager_bp)  # 프로그램 매니저
+app.register_blueprint(evolution_bp)  # Fix: 전략 진화 시스템
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
