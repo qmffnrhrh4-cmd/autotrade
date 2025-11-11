@@ -633,7 +633,45 @@
             if (!bestStrategy) return;
 
             const result = results[bestStrategy.name];
+
+            // Get backtest parameters
+            const stockCodes = document.getElementById('stock_codes').value;
+            const startDate = document.getElementById('start_date').value;
+            const endDate = document.getElementById('end_date').value;
+            const interval = document.getElementById('interval').value;
+
             const html = `
+                <div style="background: rgba(102, 126, 234, 0.1); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">📊 백테스트 조건</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">전략</div>
+                            <div>${bestStrategy.name}</div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">종목</div>
+                            <div>${stockCodes}</div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">기간</div>
+                            <div>${startDate} ~ ${endDate}</div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">분봉 간격</div>
+                            <div>${interval}분</div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">총 거래 횟수</div>
+                            <div>${result.total_trades}회 (매수: ${result.win_count + result.loss_count}회)</div>
+                        </div>
+                        <div>
+                            <div style="font-weight: 600; margin-bottom: 5px;">승/패</div>
+                            <div><span style="color: #10b981;">${result.win_count}승</span> / <span style="color: #ef4444;">${result.loss_count}패</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <h3 style="margin-bottom: 15px; color: #667eea;">📈 성과 지표</h3>
                 <div class="metric-grid">
                     <div class="metric">
                         <div class="metric-value ${result.total_return_pct >= 0 ? 'positive' : 'negative'}">
@@ -655,11 +693,11 @@
                     </div>
                     <div class="metric">
                         <div class="metric-value negative">${result.max_drawdown_pct.toFixed(2)}%</div>
-                        <div class="metric-label">최대 낙폭</div>
+                        <div class="metric-label">최대 낙폭 (MDD)</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-value">${result.total_trades}</div>
-                        <div class="metric-label">총 거래 횟수</div>
+                        <div class="metric-value positive">₩${result.total_return.toLocaleString()}</div>
+                        <div class="metric-label">총 수익 금액</div>
                     </div>
                     <div class="metric">
                         <div class="metric-value positive">₩${result.avg_profit_per_trade.toLocaleString()}</div>
@@ -671,8 +709,23 @@
                     </div>
                     <div class="metric">
                         <div class="metric-value">${result.profit_factor.toFixed(2)}</div>
-                        <div class="metric-label">손익비</div>
+                        <div class="metric-label">손익비 (Profit Factor)</div>
                     </div>
+                </div>
+
+                <div style="margin-top: 30px;">
+                    <h3 style="margin-bottom: 15px; color: #667eea;">💡 해석</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="padding: 10px; background: rgba(255, 255, 255, 0.05); margin-bottom: 8px; border-radius: 8px;">
+                            <strong>총 수익률:</strong> ${result.total_return_pct.toFixed(2)}% - ${result.total_return_pct > 0 ? '수익 전략' : '손실 전략'}
+                        </li>
+                        <li style="padding: 10px; background: rgba(255, 255, 255, 0.05); margin-bottom: 8px; border-radius: 8px;">
+                            <strong>샤프 비율:</strong> ${result.sharpe_ratio.toFixed(2)} - ${result.sharpe_ratio > 1 ? '우수' : result.sharpe_ratio > 0.5 ? '양호' : '부족'}
+                        </li>
+                        <li style="padding: 10px; background: rgba(255, 255, 255, 0.05); margin-bottom: 8px; border-radius: 8px;">
+                            <strong>최대 낙폭:</strong> ${result.max_drawdown_pct.toFixed(2)}% - 최대 손실 폭은 ${Math.abs(result.max_drawdown_pct).toFixed(1)}%
+                        </li>
+                    </ul>
                 </div>
             `;
 

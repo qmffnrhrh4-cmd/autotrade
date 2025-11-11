@@ -155,4 +155,45 @@ def manage_config():
         }), 500
 
 
+@program_manager_bp.route('/api/program-manager/execute-recommendation', methods=['POST'])
+def execute_recommendation():
+    """권장사항 실행"""
+    try:
+        data = request.json
+        recommendation = data.get('recommendation', '')
+
+        pm = get_program_manager(_bot_instance)
+
+        # 권장사항에 따라 실제 조치 수행
+        if '초기화' in recommendation or 'reset' in recommendation.lower():
+            # 시스템 초기화
+            result = pm.reset_system_component(recommendation)
+            message = f"시스템 컴포넌트가 초기화되었습니다: {result.get('component', 'unknown')}"
+        elif '재시작' in recommendation or 'restart' in recommendation.lower():
+            # 컴포넌트 재시작
+            result = pm.restart_component(recommendation)
+            message = f"컴포넌트가 재시작되었습니다: {result.get('component', 'unknown')}"
+        elif '정리' in recommendation or 'clean' in recommendation.lower():
+            # 데이터 정리
+            result = pm.clean_data()
+            message = f"데이터가 정리되었습니다: {result.get('cleaned_items', 0)}개 항목"
+        else:
+            # 기본 최적화
+            result = pm.optimize_system()
+            message = "시스템 최적화가 완료되었습니다"
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'result': result
+        })
+
+    except Exception as e:
+        logger.error(f"권장사항 실행 실패: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 __all__ = ['program_manager_bp', 'set_bot_instance']

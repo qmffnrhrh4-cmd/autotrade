@@ -511,12 +511,22 @@ class VirtualTradingManager {
     /**
      * 알림 표시
      */
-    showNotification(title, message, type = 'info') {
+    showNotification(title, message, type = 'info', duration = 5000) {
         // 기존 알림 시스템 사용 또는 커스텀 알림
         if (typeof showToast === 'function') {
             showToast(message, type);
+        } else if (typeof Toastify !== 'undefined') {
+            Toastify({
+                text: `${title}\n${message}`,
+                duration: duration,
+                gravity: "top",
+                position: "right",
+                backgroundColor: type === 'success' ? '#10b981' : type === 'danger' ? '#ef4444' : '#3b82f6',
+                stopOnFocus: true
+            }).showToast();
         } else {
-            console.log(`[${type.toUpperCase()}] ${title}: ${message}`);
+            // Fallback to alert
+            alert(`${title}\n\n${message}`);
         }
     }
 

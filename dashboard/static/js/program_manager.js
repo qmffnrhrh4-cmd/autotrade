@@ -170,7 +170,18 @@ class ProgramManagerUI {
                     ${report.recommendations && report.recommendations.length > 0 ? `
                         <h4 class="mt-3">권장 사항</h4>
                         <ul>
-                            ${report.recommendations.map(r => `<li>${r}</li>`).join('')}
+                            ${report.recommendations.map((r, index) => `
+                                <li style="margin-bottom: 10px;">
+                                    ${r}
+                                    <button
+                                        class="btn-modern btn-sm btn-primary"
+                                        style="margin-left: 10px; padding: 4px 12px; font-size: 12px;"
+                                        onclick="programManager.executeRecommendation('${r}', ${index})"
+                                        id="rec-btn-${index}">
+                                        실행
+                                    </button>
+                                </li>
+                            `).join('')}
                         </ul>
                     ` : '<p class="text-success mt-3">모든 시스템이 정상 작동 중입니다.</p>'}
                 </div>
@@ -390,12 +401,52 @@ class ProgramManagerUI {
         console.error('[ProgramManager] Error:', message);
         alert('오류: ' + message);
     }
+
+    async executeRecommendation(recommendation, index) {
+        const btn = document.getElementById(`rec-btn-${index}`);
+        if (btn) btn.disabled = true;
+
+        if (!confirm(`다음 권장사항을 실행하시겠습니까?\n\n${recommendation}`)) {
+            if (btn) btn.disabled = false;
+            return;
+        }
+
+        try {
+            this.showLoading('권장사항 실행 중...');
+
+            const response = await fetch('/api/program-manager/execute-recommendation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    recommendation: recommendation
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showSuccess(`✓ ${recommendation}\n\n실행 완료: ${data.message || '권장사항이 적용되었습니다.'}`);
+                // 다시 건강 검진 실행
+                await this.runHealthCheck();
+            } else {
+                this.showError(`권장사항 실행 실패: ${data.error || '알 수 없는 오류'}`);
+            }
+        } catch (error) {
+            console.error('[ProgramManager] Recommendation execution error:', error);
+            this.showError('권장사항 실행 중 오류 발생');
+        } finally {
+            if (btn) btn.disabled = false;
+            this.hideLoading();
+        }
+    }
 }
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
     // ID는 'program-manager' (tab-content)
-    if (document.getElementById('program-manager')) {
-        window.programManagerUI = new ProgramManagerUI();
+    if (document.getElementById('program-manager-tab') || document.getElementById('program-manager')) {
+        window.programManager = new ProgramManagerUI();
     }
 });
