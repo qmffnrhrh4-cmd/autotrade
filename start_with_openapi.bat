@@ -126,7 +126,19 @@ REM Clean up temp file
 if exist health_check.json del health_check.json >nul 2>&1
 echo.
 echo ================================================================================
-echo Step 2: Starting Main Application (64-bit)
+echo Step 2: Starting Strategy Optimizer (Background)
+echo ================================================================================
+echo.
+
+REM Start strategy optimizer in background
+start /B python run_strategy_optimizer.py --auto-deploy
+echo Strategy optimizer started in background
+echo.
+timeout /t 2 /nobreak >nul
+
+echo.
+echo ================================================================================
+echo Step 3: Starting Main Application (64-bit)
 echo ================================================================================
 echo.
 
