@@ -51,7 +51,7 @@
     background: #2a2e39;
     border: 1px solid #3d4361;
     border-radius: 6px;
-    color: #9ca3af;
+    color: #e5e7eb;  /* WCAG AA: 대비율 개선 (9ca3af → e5e7eb) */
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;
@@ -91,7 +91,7 @@
     background: #2a2e39;
     border: 1px solid #3d4361;
     border-radius: 6px;
-    color: #9ca3af;
+    color: #e5e7eb;  /* WCAG AA: 대비율 개선 */
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;
@@ -127,7 +127,7 @@
     background: #2a2e39;
     border: 1px solid #3d4361;
     border-radius: 6px;
-    color: #9ca3af;
+    color: #e5e7eb;  /* WCAG AA: 대비율 개선 */
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
@@ -159,7 +159,7 @@
     background: #2a2e39;
     border: 1px solid #3d4361;
     border-radius: 6px;
-    color: #9ca3af;
+    color: #e5e7eb;  /* WCAG AA: 대비율 개선 */
     cursor: pointer;
     font-size: 11px;
     font-weight: 600;

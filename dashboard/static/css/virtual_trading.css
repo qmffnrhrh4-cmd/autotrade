@@ -79,7 +79,7 @@
 
 .stat-label {
     font-size: 12px;
-    color: #666;
+    color: #666;  /* 라이트모드 기본색 */
     margin-bottom: 4px;
 }
 
@@ -328,7 +328,11 @@ table td {
 
     table th {
         background: #2a2a2a;
-        color: #aaa;
+        color: #e5e7eb;  /* WCAG AA: 대비율 개선 (aaa → e5e7eb) */
+    }
+
+    .stat-label {
+        color: #e5e7eb;  /* 다크모드용 */
     }
 
     table td {

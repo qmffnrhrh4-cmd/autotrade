@@ -855,25 +855,28 @@ def get_ai_chart_analysis(stock_code: str):
             trend_end = recent_prices[-1]
             trend_change = ((trend_end - trend_start) / trend_start) * 100
 
-            if trend_change > 10:
+            # 조건 완화: 10% → 3% (더 많은 추세 감지)
+            if trend_change > 3:
+                confidence_level = 'high' if trend_change > 10 else 'medium'
                 overall_confidence = min(90, 50 + abs(trend_change) * 2)
                 analysis_points.append({
                     'type': 'trend',
                     'signal': 'bullish',
-                    'description': f'강한 상승 추세 ({trend_change:.1f}% 상승)',
+                    'description': f'{"강한" if trend_change > 10 else ""} 상승 추세 ({trend_change:.1f}% 상승)',
                     'date': daily_data[-1].get('date'),
                     'price': recent_prices[-1],
-                    'confidence': 'high'
+                    'confidence': confidence_level
                 })
-            elif trend_change < -10:
+            elif trend_change < -3:
+                confidence_level = 'high' if trend_change < -10 else 'medium'
                 overall_confidence = min(90, 50 + abs(trend_change) * 2)
                 analysis_points.append({
                     'type': 'trend',
                     'signal': 'bearish',
-                    'description': f'강한 하락 추세 ({abs(trend_change):.1f}% 하락)',
+                    'description': f'{"강한" if trend_change < -10 else ""} 하락 추세 ({abs(trend_change):.1f}% 하락)',
                     'date': daily_data[-1].get('date'),
                     'price': recent_prices[-1],
-                    'confidence': 'high'
+                    'confidence': confidence_level
                 })
 
         # Volume analysis - with safety checks
@@ -882,14 +885,16 @@ def get_ai_chart_analysis(stock_code: str):
             avg_volume = sum(recent_volumes[:-1]) / len(recent_volumes[:-1]) if len(recent_volumes) > 1 else recent_volumes[0]
             current_volume = recent_volumes[-1]
 
-            if avg_volume > 0 and current_volume > avg_volume * 2:
+            # 조건 완화: 2배 → 1.5배 (더 많은 거래량 이상 감지)
+            if avg_volume > 0 and current_volume > avg_volume * 1.5:
+                confidence_level = 'high' if current_volume > avg_volume * 2 else 'medium'
                 analysis_points.append({
                     'type': 'volume',
                     'signal': 'breakout',
-                    'description': f'거래량 급증 (평균 대비 {(current_volume/avg_volume):.1f}배)',
+                    'description': f'거래량 {"급증" if current_volume > avg_volume * 2 else "증가"} (평균 대비 {(current_volume/avg_volume):.1f}배)',
                     'date': daily_data[-1].get('date'),
                     'price': recent_prices[-1] if recent_prices else 0,
-                    'confidence': 'high'
+                    'confidence': confidence_level
                 })
 
         # Support/Resistance levels - with safety checks
@@ -907,16 +912,18 @@ def get_ai_chart_analysis(stock_code: str):
             resistance = 0
             current_price = 0
 
+        # 조건 완화: 2% → 3% (더 넓은 범위)
         # Test support/resistance only if we have valid values
-        if support > 0 and abs(current_price - support) / support < 0.02:
+        if support > 0 and abs(current_price - support) / support < 0.03:
             overall_confidence += 10
+            distance_pct = abs(current_price - support) / support * 100
             analysis_points.append({
                 'type': 'support',
                 'signal': 'support_test',
-                'description': f'지지선 테스트 ({support:,.0f}원)',
+                'description': f'지지선 근접 ({support:,.0f}원, {distance_pct:.1f}% 차이)',
                 'date': daily_data[-1].get('date') if daily_data else '',
                 'price': support,
-                'confidence': 'medium'
+                'confidence': 'high' if distance_pct < 1 else 'medium'
             })
             # Add buy point at support level
             buy_points.append({
@@ -925,7 +932,7 @@ def get_ai_chart_analysis(stock_code: str):
                 'reason': '지지선 반등 기대'
             })
 
-        if resistance > 0 and abs(current_price - resistance) / resistance < 0.02:
+        if resistance > 0 and abs(current_price - resistance) / resistance < 0.03:
             overall_confidence += 10
             analysis_points.append({
                 'type': 'resistance',

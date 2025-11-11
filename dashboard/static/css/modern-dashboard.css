@@ -267,13 +267,13 @@ body {
 }
 
 .stats-change.positive {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--color-success);
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-up);  /* 한국 시장: 상승 = 빨강 */
 }
 
 .stats-change.negative {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--color-danger);
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--color-down);  /* 한국 시장: 하락 = 파랑 */
 }
 
 /* ============================================================
