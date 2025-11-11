@@ -444,6 +444,8 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
+            color: var(--text-primary) !important;  /* Fix: 명시적 색상 지정으로 가독성 보장 */
+            background: var(--bg-glass) !important;  /* Fix: 기본 배경색으로 버튼 가시성 확보 */
         }
 
         .btn-primary {
@@ -499,16 +501,18 @@
         }
 
         .btn-outline {
-            background: rgba(102, 126, 234, 0.2);
-            border: 2px solid rgba(102, 126, 234, 0.6);
-            color: var(--color-primary);  /* 명확한 색상으로 변경 - 가독성 개선 */
+            background: rgba(102, 126, 234, 0.3) !important;  /* Fix: 더 진한 배경으로 가시성 개선 */
+            border: 2px solid var(--color-primary) !important;  /* Fix: 테두리를 더 명확하게 */
+            color: white !important;  /* Fix: 흰색 글자로 명확한 대비 */
             font-weight: 600;
         }
 
         .btn-outline:hover {
-            background: rgba(102, 126, 234, 0.3);
-            border-color: var(--color-primary);
-            color: white;  /* 호버 시 흰색 글자로 대비 강화 */
+            background: var(--color-primary) !important;  /* Fix: 호버시 완전한 primary 색상 */
+            border-color: var(--color-primary) !important;
+            color: white !important;
+            transform: translateY(-2px);  /* Fix: 호버 효과 추가 */
+            box-shadow: var(--shadow-lg);
         }
 
         .btn-sm {
