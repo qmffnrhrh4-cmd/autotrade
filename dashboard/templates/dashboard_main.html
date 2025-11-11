@@ -673,7 +673,7 @@
                 </div>
                 <div class="nav-tab" data-tab="chart-analysis">
                     <i class="fas fa-chart-line"></i>
-                    <span>차트 분석</span>
+                    <span>AI 차트 분석</span>
                 </div>
                 <div class="nav-tab" data-tab="backtesting">
                     <i class="fas fa-history"></i>
@@ -1729,9 +1729,15 @@
                 }
                 const chartData = rawData.slice(0, 100).reverse(); // Show last 100 candles
                 const labels = chartData.map(item => {
-                    const date = item['일자'] || item['날짜'];
-                    const time = item['체결시간'] || item['시간'] || '';
-                    if (time) {
+                    const date = (item['일자'] || item['날짜'] || '').toString();
+                    const time = (item['체결시간'] || item['시간'] || '').toString();
+
+                    // Validate date has minimum length
+                    if (date.length < 8) {
+                        return 'N/A';
+                    }
+
+                    if (time && time.length >= 4) {
                         return `${date.slice(4, 6)}/${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
                     }
                     return `${date.slice(4, 6)}/${date.slice(6, 8)}`;
