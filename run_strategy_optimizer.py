@@ -28,16 +28,11 @@ def signal_handler(sig, frame):
 def initialize_market_api():
     """Market API 초기화"""
     try:
-        # Fix: config 모듈에서 직접 설정 로드
-        from config import get_config
-        config = get_config()
-
-        # Market API 초기화
-        from api.market.real_time_api import RealTimeMarketAPI
-        market_api = RealTimeMarketAPI(config)
-
-        logger.info("✅ Market API 초기화 완료 - 실제 백테스팅 모드")
-        return market_api
+        # Fix: RealTimeMarketAPI가 없으므로 시뮬레이션 모드로 실행
+        # 실제 API가 필요한 경우 main.py의 market_api를 사용해야 함
+        logger.info("⚠️ 전략 최적화는 시뮬레이션 모드로 실행됩니다")
+        logger.info("💡 실제 데이터가 필요한 경우 main.py에서 연동 필요")
+        return None
 
     except Exception as e:
         logger.warning(f"⚠️ Market API 초기화 실패: {e}")
