@@ -861,17 +861,31 @@ class VirtualTradingManager {
                 body: JSON.stringify({
                     initial_capital: 10000000  // 1000만원
                 })
-            });
+            }, 30000); // 30초 타임아웃
 
             const data = await response.json();
 
             if (data.success) {
+                // 전략 목록 새로고침
+                await this.loadStrategies();
+
+                // 성공 메시지 - 더 명확하게
                 this.showNotification(
-                    'AI 전략 생성 완료',
-                    `${data.strategy_ids.length}가지 AI 전략이 생성되었습니다`,
+                    '✅ AI 전략 생성 완료!',
+                    `${data.strategy_ids.length}가지 AI 전략이 생성되었습니다.\n\n아래 "가상매매 전략 (5가지)" 섹션에서 확인하세요:\n- AI-보수형\n- AI-균형형\n- AI-공격형\n- AI-가치형\n- AI-혁신형`,
                     'success'
                 );
-                this.loadStrategies();
+
+                // 전략 목록 섹션으로 스크롤
+                const strategyListContainer = document.getElementById('virtual-strategies-list');
+                if (strategyListContainer) {
+                    strategyListContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    // 하이라이트 효과
+                    strategyListContainer.style.animation = 'highlight-pulse 2s ease-in-out';
+                    setTimeout(() => {
+                        strategyListContainer.style.animation = '';
+                    }, 2000);
+                }
             } else {
                 this.showNotification('AI 전략 생성 실패', data.error, 'danger');
             }

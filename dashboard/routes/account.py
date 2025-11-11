@@ -6,6 +6,9 @@ from flask import Blueprint, jsonify
 from typing import Dict, Any
 from datetime import datetime
 from research.data_fetcher import is_nxt_hours
+import logging
+
+logger = logging.getLogger(__name__)
 
 account_bp = Blueprint('account', __name__)
 
