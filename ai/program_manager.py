@@ -287,8 +287,8 @@ class ProgramManager:
     def _analyze_trading_performance(self) -> Dict[str, Any]:
         """거래 성능 분석 - 실제 거래 데이터"""
         try:
-            from database.models import get_db_session, TradeHistory
-            import sqlalchemy as sa
+            from database import get_db_session, Trade
+            from sqlalchemy import func
 
             session = get_db_session()
             if not session:
@@ -301,37 +301,79 @@ class ProgramManager:
                     'max_drawdown': 0.0
                 }
 
-            # 실제 거래 기록 조회
-            trades = session.query(TradeHistory).all()
+            # 총 거래 수
+            total_trades = session.query(func.count(Trade.id)).scalar() or 0
 
-            total_trades = len(trades)
-            winning_trades = 0
-            total_profit = 0
+            # 매도 완료된 거래 통계
+            completed_trades = session.query(Trade).filter(
+                Trade.action == 'sell',
+                Trade.profit_loss.isnot(None)
+            ).all()
 
-            for trade in trades:
-                if trade.action == 'sell' and trade.profit_loss:
-                    total_profit += trade.profit_loss
-                    if trade.profit_loss > 0:
-                        winning_trades += 1
+            if not completed_trades:
+                session.close()
+                return {
+                    'total_trades': total_trades,
+                    'win_rate': 0.0,
+                    'total_return': 0.0,
+                    'sharpe_ratio': 0.0,
+                    'max_drawdown': 0.0
+                }
 
-            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+            # 승리/패배 계산
+            winning_trades = sum(1 for t in completed_trades if t.profit_loss > 0)
+            win_rate = (winning_trades / len(completed_trades) * 100) if completed_trades else 0.0
 
-            # 초기 자본 대비 수익률 추정 (초기 자본 1억 가정)
-            initial_capital = 100000000
-            total_return = (total_profit / initial_capital * 100) if initial_capital > 0 else 0.0
+            # 총 손익
+            total_profit = sum(t.profit_loss for t in completed_trades)
+
+            # 총 투자금액
+            total_invested = session.query(func.sum(Trade.total_amount)).filter(
+                Trade.action == 'buy'
+            ).scalar() or 1
+
+            total_return = (total_profit / total_invested * 100) if total_invested > 0 else 0.0
+
+            # Sharpe Ratio 계산
+            sharpe_ratio = 0.0
+            if len(completed_trades) > 5 and hasattr(completed_trades[0], 'profit_loss_ratio'):
+                returns = [t.profit_loss_ratio for t in completed_trades if t.profit_loss_ratio is not None]
+                if returns:
+                    import statistics
+                    mean_return = statistics.mean(returns)
+                    std_return = statistics.stdev(returns) if len(returns) > 1 else 0.01
+                    sharpe_ratio = (mean_return / std_return) if std_return > 0 else 0
+
+            # Max Drawdown 계산
+            max_drawdown = 0.0
+            if completed_trades:
+                cumulative_pnl = 0
+                peak = 0
+                max_dd = 0
+
+                for trade in sorted(completed_trades, key=lambda x: x.timestamp):
+                    cumulative_pnl += trade.profit_loss
+                    if cumulative_pnl > peak:
+                        peak = cumulative_pnl
+
+                    drawdown = peak - cumulative_pnl
+                    if drawdown > max_dd:
+                        max_dd = drawdown
+
+                max_drawdown = (max_dd / total_invested * 100) if total_invested > 0 else 0
 
             session.close()
 
             return {
                 'total_trades': total_trades,
-                'win_rate': win_rate,
-                'total_return': total_return,
-                'sharpe_ratio': 0.0,  # 복잡한 계산 필요
-                'max_drawdown': 0.0   # 복잡한 계산 필요
+                'win_rate': round(win_rate, 2),
+                'total_return': round(total_return, 2),
+                'sharpe_ratio': round(sharpe_ratio, 2),
+                'max_drawdown': round(max_drawdown, 2)
             }
 
         except Exception as e:
-            logger.error(f"거래 성능 분석 실패: {e}")
+            logger.error(f"거래 성능 분석 실패: {e}", exc_info=True)
             return {
                 'total_trades': 0,
                 'win_rate': 0.0,

@@ -838,12 +838,15 @@ def get_ai_chart_analysis(stock_code: str):
 
         # Analyze chart patterns and signals
         analysis_points = []
+        buy_points = []
+        sell_points = []
 
         # Initialize variables
         trend_change = 0
         support = 0
         resistance = 0
         current_price = 0
+        overall_confidence = 50
 
         # Simple trend analysis - with safety check
         recent_prices = [item.get('close', 0) for item in daily_data[-20:]] if len(daily_data) >= 20 else [item.get('close', 0) for item in daily_data]
@@ -853,6 +856,7 @@ def get_ai_chart_analysis(stock_code: str):
             trend_change = ((trend_end - trend_start) / trend_start) * 100
 
             if trend_change > 10:
+                overall_confidence = min(90, 50 + abs(trend_change) * 2)
                 analysis_points.append({
                     'type': 'trend',
                     'signal': 'bullish',
@@ -862,6 +866,7 @@ def get_ai_chart_analysis(stock_code: str):
                     'confidence': 'high'
                 })
             elif trend_change < -10:
+                overall_confidence = min(90, 50 + abs(trend_change) * 2)
                 analysis_points.append({
                     'type': 'trend',
                     'signal': 'bearish',
@@ -904,6 +909,7 @@ def get_ai_chart_analysis(stock_code: str):
 
         # Test support/resistance only if we have valid values
         if support > 0 and abs(current_price - support) / support < 0.02:
+            overall_confidence += 10
             analysis_points.append({
                 'type': 'support',
                 'signal': 'support_test',
@@ -912,8 +918,15 @@ def get_ai_chart_analysis(stock_code: str):
                 'price': support,
                 'confidence': 'medium'
             })
+            # Add buy point at support level
+            buy_points.append({
+                'index': len(daily_data) - 5 if len(daily_data) > 5 else 0,
+                'price': support,
+                'reason': '지지선 반등 기대'
+            })
 
         if resistance > 0 and abs(current_price - resistance) / resistance < 0.02:
+            overall_confidence += 10
             analysis_points.append({
                 'type': 'resistance',
                 'signal': 'resistance_test',
@@ -921,6 +934,12 @@ def get_ai_chart_analysis(stock_code: str):
                 'date': daily_data[-1].get('date') if daily_data else '',
                 'price': resistance,
                 'confidence': 'medium'
+            })
+            # Add sell point at resistance level
+            sell_points.append({
+                'index': len(daily_data) - 3 if len(daily_data) > 3 else 0,
+                'price': resistance,
+                'reason': '저항선 돌파 실패 가능'
             })
 
         # Summary
@@ -938,13 +957,56 @@ def get_ai_chart_analysis(stock_code: str):
         if trend_change > 5:
             summary['trend'] = 'bullish'
             summary['recommendation'] = 'buy'
+            overall_confidence += 15
+            # Add trend-based buy point
+            if len(daily_data) >= 10:
+                buy_points.append({
+                    'index': len(daily_data) - 10,
+                    'price': int(recent_prices[-10]) if len(recent_prices) >= 10 else current_price,
+                    'reason': '상승 추세 전환'
+                })
         elif trend_change < -5:
             summary['trend'] = 'bearish'
             summary['recommendation'] = 'sell'
+            overall_confidence += 15
+            # Add trend-based sell point
+            if len(daily_data) >= 10:
+                sell_points.append({
+                    'index': len(daily_data) - 10,
+                    'price': int(recent_prices[-10]) if len(recent_prices) >= 10 else current_price,
+                    'reason': '하락 추세 전환'
+                })
+
+        # Cap confidence at 95
+        overall_confidence = min(95, overall_confidence)
 
         # JavaScript가 기대하는 형식으로 변환
         # analysis_points를 annotations 형식으로 변환
         annotations = []
+
+        # Add buy point arrows
+        for idx, point in enumerate(buy_points):
+            annotations.append({
+                'type': 'point',
+                'price': point['price'],
+                'position': point['index'],
+                'label': f"↑ 매수: {point['reason']}",
+                'signal': 'buy',
+                'color': 'rgba(34, 197, 94, 0.9)'  # Green for buy
+            })
+
+        # Add sell point arrows
+        for idx, point in enumerate(sell_points):
+            annotations.append({
+                'type': 'point',
+                'price': point['price'],
+                'position': point['index'],
+                'label': f"↓ 매도: {point['reason']}",
+                'signal': 'sell',
+                'color': 'rgba(239, 68, 68, 0.9)'  # Red for sell
+            })
+
+        # Add other analysis points
         for idx, point in enumerate(analysis_points):
             anno = {
                 'type': 'point' if point['type'] in ['trend', 'volume'] else 'line',
@@ -979,15 +1041,43 @@ def get_ai_chart_analysis(stock_code: str):
             })
 
         # summary를 문자열로 변환
-        summary_text = f"{summary['recommendation'].upper()} | 추세: {summary['trend']} | 현재가: {summary['key_levels']['current']:,.0f}원"
+        summary_text = f"{summary['recommendation'].upper()} | 추세: {summary['trend']} | 신뢰도: {overall_confidence}% | 현재가: {summary['key_levels']['current']:,.0f}원"
 
         # key_points 생성
-        key_points = [point.get('description', '') for point in analysis_points]
+        key_points = []
+        if trend_change > 5:
+            key_points.append(f'단기 상승 추세 ({trend_change:.1f}%)')
+        elif trend_change < -5:
+            key_points.append(f'단기 하락 추세 ({abs(trend_change):.1f}%)')
+
+        # Add volume analysis to key points
+        if len(recent_volumes) >= 20:
+            avg_volume = sum(recent_volumes[:-1]) / len(recent_volumes[:-1]) if len(recent_volumes) > 1 else recent_volumes[0]
+            current_volume = recent_volumes[-1]
+            if avg_volume > 0 and current_volume > avg_volume * 1.5:
+                key_points.append(f'거래량 증가 (평균 대비 {(current_volume/avg_volume):.1f}배)')
+
+        # Add support/resistance info to key points
+        if support > 0:
+            key_points.append(f'지지선: {support:,.0f}원')
+        if resistance > 0:
+            key_points.append(f'저항선: {resistance:,.0f}원')
+
+        # Add other analysis descriptions
+        for point in analysis_points:
+            desc = point.get('description', '')
+            if desc and desc not in key_points:
+                key_points.append(desc)
 
         analysis_result = {
             'signal': summary['recommendation'],
+            'confidence': overall_confidence,
             'summary': summary_text,
             'key_points': key_points,
+            'support_level': support,
+            'resistance_level': resistance,
+            'buy_points': buy_points,
+            'sell_points': sell_points,
             'annotations': annotations
         }
 

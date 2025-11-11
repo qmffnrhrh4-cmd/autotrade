@@ -56,16 +56,21 @@ class ProgramManagerUI {
     async loadStatus() {
         try {
             const response = await fetch('/api/program-manager/status');
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
             const data = await response.json();
 
             if (data.success) {
                 this.updateStatusDisplay(data.status);
             } else {
-                this.showError('시스템 상태 조회 실패: ' + data.error);
+                this.showError('시스템 상태 조회 실패: ' + (data.error || '알 수 없는 오류'));
             }
         } catch (error) {
             console.error('[ProgramManager] Status load error:', error);
-            this.showError('시스템 상태 조회 중 오류 발생');
+            this.showError('시스템 상태 조회 중 오류 발생: ' + error.message);
         }
     }
 
@@ -130,16 +135,36 @@ class ProgramManagerUI {
         const container = document.getElementById('pm-health-report');
         if (!container) return;
 
+        const statusLabels = {
+            'healthy': '정상',
+            'warning': '경고',
+            'critical': '위험'
+        };
+
+        const statusColors = {
+            'healthy': 'price-up',
+            'warning': 'text-warning',
+            'critical': 'price-down'
+        };
+
+        const checkLabels = {
+            'automation': '자동화 시스템',
+            'data_connection': '데이터 연결',
+            'risk_management': '리스크 관리',
+            'trading_system': '거래 시스템',
+            'virtual_trading': '가상매매'
+        };
+
         container.innerHTML = `
             <div class="modern-card">
                 <h3>건강 검진 결과</h3>
                 <div class="mt-2">
                     <p><strong>전체 점수:</strong> ${report.overall_score || 0}/100</p>
-                    <p><strong>상태:</strong> <span class="${report.status === 'healthy' ? 'price-up' : 'price-down'}">${report.status || 'unknown'}</span></p>
+                    <p><strong>상태:</strong> <span class="${statusColors[report.status] || 'text-muted'}">${statusLabels[report.status] || report.status || 'unknown'}</span></p>
                     <h4 class="mt-3">세부 항목</h4>
                     <ul>
                         ${Object.entries(report.checks || {}).map(([key, value]) => `
-                            <li>${key}: <span class="${value.passed ? 'price-up' : 'price-down'}">${value.passed ? '✓' : '✗'}</span> ${value.message || ''}</li>
+                            <li>${checkLabels[key] || key}: <span class="${value.passed ? 'price-up' : 'price-down'}">${value.passed ? '✓' : '✗'}</span> ${value.message || ''}</li>
                         `).join('')}
                     </ul>
                     ${report.recommendations && report.recommendations.length > 0 ? `
@@ -147,7 +172,7 @@ class ProgramManagerUI {
                         <ul>
                             ${report.recommendations.map(r => `<li>${r}</li>`).join('')}
                         </ul>
-                    ` : ''}
+                    ` : '<p class="text-success mt-3">모든 시스템이 정상 작동 중입니다.</p>'}
                 </div>
             </div>
         `;
@@ -198,8 +223,19 @@ class ProgramManagerUI {
                 ${analysis.bottlenecks && analysis.bottlenecks.length > 0 ? `
                     <h4 class="mt-3">병목 지점</h4>
                     <ul>
-                        ${analysis.bottlenecks.map(b => `<li class="price-down">${b}</li>`).join('')}
+                        ${analysis.bottlenecks.map(b => `<li class="price-down">⚠️ ${b}</li>`).join('')}
                     </ul>
+                ` : '<p class="text-success mt-3">시스템이 원활하게 작동 중입니다.</p>'}
+                ${analysis.hourly_pattern ? `
+                    <h4 class="mt-3">시간대별 거래 패턴</h4>
+                    <div class="mt-2">
+                        ${Object.entries(analysis.hourly_pattern).map(([hour, count]) => `
+                            <div style="display: flex; justify-content: space-between; padding: 4px 0;">
+                                <span>${hour}시</span>
+                                <span>${count}건</span>
+                            </div>
+                        `).join('')}
+                    </div>
                 ` : ''}
             </div>
         `;
