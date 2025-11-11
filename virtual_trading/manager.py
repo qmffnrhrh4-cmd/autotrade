@@ -339,6 +339,15 @@ class VirtualTradingManager:
 
         return executed_orders
 
+    def get_all_strategies(self) -> List[Dict[str, Any]]:
+        """
+        모든 가상매매 전략 조회
+
+        Returns:
+            전략 리스트
+        """
+        return self.db.get_all_strategies()
+
     def get_strategy_summary(self, strategy_id: int = None) -> List[Dict[str, Any]]:
         """
         전략 요약 정보 조회
