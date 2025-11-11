@@ -109,8 +109,32 @@ def run_backtest():
 
         response_data = {}
         for strategy_name, result in results.items():
+            # 전략 조건 정보 가져오기
+            strategy_info = None
+            if _backtester and hasattr(_backtester, 'strategies'):
+                for strat in _backtester.strategies:
+                    if strat.name == strategy_name:
+                        strategy_info = {
+                            'name': strat.name,
+                            'description': getattr(strat, 'description', '전략 설명 없음'),
+                            'buy_conditions': getattr(strat, 'buy_conditions', '매수 조건 정보 없음'),
+                            'sell_conditions': getattr(strat, 'sell_conditions', '매도 조건 정보 없음'),
+                            'parameters': getattr(strat, 'parameters', {})
+                        }
+                        break
+
+            # 거래 내역에 더 상세한 정보 추가
+            detailed_trades = []
+            for trade in result.trades[:100]:  # 최대 100개
+                detailed_trades.append({
+                    **trade,  # 기존 정보 유지
+                    'profit_pct': ((trade.get('sell_price', 0) - trade.get('buy_price', 0)) / trade.get('buy_price', 1) * 100) if trade.get('buy_price', 0) > 0 else 0,
+                    'holding_days': (datetime.strptime(str(trade.get('sell_date', '')), '%Y%m%d') - datetime.strptime(str(trade.get('buy_date', '')), '%Y%m%d')).days if trade.get('sell_date') and trade.get('buy_date') else 0,
+                })
+
             response_data[strategy_name] = {
                 'strategy_name': result.strategy_name,
+                'strategy_info': strategy_info,  # 전략 조건 정보 추가
                 'initial_cash': result.initial_cash,
                 'final_cash': result.final_cash,
                 'total_return': result.total_return,
@@ -130,15 +154,31 @@ def run_backtest():
                 'avg_loss_per_trade': result.avg_loss_per_trade,
                 'profit_factor': result.profit_factor,
 
+                # 거래 통계 추가
+                'avg_holding_days': sum(t['holding_days'] for t in detailed_trades) / len(detailed_trades) if detailed_trades else 0,
+                'best_trade': max(detailed_trades, key=lambda t: t.get('profit', 0)) if detailed_trades else None,
+                'worst_trade': min(detailed_trades, key=lambda t: t.get('profit', 0)) if detailed_trades else None,
+
                 'daily_returns': result.daily_returns,
                 'daily_cash': result.daily_cash,
                 'daily_dates': result.daily_dates,
 
-                'trades': result.trades[:100],
+                'trades': detailed_trades,  # 상세 거래 내역
             }
 
         ranking = _backtester.get_ranking(results)
         best_strategy = _backtester.get_best_strategy(results)
+
+        # 백테스트 요약 정보 생성
+        total_trades_all = sum(result.total_trades for result in results.values())
+        avg_return = sum(result.total_return_pct for result in results.values()) / len(results) if results else 0
+        avg_win_rate = sum(result.win_rate for result in results.values()) / len(results) if results else 0
+
+        # 기간 계산
+        from datetime import datetime
+        start_dt = datetime.strptime(start_date, '%Y%m%d')
+        end_dt = datetime.strptime(end_date, '%Y%m%d')
+        period_days = (end_dt - start_dt).days
 
         return jsonify({
             'success': True,
@@ -164,7 +204,18 @@ def run_backtest():
                 'stock_codes': stock_codes,
                 'start_date': start_date,
                 'end_date': end_date,
-                'interval': interval
+                'interval': interval,
+                'period_days': period_days,
+                'stock_count': len(stock_codes)
+            },
+            'summary': {
+                'total_strategies_tested': len(results),
+                'total_trades_all_strategies': total_trades_all,
+                'average_return': avg_return,
+                'average_win_rate': avg_win_rate,
+                'test_period': f"{start_date} ~ {end_date} ({period_days}일)",
+                'tested_stocks': ', '.join(stock_codes),
+                'description': f"{len(results)}개 전략으로 {len(stock_codes)}개 종목을 {period_days}일 동안 테스트 (총 {total_trades_all}회 거래)"
             }
         })
 

@@ -912,6 +912,134 @@ def get_ai_chart_analysis(stock_code: str):
             resistance = 0
             current_price = 0
 
+        # ===== 추가 기술적 지표 계산 =====
+
+        # 1. RSI (Relative Strength Index) - 14일 기준
+        rsi_value = 50  # 기본값
+        if len(recent_prices) >= 15:
+            gains = []
+            losses = []
+            for i in range(1, len(recent_prices)):
+                change = recent_prices[i] - recent_prices[i-1]
+                if change > 0:
+                    gains.append(change)
+                    losses.append(0)
+                else:
+                    gains.append(0)
+                    losses.append(abs(change))
+
+            avg_gain = sum(gains[-14:]) / 14 if len(gains) >= 14 else sum(gains) / len(gains) if gains else 0
+            avg_loss = sum(losses[-14:]) / 14 if len(losses) >= 14 else sum(losses) / len(losses) if losses else 0.001
+            rs = avg_gain / avg_loss if avg_loss > 0 else 0
+            rsi_value = 100 - (100 / (1 + rs)) if rs > 0 else 50
+
+            # RSI 신호 추가
+            if rsi_value > 70:
+                analysis_points.append({
+                    'type': 'indicator',
+                    'signal': 'overbought',
+                    'description': f'RSI 과매수 구간 ({rsi_value:.1f})',
+                    'date': daily_data[-1].get('date'),
+                    'price': current_price,
+                    'confidence': 'high'
+                })
+                sell_points.append({
+                    'index': len(daily_data) - 1,
+                    'price': current_price,
+                    'reason': f'RSI 과매수 ({rsi_value:.0f})'
+                })
+            elif rsi_value < 30:
+                analysis_points.append({
+                    'type': 'indicator',
+                    'signal': 'oversold',
+                    'description': f'RSI 과매도 구간 ({rsi_value:.1f})',
+                    'date': daily_data[-1].get('date'),
+                    'price': current_price,
+                    'confidence': 'high'
+                })
+                buy_points.append({
+                    'index': len(daily_data) - 1,
+                    'price': current_price,
+                    'reason': f'RSI 과매도 ({rsi_value:.0f})'
+                })
+
+        # 2. 이동평균선 (5일, 20일, 60일)
+        ma5 = sum(recent_prices[-5:]) / 5 if len(recent_prices) >= 5 else current_price
+        ma20 = sum(recent_prices[-20:]) / 20 if len(recent_prices) >= 20 else current_price
+        ma60 = sum(all_prices[-60:]) / 60 if len(all_prices) >= 60 else current_price
+
+        # 골든 크로스 / 데드 크로스 감지
+        if len(recent_prices) >= 21:
+            prev_ma5 = sum(recent_prices[-6:-1]) / 5
+            prev_ma20 = sum(recent_prices[-21:-1]) / 20
+
+            # 골든 크로스 (단기 이평선이 장기 이평선을 상향 돌파)
+            if prev_ma5 < prev_ma20 and ma5 > ma20:
+                analysis_points.append({
+                    'type': 'crossover',
+                    'signal': 'golden_cross',
+                    'description': f'골든 크로스 발생 (MA5 > MA20)',
+                    'date': daily_data[-1].get('date'),
+                    'price': current_price,
+                    'confidence': 'high'
+                })
+                buy_points.append({
+                    'index': len(daily_data) - 1,
+                    'price': current_price,
+                    'reason': '골든 크로스'
+                })
+                overall_confidence += 10
+
+            # 데드 크로스 (단기 이평선이 장기 이평선을 하향 돌파)
+            elif prev_ma5 > prev_ma20 and ma5 < ma20:
+                analysis_points.append({
+                    'type': 'crossover',
+                    'signal': 'death_cross',
+                    'description': f'데드 크로스 발생 (MA5 < MA20)',
+                    'date': daily_data[-1].get('date'),
+                    'price': current_price,
+                    'confidence': 'high'
+                })
+                sell_points.append({
+                    'index': len(daily_data) - 1,
+                    'price': current_price,
+                    'reason': '데드 크로스'
+                })
+                overall_confidence += 10
+
+        # 3. 볼린저 밴드 (20일, 2 표준편차)
+        if len(recent_prices) >= 20:
+            bb_middle = ma20
+            variance = sum((p - bb_middle) ** 2 for p in recent_prices[-20:]) / 20
+            std_dev = variance ** 0.5
+            bb_upper = bb_middle + (std_dev * 2)
+            bb_lower = bb_middle - (std_dev * 2)
+
+            # 볼린저 밴드 신호
+            if current_price > bb_upper:
+                analysis_points.append({
+                    'type': 'bollinger',
+                    'signal': 'bb_upper_break',
+                    'description': f'볼린저 밴드 상단 돌파 (상승 강세)',
+                    'date': daily_data[-1].get('date'),
+                    'price': current_price,
+                    'confidence': 'medium'
+                })
+            elif current_price < bb_lower:
+                analysis_points.append({
+                    'type': 'bollinger',
+                    'signal': 'bb_lower_break',
+                    'description': f'볼린저 밴드 하단 접근 (반등 가능)',
+                    'date': daily_data[-1].get('date'),
+                    'price': current_price,
+                    'confidence': 'medium'
+                })
+                buy_points.append({
+                    'index': len(daily_data) - 1,
+                    'price': current_price,
+                    'reason': 'BB 하단 반등'
+                })
+
         # 조건 완화: 2% → 3% (더 넓은 범위)
         # Test support/resistance only if we have valid values
         if support > 0 and abs(current_price - support) / support < 0.03:
@@ -1047,28 +1175,80 @@ def get_ai_chart_analysis(stock_code: str):
                 'color': 'rgb(255, 205, 86)'
             })
 
-        # summary를 문자열로 변환
-        summary_text = f"{summary['recommendation'].upper()} | 추세: {summary['trend']} | 신뢰도: {overall_confidence}% | 현재가: {summary['key_levels']['current']:,.0f}원"
+        # 이동평균선 추가 (차트에 선으로 표시)
+        if len(recent_prices) >= 5:
+            annotations.append({
+                'type': 'line',
+                'price': int(ma5),
+                'label': f'MA5: {ma5:,.0f}원',
+                'color': 'rgb(255, 99, 132)',
+                'borderWidth': 1
+            })
+        if len(recent_prices) >= 20:
+            annotations.append({
+                'type': 'line',
+                'price': int(ma20),
+                'label': f'MA20: {ma20:,.0f}원',
+                'color': 'rgb(54, 162, 235)',
+                'borderWidth': 1
+            })
+        if len(all_prices) >= 60:
+            annotations.append({
+                'type': 'line',
+                'price': int(ma60),
+                'label': f'MA60: {ma60:,.0f}원',
+                'color': 'rgb(255, 206, 86)',
+                'borderWidth': 1
+            })
 
-        # key_points 생성
+        # 볼린저 밴드 추가 (차트에 표시)
+        if len(recent_prices) >= 20:
+            annotations.append({
+                'type': 'line',
+                'price': int(bb_upper),
+                'label': f'BB 상단: {bb_upper:,.0f}원',
+                'color': 'rgba(153, 102, 255, 0.5)',
+                'borderDash': [3, 3]
+            })
+            annotations.append({
+                'type': 'line',
+                'price': int(bb_lower),
+                'label': f'BB 하단: {bb_lower:,.0f}원',
+                'color': 'rgba(153, 102, 255, 0.5)',
+                'borderDash': [3, 3]
+            })
+
+        # summary를 문자열로 변환 (더 많은 정보 포함)
+        summary_text = f"{summary['recommendation'].upper()} | 추세: {summary['trend']} | 신뢰도: {overall_confidence}% | 현재가: {summary['key_levels']['current']:,.0f}원 | RSI: {rsi_value:.0f}"
+
+        # key_points 생성 (더 많은 값 추가)
         key_points = []
+
+        # 기술적 지표 추가
+        key_points.append(f'📊 RSI: {rsi_value:.1f} {"(과매수)" if rsi_value > 70 else "(과매도)" if rsi_value < 30 else "(중립)"}')
+        key_points.append(f'📈 MA5: {ma5:,.0f}원, MA20: {ma20:,.0f}원, MA60: {ma60:,.0f}원')
+
+        if len(recent_prices) >= 20:
+            key_points.append(f'📉 볼린저밴드: 상단 {bb_upper:,.0f}원, 하단 {bb_lower:,.0f}원')
+
+        # 추세 정보
         if trend_change > 5:
-            key_points.append(f'단기 상승 추세 ({trend_change:.1f}%)')
+            key_points.append(f'🔺 단기 상승 추세 ({trend_change:.1f}%)')
         elif trend_change < -5:
-            key_points.append(f'단기 하락 추세 ({abs(trend_change):.1f}%)')
+            key_points.append(f'🔻 단기 하락 추세 ({abs(trend_change):.1f}%)')
 
         # Add volume analysis to key points
         if len(recent_volumes) >= 20:
             avg_volume = sum(recent_volumes[:-1]) / len(recent_volumes[:-1]) if len(recent_volumes) > 1 else recent_volumes[0]
             current_volume = recent_volumes[-1]
             if avg_volume > 0 and current_volume > avg_volume * 1.5:
-                key_points.append(f'거래량 증가 (평균 대비 {(current_volume/avg_volume):.1f}배)')
+                key_points.append(f'💹 거래량 증가 (평균 대비 {(current_volume/avg_volume):.1f}배)')
 
         # Add support/resistance info to key points
         if support > 0:
-            key_points.append(f'지지선: {support:,.0f}원')
+            key_points.append(f'🛡️ 지지선: {support:,.0f}원')
         if resistance > 0:
-            key_points.append(f'저항선: {resistance:,.0f}원')
+            key_points.append(f'⚔️ 저항선: {resistance:,.0f}원')
 
         # Add other analysis descriptions
         for point in analysis_points:
