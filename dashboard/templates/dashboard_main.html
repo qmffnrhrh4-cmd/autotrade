@@ -484,14 +484,14 @@
         .btn-outline {
             background: rgba(102, 126, 234, 0.2);
             border: 2px solid rgba(102, 126, 234, 0.6);
-            color: var(--text-primary);
+            color: var(--color-primary);  /* 명확한 색상으로 변경 - 가독성 개선 */
             font-weight: 600;
         }
 
         .btn-outline:hover {
             background: rgba(102, 126, 234, 0.3);
             border-color: var(--color-primary);
-            color: var(--color-primary);
+            color: white;  /* 호버 시 흰색 글자로 대비 강화 */
         }
 
         .btn-sm {
@@ -915,6 +915,44 @@
                         <div id="performanceMetrics">
                             <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                 <i class="fas fa-spinner fa-spin"></i> 성과 지표 로딩 중...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Virtual Trading Summary Section -->
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-flask"></i>
+                                가상매매 전략 현황
+                            </h3>
+                            <button class="btn btn-outline btn-sm" onclick="refreshVirtualTradingSummary()">
+                                <i class="fas fa-sync"></i>
+                                새로고침
+                            </button>
+                        </div>
+                        <div id="virtualTradingSummary">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <i class="fas fa-spinner fa-spin"></i> 가상매매 정보 로딩 중...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Latest Backtest Results Section -->
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-history"></i>
+                                최근 백테스팅 결과
+                            </h3>
+                            <button class="btn btn-outline btn-sm" onclick="switchToBacktestingTab()">
+                                <i class="fas fa-arrow-right"></i>
+                                전체 보기
+                            </button>
+                        </div>
+                        <div id="latestBacktestResults">
+                            <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <i class="fas fa-info-circle"></i> 백테스팅 실행 후 결과가 표시됩니다
                             </div>
                         </div>
                     </div>
@@ -1703,6 +1741,124 @@
                         `;
                     }
                 });
+        }
+
+        // 개요 탭의 가상매매 통계 새로고침
+        function refreshVirtualTradingSummary() {
+            const container = document.getElementById('virtualTradingSummary');
+
+            fetch('/api/virtual-trading/strategies')
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success || !data.strategies) {
+                        container.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-flask"></i>
+                                <h3>가상매매 전략 없음</h3>
+                                <p>가상매매 탭에서 전략을 생성하세요</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    const strategies = Object.entries(data.strategies);
+                    const totalStrategies = strategies.length;
+                    const avgReturn = strategies.reduce((sum, [_, s]) => sum + (s.return || 0), 0) / totalStrategies;
+                    const totalCapital = strategies.reduce((sum, [_, s]) => sum + (s.capital || 0), 0);
+                    const activeStrategies = strategies.filter(([_, s]) => s.status === 'active').length;
+
+                    let html = `
+                        <div class="grid grid-4" style="margin-top: 1rem;">
+                            <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">전략 수</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;">${totalStrategies}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">${activeStrategies}개 활성</div>
+                            </div>
+                            <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">평균 수익률</div>
+                                <div style="font-size: 1.75rem; font-weight: 700; color: ${avgReturn >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                    ${avgReturn >= 0 ? '+' : ''}${avgReturn.toFixed(2)}%
+                                </div>
+                            </div>
+                            <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 자본</div>
+                                <div style="font-size: 1.75rem; font-weight: 700;">₩${(totalCapital / 10000).toFixed(0)}만</div>
+                            </div>
+                            <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                                <button class="btn btn-primary btn-sm" onclick="switchToVirtualTradingTab()" style="width: 100%;">
+                                    <i class="fas fa-arrow-right"></i> 자세히 보기
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    // 상위 3개 전략 표시
+                    const topStrategies = strategies
+                        .sort((a, b) => (b[1].return || 0) - (a[1].return || 0))
+                        .slice(0, 3);
+
+                    if (topStrategies.length > 0) {
+                        html += '<div style="margin-top: 1.5rem;">';
+                        html += '<div style="font-weight: 600; margin-bottom: 1rem;">상위 전략</div>';
+
+                        topStrategies.forEach(([name, strategy]) => {
+                            const returnColor = strategy.return >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                            html += `
+                                <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <div style="font-weight: 600;">${name}</div>
+                                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                            자본: ₩${(strategy.capital || 0).toLocaleString()}
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 1.25rem; font-weight: 700; color: ${returnColor};">
+                                            ${strategy.return >= 0 ? '+' : ''}${strategy.return.toFixed(2)}%
+                                        </div>
+                                        <div style="font-size: 0.75rem; color: var(--text-muted);">${strategy.trades || 0}회 거래</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+
+                    container.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Error fetching virtual trading summary:', error);
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--color-warning);"></i>
+                            <h3>데이터 로드 실패</h3>
+                            <p>${error.message || '가상매매 정보를 불러올 수 없습니다'}</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // 백테스팅 탭으로 이동
+        function switchToBacktestingTab() {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            const backtestTab = document.querySelector('[data-tab="backtesting"]');
+            const backtestContent = document.getElementById('backtesting');
+
+            if (backtestTab) backtestTab.classList.add('active');
+            if (backtestContent) backtestContent.classList.add('active');
+        }
+
+        // 가상매매 탭으로 이동
+        function switchToVirtualTradingTab() {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            const vtTab = document.querySelector('[data-tab="virtual-trading"]');
+            const vtContent = document.getElementById('virtual-trading');
+
+            if (vtTab) vtTab.classList.add('active');
+            if (vtContent) vtContent.classList.add('active');
         }
 
         function refreshPortfolio() {
@@ -2661,9 +2817,11 @@
 
         function updateBacktestDisplay(result) {
             const content = document.getElementById('backtest-results');
-            content.innerHTML = `
+
+            // 상세한 백테스팅 결과 표시 (백테스팅 탭용)
+            const html = `
                 <div style="margin-top: 1rem;">
-                    <div class="grid grid-3">
+                    <div class="grid grid-3" style="margin-bottom: 1.5rem;">
                         <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
                             <div style="color: var(--text-muted); margin-bottom: 0.5rem;">총 수익률</div>
                             <div style="font-size: 1.5rem; font-weight: 700; color: ${result.total_return_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
@@ -2683,8 +2841,99 @@
                             </div>
                         </div>
                     </div>
+                    <div class="grid grid-4">
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">총 거래</div>
+                            <div style="font-size: 1.25rem; font-weight: 700;">${result.total_trades || 0}</div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">승률</div>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: ${(result.win_rate || 0) >= 50 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                ${result.win_rate?.toFixed(1) || 0}%
+                            </div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">평균 수익</div>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-success);">
+                                ${result.avg_profit?.toFixed(2) || 0}%
+                            </div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">평균 손실</div>
+                            <div style="font-size: 1.25rem; font-weight: 700; color: var(--color-danger);">
+                                ${result.avg_loss?.toFixed(2) || 0}%
+                            </div>
+                        </div>
+                    </div>
+                    ${result.recommendation ? `
+                        <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md);">
+                            <div style="font-weight: 600; margin-bottom: 0.75rem;">
+                                <i class="fas fa-lightbulb" style="color: var(--color-primary);"></i> 최적 조건 추천
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;">
+                                <div>
+                                    <span style="color: var(--text-muted);">손절:</span>
+                                    <strong style="margin-left: 0.5rem;">${result.recommendation.stop_loss || '-'}%</strong>
+                                </div>
+                                <div>
+                                    <span style="color: var(--text-muted);">익절:</span>
+                                    <strong style="margin-left: 0.5rem;">${result.recommendation.take_profit || '-'}%</strong>
+                                </div>
+                            </div>
+                        </div>
+                    ` : ''}
                 </div>
             `;
+            content.innerHTML = html;
+
+            // 개요 탭의 최근 백테스팅 결과에도 표시
+            updateLatestBacktestResults(result);
+        }
+
+        // 개요 탭의 최근 백테스팅 결과 업데이트
+        function updateLatestBacktestResults(result) {
+            const container = document.getElementById('latestBacktestResults');
+            if (!container) return;
+
+            const html = `
+                <div style="margin-top: 1rem;">
+                    <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                                    <i class="fas fa-clock"></i> ${new Date().toLocaleString('ko-KR')}
+                                </div>
+                                <div style="font-weight: 600; font-size: 1.1rem;">백테스팅 결과</div>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 1.75rem; font-weight: 700; color: ${result.total_return_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                    ${result.total_return_pct >= 0 ? '+' : ''}${result.total_return_pct?.toFixed(2) || 0}%
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">총 수익률</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-3" style="gap: 1rem;">
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">Sharpe Ratio</div>
+                            <div style="font-size: 1.5rem; font-weight: 700;">${result.sharpe_ratio?.toFixed(2) || 0}</div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">승률</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: ${(result.win_rate || 0) >= 50 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                ${result.win_rate?.toFixed(1) || 0}%
+                            </div>
+                        </div>
+                        <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); text-align: center;">
+                            <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem;">최대 낙폭</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-danger);">
+                                ${result.max_drawdown_pct?.toFixed(2) || 0}%
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.innerHTML = html;
         }
 
         // ==================== Toast Notifications ====================
@@ -2967,6 +3216,7 @@
             refreshAccount();
             refreshRealTrading();
             refreshVirtualTrading();
+            refreshVirtualTradingSummary();  // 개요 탭의 가상매매 통계
             refreshPortfolio();
             loadPerformanceMetrics();
 
@@ -2975,6 +3225,7 @@
             setInterval(refreshRealTrading, 5000);
             setInterval(refreshPortfolio, 5000);
             setInterval(refreshVirtualTrading, 10000);  // Every 10 seconds
+            setInterval(refreshVirtualTradingSummary, 10000);  // 가상매매 통계도 10초마다 갱신
         });
     </script>
 
