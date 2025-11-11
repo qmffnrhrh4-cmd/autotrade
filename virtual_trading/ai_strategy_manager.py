@@ -92,30 +92,19 @@ class AIStrategyManager:
 
         for template in self.strategy_templates:
             try:
-                # 기존 전략이 있는지 확인
-                existing_strategies = self.virtual_manager.get_all_strategies()
-                existing_strategy = next(
-                    (s for s in existing_strategies if s['name'] == template['name']),
-                    None
+                # create_strategy가 get-or-create 패턴이므로 직접 호출
+                # 이미 존재하면 기존 ID 반환, 없으면 새로 생성
+                strategy_id = self.virtual_manager.create_strategy(
+                    name=template['name'],
+                    description=template['description'],
+                    initial_capital=initial_capital
                 )
 
-                if existing_strategy:
-                    # 이미 존재하면 해당 ID 사용
-                    strategy_id = existing_strategy['id']
-                    logger.info(f"♻️ {template['name']} 이미 존재 (ID: {strategy_id})")
-                else:
-                    # 전략 생성
-                    strategy_id = self.virtual_manager.create_strategy(
-                        name=template['name'],
-                        description=template['description'],
-                        initial_capital=initial_capital
-                    )
-                    logger.info(f"✅ {template['name']} 생성 완료 (ID: {strategy_id})")
-
                 strategy_ids.append(strategy_id)
+                logger.info(f"✅ {template['name']} 준비 완료 (ID: {strategy_id})")
 
             except Exception as e:
-                logger.error(f"❌ {template['name']} 처리 실패: {e}")
+                logger.error(f"❌ {template['name']} 처리 실패: {e}", exc_info=True)
 
         self.active_strategy_ids = strategy_ids
         logger.info(f"🎉 5가지 AI 전략 준비 완료: {strategy_ids}")
