@@ -2403,8 +2403,8 @@
                     <div class="grid grid-3">
                         <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
                             <div style="color: var(--text-muted); margin-bottom: 0.5rem;">총 수익률</div>
-                            <div style="font-size: 1.5rem; font-weight: 700; color: ${result.total_return >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
-                                ${result.total_return?.toFixed(2) || 0}%
+                            <div style="font-size: 1.5rem; font-weight: 700; color: ${result.total_return_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'};">
+                                ${result.total_return_pct?.toFixed(2) || 0}%
                             </div>
                         </div>
                         <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
@@ -2416,7 +2416,7 @@
                         <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
                             <div style="color: var(--text-muted); margin-bottom: 0.5rem;">최대 낙폭</div>
                             <div style="font-size: 1.5rem; font-weight: 700; color: var(--color-danger);">
-                                ${result.max_drawdown?.toFixed(2) || 0}%
+                                ${result.max_drawdown_pct?.toFixed(2) || 0}%
                             </div>
                         </div>
                     </div>
