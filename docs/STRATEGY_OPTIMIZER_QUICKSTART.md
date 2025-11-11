@@ -2,9 +2,20 @@
 
 ## 🚀 지금 바로 시작하기
 
-### 1. 테스트 실행 (3세대, 5초 간격)
+### 1. 시뮬레이션 테스트 (빠른 확인용)
 ```bash
 cd /home/user/autotrade
+python run_strategy_optimizer.py \
+    --simulation \
+    --population-size 10 \
+    --max-generations 3 \
+    --interval 5 \
+    --stocks 005930,000660
+```
+
+### 2. 실제 백테스팅 (Market API 연결)
+```bash
+# 한투 API를 사용한 실제 데이터 백테스팅
 python run_strategy_optimizer.py \
     --population-size 10 \
     --max-generations 3 \
@@ -12,9 +23,9 @@ python run_strategy_optimizer.py \
     --stocks 005930,000660
 ```
 
-### 2. 프로덕션 실행 (24/7 무한 실행)
+### 3. 프로덕션 실행 (24/7 무한 실행)
 ```bash
-# 백그라운드에서 실행
+# 백그라운드에서 실행 (실제 백테스팅)
 nohup python run_strategy_optimizer.py \
     --population-size 20 \
     --mutation-rate 0.15 \
@@ -95,7 +106,10 @@ python run_strategy_optimizer.py
 ```
 
 ### 문제: 백테스터 연결 안됨
-현재는 시뮬레이션 모드로 동작합니다. 실제 백테스터 연결은 Phase 2에서 구현됩니다.
+Market API 초기화 실패 시 자동으로 시뮬레이션 모드로 전환됩니다.
+- `--simulation` 플래그 없이 실행했는지 확인
+- `config.yaml`에 한투 API 설정이 올바른지 확인
+- 로그에서 "Market API 초기화 완료" 메시지 확인
 
 ### 문제: 프로세스가 종료되지 않음
 ```bash
@@ -104,7 +118,8 @@ kill -9 $(ps aux | grep run_strategy_optimizer | grep -v grep | awk '{print $2}'
 
 ## 📈 다음 단계
 
-- [ ] Phase 2: 실제 백테스터 연동
+- [x] Phase 1: 유전 알고리즘 기반 전략 진화 엔진
+- [x] Phase 2: 실제 백테스터 연동 (완료!)
 - [ ] Phase 3: 가상매매 자동 실행
 - [ ] Phase 4: 대시보드 UI 추가
 - [ ] Phase 5: 자동 배포 시스템

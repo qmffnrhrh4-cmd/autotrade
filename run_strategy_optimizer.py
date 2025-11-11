@@ -5,12 +5,13 @@
 24/7 백테스팅과 가상매매를 통한 자기진화 시스템을 백그라운드에서 실행
 """
 import sys
+import os
 import argparse
 import signal
 from ai.strategy_optimizer import StrategyOptimizationEngine
 from utils.logger_new import get_logger
 
-logger = get_logger(__name__)
+logger = get_logger()
 
 # 전역 엔진 인스턴스
 engine = None
@@ -24,6 +25,26 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
+def initialize_market_api():
+    """Market API 초기화"""
+    try:
+        # config 로드
+        from utils.config_loader import load_config
+        config = load_config()
+
+        # Market API 초기화
+        from api.market.real_time_api import RealTimeMarketAPI
+        market_api = RealTimeMarketAPI(config)
+
+        logger.info("✅ Market API 초기화 완료 - 실제 백테스팅 모드")
+        return market_api
+
+    except Exception as e:
+        logger.warning(f"⚠️ Market API 초기화 실패: {e}")
+        logger.warning("⚠️ 시뮬레이션 모드로 실행됩니다")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='전략 최적화 엔진')
     parser.add_argument('--population-size', type=int, default=20, help='세대당 전략 개수')
@@ -32,6 +53,7 @@ def main():
     parser.add_argument('--interval', type=int, default=600, help='세대 간 대기 시간 (초)')
     parser.add_argument('--max-generations', type=int, default=None, help='최대 세대 수 (None=무한)')
     parser.add_argument('--stocks', type=str, default='005930,000660,035720', help='테스트 종목 (쉼표 구분)')
+    parser.add_argument('--simulation', action='store_true', help='시뮬레이션 모드 강제 (Market API 없이 실행)')
 
     args = parser.parse_args()
 
@@ -51,11 +73,15 @@ def main():
     logger.info(f"  - 테스트 종목: {args.stocks}")
     logger.info("=" * 100)
 
+    # Market API 초기화 (시뮬레이션 모드가 아닌 경우)
+    market_api = None if args.simulation else initialize_market_api()
+
     global engine
     engine = StrategyOptimizationEngine(
         population_size=args.population_size,
         mutation_rate=args.mutation_rate,
-        crossover_rate=args.crossover_rate
+        crossover_rate=args.crossover_rate,
+        market_api=market_api
     )
 
     stock_codes = args.stocks.split(',')
