@@ -358,7 +358,8 @@ class ProgramManagerUI {
 
 // 페이지 로드 시 초기화
 document.addEventListener('DOMContentLoaded', () => {
-    if (document.getElementById('program-manager-tab')) {
+    // ID는 'program-manager' (tab-content)
+    if (document.getElementById('program-manager')) {
         window.programManagerUI = new ProgramManagerUI();
     }
 });

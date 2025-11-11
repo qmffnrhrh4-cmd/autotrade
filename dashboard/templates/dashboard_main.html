@@ -1864,8 +1864,17 @@
                     }
                 });
 
-                const prices = chartData.map(item => parseInt(item['현재가'] || item['종가'] || 0));
-                const volumes = chartData.map(item => parseInt(item['거래량'] || 0));
+                const prices = chartData.map(item => {
+                    const priceStr = String(item['현재가'] || item['종가'] || '0');
+                    // Remove '+', '-' signs and parse as absolute value
+                    const cleanPrice = priceStr.replace(/[+\-]/g, '');
+                    return Math.abs(parseInt(cleanPrice) || 0);
+                });
+                const volumes = chartData.map(item => {
+                    const volStr = String(item['거래량'] || '0');
+                    const cleanVol = volStr.replace(/[+\-]/g, '');
+                    return Math.abs(parseInt(cleanVol) || 0);
+                });
 
                 // Hide empty state, show chart
                 document.getElementById('chartContainer').style.display = 'none';

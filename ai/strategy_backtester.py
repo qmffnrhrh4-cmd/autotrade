@@ -118,11 +118,108 @@ class StrategyBacktester:
         self.market_api = market_api
         self.chart_api = chart_api
 
-        # 백테스팅 비활성화 (전략 클래스 구조 변경으로 인한 임시 조치)
+        # 백테스팅 전략 활성화 (자동 데이터 로드 지원)
+        # 전략 클래스와 백테스터 간 인터페이스 불일치로 인해 간단한 전략만 사용
         self.strategies = []
-        logger.warning("Backtesting disabled - strategy classes need refactoring")
 
-        logger.info(f"Strategy Backtester initialized with {len(self.strategies)} strategies")
+        # 간단한 백테스팅 전략 생성
+        try:
+            self.strategies = self._create_simple_strategies()
+            logger.info(f"✅ Strategy Backtester initialized with {len(self.strategies)} strategies")
+        except Exception as e:
+            logger.warning(f"Strategy initialization failed: {e}. Using default strategies")
+            self.strategies = []
+
+    def _create_simple_strategies(self):
+        """간단한 백테스팅 전략 생성"""
+
+        class SimpleStrategy:
+            def __init__(self, name, cash=10000000):
+                self.name = name
+                self.cash = cash
+                self.positions = {}
+
+            def reset(self):
+                self.cash = 10000000
+                self.positions = {}
+
+            def should_buy(self, stock_data, market_data, ai_analysis):
+                raise NotImplementedError
+
+            def should_sell(self, stock_code, position, current_price):
+                raise NotImplementedError
+
+        # 전략 1: 모멘텀 (급등주 추격)
+        class MomentumStrat(SimpleStrategy):
+            def __init__(self):
+                super().__init__("모멘텀 전략")
+
+            def should_buy(self, stock_data, market_data, ai_analysis):
+                change_rate = stock_data.get('change_rate', 0)
+                return change_rate > 2.0  # 2% 이상 상승
+
+            def should_sell(self, stock_code, position, current_price):
+                profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
+                return profit_pct >= 10.0 or profit_pct <= -5.0  # 익절 10%, 손절 -5%
+
+        # 전략 2: 평균회귀 (하락 후 반등)
+        class MeanReversionStrat(SimpleStrategy):
+            def __init__(self):
+                super().__init__("평균회귀 전략")
+
+            def should_buy(self, stock_data, market_data, ai_analysis):
+                change_rate = stock_data.get('change_rate', 0)
+                return -3.0 < change_rate < -1.0  # 1~3% 하락
+
+            def should_sell(self, stock_code, position, current_price):
+                profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
+                return profit_pct >= 5.0 or profit_pct <= -7.0  # 익절 5%, 손절 -7%
+
+        # 전략 3: AI 신호 추종
+        class AIFollowStrat(SimpleStrategy):
+            def __init__(self):
+                super().__init__("AI추종 전략")
+
+            def should_buy(self, stock_data, market_data, ai_analysis):
+                return ai_analysis.get('signal') == 'buy' and ai_analysis.get('score', 0) > 300
+
+            def should_sell(self, stock_code, position, current_price):
+                profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
+                return profit_pct >= 15.0 or profit_pct <= -8.0  # 익절 15%, 손절 -8%
+
+        # 전략 4: 보수형 (안정적인 수익)
+        class ConservativeStrat(SimpleStrategy):
+            def __init__(self):
+                super().__init__("보수형 전략")
+
+            def should_buy(self, stock_data, market_data, ai_analysis):
+                change_rate = stock_data.get('change_rate', 0)
+                return 0 < change_rate < 1.5  # 완만한 상승
+
+            def should_sell(self, stock_code, position, current_price):
+                profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
+                return profit_pct >= 7.0 or profit_pct <= -3.0  # 익절 7%, 손절 -3%
+
+        # 전략 5: 공격형 (높은 수익 추구)
+        class AggressiveStrat(SimpleStrategy):
+            def __init__(self):
+                super().__init__("공격형 전략")
+
+            def should_buy(self, stock_data, market_data, ai_analysis):
+                change_rate = stock_data.get('change_rate', 0)
+                return change_rate > 3.0  # 3% 이상 강한 상승
+
+            def should_sell(self, stock_code, position, current_price):
+                profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
+                return profit_pct >= 20.0 or profit_pct <= -10.0  # 익절 20%, 손절 -10%
+
+        return [
+            MomentumStrat(),
+            MeanReversionStrat(),
+            AIFollowStrat(),
+            ConservativeStrat(),
+            AggressiveStrat()
+        ]
 
     def run_backtest(
         self,
