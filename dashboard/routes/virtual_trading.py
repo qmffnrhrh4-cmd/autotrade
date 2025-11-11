@@ -130,21 +130,31 @@ def get_strategies():
 
         strategies_list = virtual_manager.get_strategy_summary()
 
-        # JavaScript가 기대하는 형식으로 변환 (리스트 -> 딕셔너리)
-        strategies_dict = {}
+        # Fix: JavaScript가 배열을 기대하므로 리스트 형식으로 반환
+        strategies_output = []
         for strategy in strategies_list:
-            name = strategy.get('name', f"전략{strategy.get('id', '?')}")
-            strategies_dict[name] = {
-                'id': strategy.get('id'),
-                'return': round((strategy.get('current_capital', 0) - strategy.get('initial_capital', 0)) / strategy.get('initial_capital', 1) * 100, 2) if strategy.get('initial_capital') else 0,
-                'capital': strategy.get('current_capital', 0),
-                'trades': 0,  # TODO: 실제 거래 수 계산
-                'status': 'active' if strategy.get('is_active') else 'inactive'
-            }
+            initial_capital = strategy.get('initial_capital', 10000000)
+            current_capital = strategy.get('current_capital', initial_capital)
+            total_profit = current_capital - initial_capital
+            return_rate = (total_profit / initial_capital * 100) if initial_capital > 0 else 0
+
+            strategies_output.append({
+                'id': strategy.get('strategy_id') or strategy.get('id'),
+                'name': strategy.get('name', f"전략{strategy.get('id', '?')}"),
+                'description': strategy.get('description', ''),
+                'initial_capital': initial_capital,
+                'current_capital': current_capital,
+                'total_assets': current_capital,  # TODO: 포지션 평가액 포함
+                'total_profit': total_profit,
+                'return_rate': round(return_rate, 2),
+                'win_rate': strategy.get('win_rate', 0),
+                'trade_count': strategy.get('trade_count', 0),
+                'is_active': strategy.get('is_active', True)
+            })
 
         return jsonify({
             'success': True,
-            'strategies': strategies_dict
+            'strategies': strategies_output
         })
 
     except Exception as e:

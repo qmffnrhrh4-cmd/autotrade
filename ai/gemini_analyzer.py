@@ -560,11 +560,13 @@ class GeminiAnalyzer(BaseAnalyzer):
                     # Fix: JSON 시작 전 불필요한 텍스트 제거 (예: '\n  "decision"')
                     first_brace = json_str.find('{')
                     if first_brace > 0:
+                        logger.debug(f"JSON 시작 전 불필요한 텍스트 제거: {json_str[:first_brace]}")
                         json_str = json_str[first_brace:]
 
                     # Fix: JSON 끝 이후 불필요한 텍스트 제거
                     last_brace = json_str.rfind('}')
                     if last_brace > 0 and last_brace < len(json_str) - 1:
+                        logger.debug(f"JSON 끝 이후 불필요한 텍스트 제거: {json_str[last_brace+1:]}")
                         json_str = json_str[:last_brace + 1]
 
                     # Fix: 줄바꿈과 탭을 공백으로 정규화

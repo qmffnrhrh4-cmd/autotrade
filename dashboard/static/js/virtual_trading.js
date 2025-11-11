@@ -128,11 +128,20 @@ class VirtualTradingManager {
             const data = await response.json();
 
             if (data.success) {
-                this.renderStrategies(data.strategies);
+                // Fix: strategies가 배열인지 확인
+                let strategies = data.strategies;
+
+                // strategies가 배열이 아니면 빈 배열로 설정
+                if (!Array.isArray(strategies)) {
+                    console.warn('⚠️ strategies is not an array:', strategies);
+                    strategies = [];
+                }
+
+                this.renderStrategies(strategies);
 
                 // 첫 번째 전략 자동 선택
-                if (!this.currentStrategy && data.strategies.length > 0) {
-                    this.selectStrategy(data.strategies[0].id);
+                if (!this.currentStrategy && strategies.length > 0) {
+                    this.selectStrategy(strategies[0].id);
                 }
             }
         } catch (error) {
