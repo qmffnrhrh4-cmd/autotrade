@@ -876,28 +876,42 @@ class VirtualTradingManager {
             const data = await response.json();
 
             if (data.success) {
-                // 전략 목록 새로고침
-                await this.loadStrategies();
-
-                // 성공 메시지 - 더 명확하게
+                // Fix: 성공 메시지를 먼저 표시
                 this.showNotification(
                     '✅ AI 전략 생성 완료!',
-                    `${data.strategy_ids.length}가지 AI 전략이 생성되었습니다.\n\n아래 "가상매매 전략 (5가지)" 섹션에서 확인하세요:\n- AI-보수형\n- AI-균형형\n- AI-공격형\n- AI-가치형\n- AI-혁신형`,
-                    'success'
+                    `${data.strategy_ids ? data.strategy_ids.length : 5}가지 AI 전략이 생성되었습니다.\n\n아래 목록에서 확인하세요:\n- AI-보수형\n- AI-균형형\n- AI-공격형\n- AI-가치형\n- AI-혁신형`,
+                    'success',
+                    8000
                 );
 
-                // 전략 목록 섹션으로 스크롤
-                const strategyListContainer = document.getElementById('virtual-strategies-list');
-                if (strategyListContainer) {
-                    strategyListContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                    // 하이라이트 효과
-                    strategyListContainer.style.animation = 'highlight-pulse 2s ease-in-out';
-                    setTimeout(() => {
-                        strategyListContainer.style.animation = '';
-                    }, 2000);
-                }
+                // Fix: 데이터베이스 커밋을 위한 짧은 대기 후 여러 번 새로고침
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await this.loadStrategies();
+
+                // Fix: 추가 새로고침으로 확실하게 로드 (1초 후)
+                setTimeout(async () => {
+                    await this.loadStrategies();
+
+                    // 전략 목록 섹션으로 스크롤
+                    const strategyListContainer = document.getElementById('virtual-strategies-list');
+                    if (strategyListContainer) {
+                        strategyListContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        // 하이라이트 효과
+                        strategyListContainer.style.animation = 'highlight-pulse 2s ease-in-out';
+                        setTimeout(() => {
+                            strategyListContainer.style.animation = '';
+                        }, 2000);
+                    }
+                }, 1000);
+
+                // Fix: 최종 새로고침 (2초 후) - 확실하게!
+                setTimeout(() => {
+                    this.loadStrategies();
+                    console.log('✅ AI 전략 최종 로드 완료');
+                }, 2000);
             } else {
-                this.showNotification('AI 전략 생성 실패', data.error, 'danger');
+                this.showNotification('AI 전략 생성 실패', data.error || '알 수 없는 오류가 발생했습니다', 'danger');
+                console.error('AI strategy creation failed:', data);
             }
         } catch (error) {
             console.error('Failed to initialize AI strategies:', error);
