@@ -82,6 +82,9 @@
             --border-color: rgba(148, 163, 184, 0.2);
             --border-glass: rgba(255, 255, 255, 0.3);
 
+            --color-success: #dc2626;  /* Korean market: Red = Up/상승 (darker for light mode) */
+            --color-danger: #2563eb;   /* Korean market: Blue = Down/하락 (darker for light mode) */
+
             --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05);
             --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
             --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
@@ -614,6 +617,89 @@
         }
 
         .empty-state p {
+            font-size: 0.95rem;
+        }
+
+        /* ==================== Automation Grid Styles ==================== */
+        .automation-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 1200px) {
+            .automation-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .automation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .automation-item {
+            position: relative;
+            padding: 1rem;
+            background: var(--bg-glass);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-glass);
+            cursor: help;
+            transition: all 0.3s ease;
+        }
+
+        .automation-item:hover {
+            background: var(--bg-glass-hover);
+            border-color: var(--color-primary);
+            box-shadow: var(--shadow-md);
+        }
+
+        .automation-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-bottom: 0.5rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            white-space: normal;
+            max-width: 200px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .automation-item:hover .automation-tooltip {
+            opacity: 1;
+        }
+
+        .automation-item label {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            margin: 0;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .automation-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: var(--color-primary);
+        }
+
+        .automation-item span {
+            flex: 1;
             font-size: 0.95rem;
         }
     </style>
@@ -1384,64 +1470,64 @@
                                     <h4 style="margin-bottom: 1rem; color: var(--color-primary);">
                                         <i class="fas fa-check-circle"></i> 자동 기능
                                     </h4>
-                                    <ul style="list-style: none; padding: 0;">
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            AI 기반 종목 스크리닝 및 선정
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            동적 손절/익절 자동 관리
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            포트폴리오 자동 최적화
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            리스크 자동 관리 및 조절
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            매매 전략 자동 학습 및 개선
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 시장 분위기 자동 감지 및 대응
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 계절성 및 패턴 기반 자동 매매
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 스마트 자금 관리 시스템
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 다중 시간프레임 자동 분석
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 유동성 기반 자동 주문 분할
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 자동 섹터 로테이션
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 페어 트레이딩 자동화
-                                        </li>
-                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 실시간 백테스팅 및 전략 검증
-                                        </li>
-                                        <li style="padding: 0.5rem 0;">
-                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
-                                            🆕 비상 상황 자동 대응 시스템
-                                        </li>
-                                    </ul>
+                                    <div class="automation-grid">
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">시장 개장 시 자동으로 종목을 스캔합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="auto_scan_on_open" checked>
+                                                <span>개장 시 자동 스캔</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">AI를 사용하여 종목을 분석하고 추천합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="ai_enabled" checked>
+                                                <span>AI 분석 활성화</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">시장 상황에 따라 최적의 가격으로 주문합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="smart_order" checked>
+                                                <span>스마트 주문</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">자동으로 손절/익절을 관리합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="risk_management" checked>
+                                                <span>리스크 관리</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">계좌 크기에 맞게 매수 수량을 자동 조절합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="position_sizing" checked>
+                                                <span>포지션 크기 조절</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">실전 매매 전 가상매매로 테스트합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="virtual_trading" checked>
+                                                <span>가상매매 연동</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">중요한 이벤트 발생 시 알림을 전송합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="notification_send" checked>
+                                                <span>알림 전송</span>
+                                            </label>
+                                        </div>
+                                        <div class="automation-item">
+                                            <span class="automation-tooltip">오류 발생 시 자동으로 재시작합니다</span>
+                                            <label>
+                                                <input type="checkbox" name="auto_restart" checked>
+                                                <span>자동 재시작</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div style="margin-top: 1.5rem; padding: 1rem; background: rgba(102, 126, 234, 0.1); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md);">
                                     <i class="fas fa-info-circle" style="color: var(--color-primary);"></i>
@@ -1549,9 +1635,33 @@
                         updateVirtualTradingDisplay(data.strategies);
                     } else {
                         console.warn('No strategies data:', data);
+                        // Show empty state if no strategies
+                        const content = document.getElementById('virtual-trading-content');
+                        if (content) {
+                            content.innerHTML = `
+                                <div class="empty-state">
+                                    <i class="fas fa-vial"></i>
+                                    <h3>가상매매 전략이 없습니다</h3>
+                                    <p>AI 자동 전략 생성을 시작하거나 수동으로 전략을 추가하세요</p>
+                                </div>
+                            `;
+                        }
                     }
                 })
-                .catch(error => console.error('Error fetching virtual trading strategies:', error));
+                .catch(error => {
+                    console.error('Error fetching virtual trading strategies:', error);
+                    // Show error state
+                    const content = document.getElementById('virtual-trading-content');
+                    if (content) {
+                        content.innerHTML = `
+                            <div class="empty-state">
+                                <i class="fas fa-exclamation-triangle" style="color: var(--color-warning);"></i>
+                                <h3>데이터 로드 실패</h3>
+                                <p>${error.message || '가상매매 전략을 불러올 수 없습니다'}</p>
+                            </div>
+                        `;
+                    }
+                });
         }
 
         function refreshPortfolio() {
@@ -1717,6 +1827,18 @@
                     const openPositions = data.open_positions || 0;
                     const profitPercent = data.profit_loss_percent || 0;
                     const profitLoss = data.profit_loss || 0;
+                    const cash = data.cash || 0;
+                    const stockValue = data.stock_value || 0;
+
+                    // Debug: 총 자산 계산 검증
+                    console.log('=== 계좌 정보 ===');
+                    console.log('예수금:', cash.toLocaleString(), '원');
+                    console.log('주식평가액:', stockValue.toLocaleString(), '원');
+                    console.log('총 자산 (예수금 + 주식평가액):', totalAssets.toLocaleString(), '원');
+                    console.log('계산 검증:', (cash + stockValue).toLocaleString(), '원', '(일치 여부:', totalAssets === cash + stockValue ? 'O' : 'X', ')');
+                    console.log('보유 종목:', openPositions, '개');
+                    console.log('손익:', profitLoss.toLocaleString(), '원', '(' + (profitPercent >= 0 ? '+' : '') + profitPercent.toFixed(2) + '%)');
+                    console.log('================');
 
                     animateNumber('total-assets', totalAssets, false, true);
                     animateNumber('stock-count', openPositions, false, false);
@@ -2079,10 +2201,26 @@
                                analysis.signal === 'sell' ? 'var(--color-danger)' :
                                'var(--color-warning)';
 
+            const confidence = analysis.confidence || 50;
+            const confidenceBarColor = confidence >= 70 ? 'var(--color-success)' :
+                                      confidence >= 50 ? 'var(--color-warning)' :
+                                      'var(--color-danger)';
+
             html += `
                 <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); border-left: 3px solid ${signalColor}; margin-bottom: 1rem;">
-                    <div style="font-size: 1.2rem; font-weight: 600; color: ${signalColor}; margin-bottom: 0.5rem;">
-                        ${analysis.signal === 'buy' ? '📈 매수 신호' : analysis.signal === 'sell' ? '📉 매도 신호' : '⏸️ 관망'}
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <div style="font-size: 1.2rem; font-weight: 600; color: ${signalColor};">
+                            ${analysis.signal === 'buy' ? '📈 매수 신호' : analysis.signal === 'sell' ? '📉 매도 신호' : '⏸️ 관망'}
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.25rem;">신뢰도</div>
+                            <div style="font-size: 1.1rem; font-weight: 700; color: ${confidenceBarColor};">
+                                ${confidence}%
+                            </div>
+                        </div>
+                    </div>
+                    <div style="width: 100%; height: 6px; background: var(--bg-secondary); border-radius: 3px; margin-bottom: 0.75rem; overflow: hidden;">
+                        <div style="width: ${confidence}%; height: 100%; background: ${confidenceBarColor}; transition: width 0.3s ease;"></div>
                     </div>
                     <div style="font-size: 0.9rem; color: var(--text-secondary);">
                         ${analysis.summary || 'AI 분석 결과'}
@@ -2090,12 +2228,38 @@
                 </div>
             `;
 
+            // Trading points (buy/sell)
+            if ((analysis.buy_points && analysis.buy_points.length > 0) ||
+                (analysis.sell_points && analysis.sell_points.length > 0)) {
+                html += '<div style="margin-bottom: 1rem;">';
+                html += '<div style="font-weight: 600; margin-bottom: 0.5rem;">매매 포인트</div>';
+
+                if (analysis.buy_points && analysis.buy_points.length > 0) {
+                    html += '<div style="margin-bottom: 0.5rem;">';
+                    html += '<div style="font-size: 0.85rem; color: var(--color-success); font-weight: 600; margin-bottom: 0.25rem;">▲ 매수 포인트</div>';
+                    analysis.buy_points.forEach(point => {
+                        html += `<div style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1rem;">• ${point.price.toLocaleString()}원 - ${point.reason}</div>`;
+                    });
+                    html += '</div>';
+                }
+
+                if (analysis.sell_points && analysis.sell_points.length > 0) {
+                    html += '<div style="margin-bottom: 0.5rem;">';
+                    html += '<div style="font-size: 0.85rem; color: var(--color-danger); font-weight: 600; margin-bottom: 0.25rem;">▼ 매도 포인트</div>';
+                    analysis.sell_points.forEach(point => {
+                        html += `<div style="font-size: 0.8rem; color: var(--text-secondary); padding-left: 1rem;">• ${point.price.toLocaleString()}원 - ${point.reason}</div>`;
+                    });
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+
             // Key points
             if (analysis.key_points && analysis.key_points.length > 0) {
-                html += '<div style="font-weight: 600; margin-bottom: 0.5rem;">주요 포인트</div>';
+                html += '<div style="font-weight: 600; margin-bottom: 0.5rem;">주요 분석</div>';
                 html += '<ul style="margin: 0; padding-left: 1.5rem;">';
                 analysis.key_points.forEach(point => {
-                    html += `<li style="margin-bottom: 0.5rem; color: var(--text-secondary);">${point}</li>`;
+                    html += `<li style="margin-bottom: 0.5rem; color: var(--text-secondary); font-size: 0.9rem;">${point}</li>`;
                 });
                 html += '</ul>';
             }
