@@ -400,10 +400,16 @@ class StrategyBacktester:
             logger.warning("="*80)
             historical_data = self._generate_simulated_data(stock_codes, start_date, end_date)
 
+        # Fix: 데이터가 없으면 시뮬레이션 데이터 생성
+        if not historical_data:
+            logger.warning("❌ 실제 데이터가 없습니다. 시뮬레이션 데이터를 생성합니다...")
+            logger.warning("💡 이유: API 연결 실패, 데이터 없음, 또는 장 마감 시간")
+            historical_data = self._generate_simulated_data(stock_codes, start_date, end_date)
+
         if historical_data:
             logger.info(f"✅ 백테스팅 데이터 준비 완료: {len(historical_data)}개 종목")
         else:
-            logger.error("❌ 백테스팅 데이터가 없습니다")
+            logger.error("❌ 백테스팅 데이터가 없습니다 (시뮬레이션 생성도 실패)")
 
         return historical_data
 
