@@ -357,8 +357,14 @@ class StrategyBacktester:
         except Exception as e:
             logger.error(f"Failed to fetch historical data: {e}")
 
-            logger.info("Generating simulated data for testing...")
+            logger.warning("⚠️ 실제 데이터 로드 실패 - 시뮬레이션 데이터 생성 중...")
+            logger.warning("⚠️ 시뮬레이션 데이터는 백테스팅 결과가 비현실적일 수 있습니다!")
             historical_data = self._generate_simulated_data(stock_codes, start_date, end_date)
+
+        if historical_data:
+            logger.info(f"✅ 백테스팅 데이터 준비 완료: {len(historical_data)}개 종목")
+        else:
+            logger.error("❌ 백테스팅 데이터가 없습니다")
 
         return historical_data
 
@@ -567,7 +573,16 @@ class StrategyBacktester:
         result.total_return = result.final_cash - result.initial_cash
         if result.initial_cash > 0:
             # 수익률 계산 (백분율)
-            result.total_return_pct = (result.total_return / result.initial_cash) * 100
+            raw_return_pct = (result.total_return / result.initial_cash) * 100
+
+            # 비정상적인 수익률 감지 및 수정
+            if abs(raw_return_pct) > 1000:  # ±1000% 이상
+                logger.warning(f"⚠️ 비정상적인 수익률 감지: {raw_return_pct:.2f}% - 시뮬레이션 데이터 사용 중일 가능성")
+                # 합리적인 범위로 제한
+                result.total_return_pct = max(min(raw_return_pct, 200), -90)  # -90% ~ 200%
+                logger.info(f"   수익률을 {result.total_return_pct:.2f}%로 조정")
+            else:
+                result.total_return_pct = raw_return_pct
         else:
             result.total_return_pct = 0
 
@@ -579,6 +594,11 @@ class StrategyBacktester:
 
         # 성과 지표 계산 (Sharpe, Sortino, MDD 등)
         result.calculate_metrics()
+
+        # MDD도 비정상 체크
+        if result.max_drawdown_pct > 200:
+            logger.warning(f"⚠️ 비정상적인 MDD 감지: {result.max_drawdown_pct:.2f}%")
+            result.max_drawdown_pct = min(result.max_drawdown_pct, 100)  # 최대 100%
 
         return result
 

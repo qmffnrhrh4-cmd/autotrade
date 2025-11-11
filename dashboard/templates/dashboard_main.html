@@ -14,6 +14,8 @@
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Chart.js Annotation Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
     <!-- ApexCharts -->
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
@@ -1995,12 +1997,130 @@
                 // Calculate and display technical indicators
                 displayTechnicalIndicators(chartData);
 
+                // Load AI analysis and add annotations
+                loadAIChartAnalysis(stockCode, chartData);
+
                 showToast('차트 로드 완료', 'success');
 
             } catch (error) {
                 console.error('Chart loading error:', error);
                 showToast(error.message || '차트 로드 실패', 'error');
             }
+        }
+
+        async function loadAIChartAnalysis(stockCode, chartData) {
+            try {
+                const response = await fetch(`/api/chart/ai_analysis/${stockCode}`);
+                const data = await response.json();
+
+                if (data.success && data.analysis) {
+                    displayAIAnalysis(data.analysis, chartData);
+                    addChartAnnotations(data.analysis, chartData);
+                }
+            } catch (error) {
+                console.error('AI analysis loading error:', error);
+            }
+        }
+
+        function displayAIAnalysis(analysis, chartData) {
+            const card = document.getElementById('aiChartAnalysisCard');
+            const content = document.getElementById('aiChartAnalysisResults');
+
+            if (!analysis) {
+                card.style.display = 'none';
+                return;
+            }
+
+            card.style.display = 'block';
+
+            let html = '<div style="padding: 1rem;">';
+
+            // Overall signal
+            const signalColor = analysis.signal === 'buy' ? 'var(--color-success)' :
+                               analysis.signal === 'sell' ? 'var(--color-danger)' :
+                               'var(--color-warning)';
+
+            html += `
+                <div style="padding: 1rem; background: var(--bg-glass); border-radius: var(--radius-md); border-left: 3px solid ${signalColor}; margin-bottom: 1rem;">
+                    <div style="font-size: 1.2rem; font-weight: 600; color: ${signalColor}; margin-bottom: 0.5rem;">
+                        ${analysis.signal === 'buy' ? '📈 매수 신호' : analysis.signal === 'sell' ? '📉 매도 신호' : '⏸️ 관망'}
+                    </div>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                        ${analysis.summary || 'AI 분석 결과'}
+                    </div>
+                </div>
+            `;
+
+            // Key points
+            if (analysis.key_points && analysis.key_points.length > 0) {
+                html += '<div style="font-weight: 600; margin-bottom: 0.5rem;">주요 포인트</div>';
+                html += '<ul style="margin: 0; padding-left: 1.5rem;">';
+                analysis.key_points.forEach(point => {
+                    html += `<li style="margin-bottom: 0.5rem; color: var(--text-secondary);">${point}</li>`;
+                });
+                html += '</ul>';
+            }
+
+            html += '</div>';
+            content.innerHTML = html;
+        }
+
+        function addChartAnnotations(analysis, chartData) {
+            if (!stockChartInstance || !analysis.annotations) return;
+
+            const annotations = {};
+
+            analysis.annotations.forEach((anno, index) => {
+                const annoType = anno.type || 'point';  // point, line, box
+                const label = anno.label || anno.text || '';
+                const position = anno.position || anno.index || 0;
+
+                if (annoType === 'point') {
+                    // Add arrow annotation
+                    annotations[`point_${index}`] = {
+                        type: 'point',
+                        xValue: position,
+                        yValue: anno.price || chartData[position]?.['현재가'] || 0,
+                        backgroundColor: anno.color || (anno.signal === 'buy' ? 'rgba(255, 99, 132, 0.8)' : 'rgba(54, 162, 235, 0.8)'),
+                        borderColor: anno.color || (anno.signal === 'buy' ? 'rgb(255, 99, 132)' : 'rgb(54, 162, 235)'),
+                        borderWidth: 2,
+                        radius: 8,
+                        label: {
+                            content: [label],
+                            enabled: true,
+                            position: 'top',
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            color: 'white',
+                            font: {
+                                size: 11
+                            }
+                        }
+                    };
+                } else if (annoType === 'line') {
+                    // Add horizontal line (support/resistance)
+                    annotations[`line_${index}`] = {
+                        type: 'line',
+                        yMin: anno.price,
+                        yMax: anno.price,
+                        borderColor: anno.color || 'rgb(255, 205, 86)',
+                        borderWidth: 2,
+                        borderDash: [5, 5],
+                        label: {
+                            content: label,
+                            enabled: true,
+                            position: 'end',
+                            backgroundColor: 'rgba(255, 205, 86, 0.8)',
+                            color: 'black'
+                        }
+                    };
+                }
+            });
+
+            // Update chart with annotations
+            stockChartInstance.options.plugins.annotation = {
+                annotations: annotations
+            };
+            stockChartInstance.update();
         }
 
         function displayTechnicalIndicators(chartData) {
