@@ -1839,40 +1839,69 @@
                     return;
                 }
                 const chartData = rawData.slice(0, 100).reverse(); // Show last 100 candles
-                const labels = chartData.map(item => {
+
+                // Debug: Log first item to see actual keys
+                if (chartData.length > 0) {
+                    console.log('Chart data sample:', chartData[0]);
+                    console.log('Available keys:', Object.keys(chartData[0]));
+                }
+
+                const labels = chartData.map((item, index) => {
                     try {
-                        const date = (item['일자'] || item['날짜'] || '').toString();
-                        const time = (item['체결시간'] || item['시간'] || '').toString();
+                        // Try all possible date key names
+                        let dateValue = item['일자'] || item['날짜'] || item['date'] || item['일'] || item['Date'] || item['DATE'];
+                        let timeValue = item['체결시간'] || item['시간'] || item['time'] || item['Time'] || item['TIME'];
 
-                        // Skip if no valid date
-                        if (!date || date === 'undefined' || date === 'null') {
-                            return 'N/A';
+                        if (!dateValue) {
+                            console.warn(`No date found in item ${index}:`, item);
+                            return `#${index + 1}`;
                         }
 
-                        // Validate date has minimum length (YYYYMMDD = 8)
-                        if (date.length >= 8) {
-                            if (time && time.length >= 4) {
-                                return `${date.slice(4, 6)}/${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
+                        const dateStr = String(dateValue).trim();
+                        const timeStr = String(timeValue || '').trim();
+
+                        // Handle YYYYMMDD format
+                        if (dateStr.length >= 8 && /^\d{8}$/.test(dateStr)) {
+                            const month = dateStr.slice(4, 6);
+                            const day = dateStr.slice(6, 8);
+
+                            if (timeStr.length >= 4 && /^\d+$/.test(timeStr)) {
+                                const hour = timeStr.slice(0, 2);
+                                const minute = timeStr.slice(2, 4);
+                                return `${month}/${day} ${hour}:${minute}`;
                             }
-                            return `${date.slice(4, 6)}/${date.slice(6, 8)}`;
+                            return `${month}/${day}`;
                         }
 
-                        return 'N/A';
+                        // Handle YYYY-MM-DD format
+                        if (dateStr.includes('-')) {
+                            const parts = dateStr.split('-');
+                            if (parts.length >= 3) {
+                                return `${parts[1]}/${parts[2]}`;
+                            }
+                        }
+
+                        console.warn(`Invalid date format in item ${index}:`, dateStr);
+                        return `#${index + 1}`;
                     } catch (e) {
                         console.error('Date parsing error:', e, item);
-                        return 'N/A';
+                        return `#${index + 1}`;
                     }
                 });
 
                 const prices = chartData.map(item => {
-                    const priceStr = String(item['현재가'] || item['종가'] || '0');
-                    // Remove '+', '-' signs and parse as absolute value
-                    const cleanPrice = priceStr.replace(/[+\-]/g, '');
+                    // Try all possible price key names
+                    const priceValue = item['현재가'] || item['종가'] || item['close'] || item['Close'] || item['CLOSE'] || item['price'] || 0;
+                    const priceStr = String(priceValue).trim();
+                    // Remove '+', '-' signs, commas and parse as absolute value
+                    const cleanPrice = priceStr.replace(/[+\-,]/g, '');
                     return Math.abs(parseInt(cleanPrice) || 0);
                 });
                 const volumes = chartData.map(item => {
-                    const volStr = String(item['거래량'] || '0');
-                    const cleanVol = volStr.replace(/[+\-]/g, '');
+                    // Try all possible volume key names
+                    const volValue = item['거래량'] || item['volume'] || item['Volume'] || item['VOLUME'] || item['vol'] || 0;
+                    const volStr = String(volValue).trim();
+                    const cleanVol = volStr.replace(/[+\-,]/g, '');
                     return Math.abs(parseInt(cleanVol) || 0);
                 });
 

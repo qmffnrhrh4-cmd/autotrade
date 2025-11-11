@@ -58,7 +58,7 @@ realtime_chart_manager = None
 # Import all route blueprints
 from .routes import (
     account_bp, trading_bp, market_bp,
-    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp
+    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp, program_manager_bp
 )
 
 # Import automation routes (v5.5: 고급 자동화 시스템)
@@ -79,6 +79,7 @@ from .routes.system import (
 )
 from .routes.backtest import set_bot_instance as backtest_set_bot
 from .routes.virtual_trading import init_virtual_trading_manager
+from .routes.program_manager import set_bot_instance as program_manager_set_bot
 
 # Register all blueprints
 app.register_blueprint(account_bp)
@@ -92,6 +93,7 @@ app.register_blueprint(alerts_bp)  # v5.7.5: 알림 시스템
 app.register_blueprint(backtest_bp)  # 백테스팅 시스템
 app.register_blueprint(virtual_trading_bp)  # 가상매매 시스템
 app.register_blueprint(automation_bp)  # v5.5: 고급 자동화 시스템
+app.register_blueprint(program_manager_bp)  # 프로그램 매니저
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
@@ -163,6 +165,7 @@ def run_dashboard(bot=None, host: str = '0.0.0.0', port: int = 5000, debug: bool
         portfolio_set_bot(bot_instance)
         system_set_bot(bot_instance)
         backtest_set_bot(bot_instance)
+        program_manager_set_bot(bot_instance)
 
         # Set config manager and unified settings for system routes
         if config_manager:
