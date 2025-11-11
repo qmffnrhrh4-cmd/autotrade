@@ -156,12 +156,10 @@ class Trade(Base):
         Index('idx_stock_timestamp', 'stock_code', 'timestamp'),
 
         # 매수/매도 기록 조회 최적화
-        Index('idx_action_timestamp', 'action', 'timestamp',
-              comment='Optimize filtering trades by action (buy/sell) and time'),
+        Index('idx_action_timestamp', 'action', 'timestamp'),
 
         # 종목별 거래 이력 조회 최적화
-        Index('idx_stock_action_timestamp', 'stock_code', 'action', 'timestamp',
-              comment='Optimize queries for specific stock trade history by action'),
+        Index('idx_stock_action_timestamp', 'stock_code', 'action', 'timestamp'),
     )
 
     def __repr__(self):
@@ -202,8 +200,7 @@ class Position(Base):
 
     __table_args__ = (
         # 활성 포지션 조회 최적화 (최근 업데이트된 활성 포지션)
-        Index('idx_is_active_updated_at', 'is_active', 'updated_at',
-              comment='Optimize queries for active positions sorted by update time'),
+        Index('idx_is_active_updated_at', 'is_active', 'updated_at'),
     )
 
     def __repr__(self):
@@ -295,9 +292,7 @@ class PortfolioSnapshot(Base):
 
     __table_args__ = (
         # 날짜 범위 쿼리 최적화 (일별/주별/월별 분석)
-        Index('idx_timestamp_desc', 'timestamp',
-              postgresql_ops={'timestamp': 'DESC'},
-              comment='Optimize date range queries for portfolio history analysis'),
+        Index('idx_timestamp_desc', 'timestamp'),
     )
 
     def __repr__(self):
