@@ -2,7 +2,7 @@
 research/scan_strategies.py
 3가지 시장 스캔 전략 구현
 
-v5.7.5: Deep Scan 공통화 적용
+ Deep Scan 공통화 적용
 """
 import time
 from typing import List, Dict, Any, Optional
@@ -12,7 +12,7 @@ from datetime import datetime
 from utils.logger_new import get_logger
 from utils.stock_filter import is_etf
 from research.scanner_pipeline import StockCandidate
-from research.deep_scan_utils import enrich_candidates_with_deep_scan  # v5.7.5
+from research.deep_scan_utils import enrich_candidates_with_deep_scan  
 
 logger = get_logger()
 
@@ -489,7 +489,7 @@ class PriceChangeStrategy(ScanStrategy):
             print(f"✅ [{self.name}] 스캔 완료: {len(stock_candidates)}개 후보 (소요: {elapsed:.2f}초)")
             logger.info(f"✅ [{self.name}] 스캔 완료: {len(stock_candidates)}개 후보")
 
-            # v5.7.5: Deep Scan 추가 - 2번째 스캔도 상세 데이터 수집
+            #  Deep Scan 추가 - 2번째 스캔도 상세 데이터 수집
             if stock_candidates:
                 enrich_candidates_with_deep_scan(
                     stock_candidates,
@@ -598,7 +598,7 @@ class AIDrivenStrategy(ScanStrategy):
             print(f"✅ [{self.name}] 스캔 완료: {len(stock_candidates)}개 후보 (소요: {elapsed:.2f}초)")
             logger.info(f"✅ [{self.name}] 스캔 완료: {len(stock_candidates)}개 후보")
 
-            # v5.7.5: Deep Scan 추가 - 3번째 스캔도 상세 데이터 수집
+            #  Deep Scan 추가 - 3번째 스캔도 상세 데이터 수집
             if stock_candidates:
                 enrich_candidates_with_deep_scan(
                     stock_candidates,

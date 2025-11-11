@@ -79,10 +79,21 @@ DELAYS = {
     'batch_delay': 0.1
 }
 
+HOST = '0.0.0.0'
+OPENAPI_HOST = '127.0.0.1'
+REDIS_HOST = 'localhost'
+
+PORTS = {
+    'openapi': 5001,
+    'dashboard': 5000,
+    'redis': 6379
+}
+
 URLS = {
-    'openapi_server': 'http://127.0.0.1:5001',
+    'openapi_server': f'http://{OPENAPI_HOST}:{PORTS["openapi"]}',
     'kiwoom_api_base': 'https://api.kiwoom.com',
-    'openapi_health': 'http://127.0.0.1:5001/health'
+    'openapi_health': f'http://{OPENAPI_HOST}:{PORTS["openapi"]}/health',
+    'dashboard': f'http://localhost:{PORTS["dashboard"]}'
 }
 
 PROFIT_LOSS_RATIOS = {

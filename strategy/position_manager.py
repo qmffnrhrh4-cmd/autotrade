@@ -1,25 +1,24 @@
 """
 AutoTrade Pro - 통합 포지션 관리자
 모든 전략에서 공통으로 사용하는 포지션 관리 로직
-
-v4.2 CRITICAL #2: Use standard Position from core
 """
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import logging
 
-# v4.2: Use standard Position from core
 from core import Position
+from utils.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 
 
-class PositionManager:
+class PositionManager(BaseManager):
     """통합 포지션 관리자"""
 
     def __init__(self):
+        super().__init__(name="PositionManager")
         self.positions: Dict[str, Position] = {}
-        logger.info("포지션 관리자 초기화")
+        self.initialized = False
 
     def add_position(
         self,
@@ -185,6 +184,22 @@ class PositionManager:
         count = len(self.positions)
         self.positions.clear()
         logger.info(f"모든 포지션 초기화: {count}개 제거")
+
+    def initialize(self) -> bool:
+        """초기화"""
+        self.initialized = True
+        self.logger.info("포지션 관리자 초기화 완료")
+        return True
+
+    def get_status(self) -> Dict[str, Any]:
+        """상태 정보"""
+        return {
+            **super().get_stats(),
+            'position_count': self.get_position_count(),
+            'total_evaluation': self.get_total_evaluation(),
+            'total_profit_loss': self.get_total_profit_loss(),
+            'total_profit_loss_rate': self.get_total_profit_loss_rate()
+        }
 
     def get_positions_summary(self) -> Dict[str, Any]:
         """포지션 요약 정보"""

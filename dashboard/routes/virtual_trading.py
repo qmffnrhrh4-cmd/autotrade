@@ -4,6 +4,7 @@ dashboard/routes/virtual_trading.py
 """
 import logging
 from flask import Blueprint, jsonify, request
+from utils.response_helper import error_response
 from virtual_trading import VirtualTradingManager
 
 logger = logging.getLogger(__name__)
@@ -148,7 +149,7 @@ def get_strategies():
 
     except Exception as e:
         logger.error(f"전략 조회 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/strategies', methods=['POST'])
@@ -156,7 +157,7 @@ def create_strategy():
     """새로운 가상매매 전략 생성"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data = request.json
         name = data.get('name')
@@ -164,7 +165,7 @@ def create_strategy():
         initial_capital = data.get('initial_capital', 10000000)
 
         if not name:
-            return jsonify({'error': '전략 이름이 필요합니다'}), 400
+            return error_response('전략 이름이 필요합니다', status=400)
 
         strategy_id = virtual_manager.create_strategy(
             name=name,
@@ -180,7 +181,7 @@ def create_strategy():
 
     except Exception as e:
         logger.error(f"전략 생성 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/strategies/<int:strategy_id>', methods=['GET'])
@@ -188,12 +189,12 @@ def get_strategy_detail(strategy_id: int):
     """특정 전략의 상세 정보 조회"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         # 전략 기본 정보
         strategies = virtual_manager.get_strategy_summary(strategy_id)
         if not strategies:
-            return jsonify({'error': '전략을 찾을 수 없습니다'}), 404
+            return error_response('전략을 찾을 수 없습니다', status=404)
 
         strategy = strategies[0]
 
@@ -216,7 +217,7 @@ def get_strategy_detail(strategy_id: int):
 
     except Exception as e:
         logger.error(f"전략 상세 조회 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/strategies/<int:strategy_id>', methods=['DELETE'])
@@ -224,7 +225,7 @@ def delete_strategy(strategy_id: int):
     """가상매매 전략 삭제"""
     try:
         if not virtual_manager:
-            return jsonify({'success': False, 'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         success = virtual_manager.delete_strategy(strategy_id)
 
@@ -241,7 +242,7 @@ def delete_strategy(strategy_id: int):
 
     except Exception as e:
         logger.error(f"전략 삭제 실패: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/positions', methods=['GET'])
@@ -249,7 +250,7 @@ def get_positions():
     """활성 포지션 조회"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         strategy_id = request.args.get('strategy_id', type=int)
         positions = virtual_manager.get_positions(strategy_id)
@@ -261,7 +262,7 @@ def get_positions():
 
     except Exception as e:
         logger.error(f"포지션 조회 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/trades', methods=['GET'])
@@ -269,7 +270,7 @@ def get_trades():
     """거래 내역 조회"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         strategy_id = request.args.get('strategy_id', type=int)
         limit = request.args.get('limit', type=int, default=50)
@@ -283,7 +284,7 @@ def get_trades():
 
     except Exception as e:
         logger.error(f"거래 내역 조회 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/buy', methods=['POST'])
@@ -291,7 +292,7 @@ def execute_buy():
     """가상매매 매수 주문 실행"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data = request.json
         strategy_id = data.get('strategy_id')
@@ -304,7 +305,7 @@ def execute_buy():
 
         # 필수 파라미터 검증
         if not all([strategy_id, stock_code, stock_name, quantity, price]):
-            return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
+            return error_response('필수 파라미터가 누락되었습니다', status=400)
 
         position_id = virtual_manager.execute_buy(
             strategy_id=strategy_id,
@@ -323,11 +324,11 @@ def execute_buy():
                 'message': f'{stock_name} {quantity}주 매수 완료'
             })
         else:
-            return jsonify({'error': '매수 주문 실행 실패'}), 500
+            return error_response('매수 주문 실행 실패', status=500)
 
     except Exception as e:
         logger.error(f"매수 주문 실행 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/sell', methods=['POST'])
@@ -335,7 +336,7 @@ def execute_sell():
     """가상매매 매도 주문 실행"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data = request.json
         position_id = data.get('position_id')
@@ -344,7 +345,7 @@ def execute_sell():
 
         # 필수 파라미터 검증
         if not all([position_id, sell_price]):
-            return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
+            return error_response('필수 파라미터가 누락되었습니다', status=400)
 
         profit = virtual_manager.execute_sell(
             position_id=position_id,
@@ -359,11 +360,11 @@ def execute_sell():
                 'message': f'매도 완료 (수익: {profit:+,.0f}원)'
             })
         else:
-            return jsonify({'error': '매도 주문 실행 실패'}), 500
+            return error_response('매도 주문 실행 실패', status=500)
 
     except Exception as e:
         logger.error(f"매도 주문 실행 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/prices', methods=['POST'])
@@ -371,13 +372,13 @@ def update_prices():
     """종목 현재가 업데이트"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data = request.json
         price_updates = data.get('prices', {})
 
         if not price_updates:
-            return jsonify({'error': '가격 정보가 누락되었습니다'}), 400
+            return error_response('가격 정보가 누락되었습니다', status=400)
 
         virtual_manager.update_prices(price_updates)
 
@@ -388,7 +389,7 @@ def update_prices():
 
     except Exception as e:
         logger.error(f"가격 업데이트 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/check-conditions', methods=['POST'])
@@ -396,7 +397,7 @@ def check_conditions():
     """손절/익절 조건 체크 및 자동 매도 실행"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         executed_orders = virtual_manager.check_stop_loss_take_profit()
 
@@ -408,7 +409,7 @@ def check_conditions():
 
     except Exception as e:
         logger.error(f"조건 체크 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/performance/<int:strategy_id>', methods=['GET'])
@@ -416,12 +417,12 @@ def get_performance(strategy_id: int):
     """전략 성과 지표 조회"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         metrics = virtual_manager.get_performance_metrics(strategy_id)
 
         if not metrics:
-            return jsonify({'error': '전략을 찾을 수 없습니다'}), 404
+            return error_response('전략을 찾을 수 없습니다', status=404)
 
         return jsonify({
             'success': True,
@@ -430,7 +431,7 @@ def get_performance(strategy_id: int):
 
     except Exception as e:
         logger.error(f"성과 지표 조회 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/backtest', methods=['POST'])
@@ -438,7 +439,7 @@ def run_backtest():
     """백테스팅 실행 (과거 데이터로 전략 검증)"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data = request.json
         strategy_id = data.get('strategy_id')
@@ -450,7 +451,7 @@ def run_backtest():
 
         # 필수 파라미터 검증
         if not all([strategy_id, stock_code, start_date, end_date]):
-            return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
+            return error_response('필수 파라미터가 누락되었습니다', status=400)
 
         # BacktestAdapter 임포트 및 실행
         from virtual_trading import BacktestAdapter
@@ -458,7 +459,7 @@ def run_backtest():
         # data_fetcher 가져오기 (없으면 생성)
         data_fetcher = _get_data_fetcher()
         if not data_fetcher:
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
+            return error_response('DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.', status=500)
 
         adapter = BacktestAdapter(
             virtual_manager=virtual_manager,
@@ -475,7 +476,7 @@ def run_backtest():
         )
 
         if 'error' in result:
-            return jsonify({'error': result['error']}), 500
+            return error_response(result['error'], status=500)
 
         return jsonify({
             'success': True,
@@ -484,7 +485,7 @@ def run_backtest():
 
     except Exception as e:
         logger.error(f"백테스팅 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/backtest/apply', methods=['POST'])
@@ -492,20 +493,20 @@ def apply_backtest_result():
     """백테스팅 최적 조건을 전략에 적용"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data = request.json
         strategy_id = data.get('strategy_id')
         backtest_result = data.get('backtest_result')
 
         if not all([strategy_id, backtest_result]):
-            return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
+            return error_response('필수 파라미터가 누락되었습니다', status=400)
 
         from virtual_trading import BacktestAdapter
 
         data_fetcher = _get_data_fetcher()
         if not data_fetcher:
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
+            return error_response('DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.', status=500)
 
         adapter = BacktestAdapter(
             virtual_manager=virtual_manager,
@@ -521,27 +522,25 @@ def apply_backtest_result():
                 'recommendation': backtest_result.get('recommendation', {})
             })
         else:
-            return jsonify({'error': '최적 조건 적용 실패'}), 500
+            return error_response('최적 조건 적용 실패', status=500)
 
     except Exception as e:
         logger.error(f"백테스팅 조건 적용 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
-# ============================================================================
 # AI 자동 전략 관리 API
-# ============================================================================
 
 @virtual_trading_bp.route('/api/virtual-trading/ai/initialize', methods=['POST'])
 def ai_initialize_strategies():
     """AI가 5가지 전략을 자동 생성"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data_fetcher = _get_data_fetcher()
         if not data_fetcher:
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
+            return error_response('DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.', status=500)
 
         from virtual_trading import AIStrategyManager
 
@@ -560,7 +559,7 @@ def ai_initialize_strategies():
 
     except Exception as e:
         logger.error(f"AI 전략 초기화 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/ai/review', methods=['POST'])
@@ -568,11 +567,11 @@ def ai_review_strategies():
     """AI가 전략 성과를 자동 검토"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data_fetcher = _get_data_fetcher()
         if not data_fetcher:
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
+            return error_response('DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.', status=500)
 
         from virtual_trading import AIStrategyManager
 
@@ -591,7 +590,7 @@ def ai_review_strategies():
 
     except Exception as e:
         logger.error(f"AI 전략 검토 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/ai/improve', methods=['POST'])
@@ -599,11 +598,11 @@ def ai_improve_strategies():
     """AI가 전략을 자동 개선"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data_fetcher = _get_data_fetcher()
         if not data_fetcher:
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
+            return error_response('DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.', status=500)
 
         from virtual_trading import AIStrategyManager
 
@@ -625,7 +624,7 @@ def ai_improve_strategies():
 
     except Exception as e:
         logger.error(f"AI 전략 개선 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @virtual_trading_bp.route('/api/virtual-trading/ai/auto-manage', methods=['POST'])
@@ -633,11 +632,11 @@ def ai_auto_manage():
     """AI가 전략을 자동 관리 (검토 → 개선 → 추천)"""
     try:
         if not virtual_manager:
-            return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
 
         data_fetcher = _get_data_fetcher()
         if not data_fetcher:
-            return jsonify({'error': 'DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.'}), 500
+            return error_response('DataFetcher를 사용할 수 없습니다. API 연결을 확인하세요.', status=500)
 
         from virtual_trading import AIStrategyManager
 
@@ -656,4 +655,4 @@ def ai_auto_manage():
 
     except Exception as e:
         logger.error(f"AI 자동 관리 실패: {e}", exc_info=True)
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)

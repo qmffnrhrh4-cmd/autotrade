@@ -5,7 +5,7 @@ research 패키지
 from .data_fetcher import DataFetcher
 from .analyzer import Analyzer
 from .screener import Screener
-# v4.0 Advanced Features
+
 from .quant_screener import QuantScreener, StockFactors
 
 # 기존 코드 호환성을 위한 Research 클래스
@@ -80,7 +80,7 @@ __all__ = [
     'DataFetcher',
     'Analyzer',
     'Screener',
-    # v4.0 Advanced Features
+    
     'QuantScreener',
     'StockFactors',
 ]

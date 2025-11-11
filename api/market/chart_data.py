@@ -1,8 +1,7 @@
 """
 api/market/chart_data.py
-차트 및 히스토리컬 데이터 조회 API (Enhanced v5.9)
+차트 및 히스토리컬 데이터 조회 API
 
-v5.9 개선사항:
 - 분봉 차트 데이터 조회 추가 (1/5/15/30/60분)
 - 다양한 시간프레임 지원
 - 데이터 검증 및 에러 핸들링 강화
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ChartDataAPI:
     """
-    차트 및 히스토리컬 데이터 조회 API (Enhanced v5.9)
+    차트 및 히스토리컬 데이터 조회 API
 
     주요 기능:
     - 일봉 차트 데이터 조회
@@ -31,7 +30,7 @@ class ChartDataAPI:
             client: KiwoomRESTClient 인스턴스
         """
         self.client = client
-        logger.debug("ChartDataAPI 초기화 완료 (v5.9 - 분봉 지원)")
+        logger.debug("ChartDataAPI 초기화 완료")
 
     def get_daily_chart(
         self,
@@ -112,9 +111,9 @@ class ChartDataAPI:
         use_nxt_fallback: bool = True
     ) -> List[Dict[str, Any]]:
         """
-        분봉 차트 데이터 조회 (ka10080 사용) - v6.0 NXT 지원
+        분봉 차트 데이터 조회 (ka10080 사용)
 
-        ⚠️ 중요 (v6.0 NXT 시간대 지원 - 2025-11-07):
+        ⚠️ 중요:
         - NXT 시간대(08:00-09:00, 15:30-20:00)에 _NX 접미사 자동 시도
         - 실패 시 기본 코드로 자동 fallback
         - base_date 파라미터로 과거 데이터 조회 가능
@@ -275,7 +274,7 @@ class ChartDataAPI:
         timeframes: List[Literal[1, 5, 15, 30, 60, 'daily']] = [1, 5, 15, 'daily']
     ) -> Dict[str, List[Dict[str, Any]]]:
         """
-        다중 시간프레임 차트 데이터 한번에 조회 - v5.9 NEW
+        다중 시간프레임 차트 데이터 한번에 조회
 
         Args:
             stock_code: 종목코드
@@ -345,7 +344,7 @@ def get_minute_chart(
     use_nxt_fallback: bool = True
 ) -> List[Dict[str, Any]]:
     """
-    분봉 차트 데이터 조회 (standalone function) - v6.0 NXT 지원
+    분봉 차트 데이터 조회 (standalone function)
 
     Args:
         stock_code: 종목코드
@@ -370,7 +369,7 @@ def get_multi_timeframe_data(
     timeframes: List[Literal[1, 5, 15, 30, 60, 'daily']] = [1, 5, 15, 'daily']
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
-    다중 시간프레임 데이터 조회 (standalone function) - v5.9 NEW
+    다중 시간프레임 데이터 조회 (standalone function)
 
     Args:
         stock_code: 종목코드
@@ -389,6 +388,6 @@ def get_multi_timeframe_data(
 __all__ = [
     'ChartDataAPI',
     'get_daily_chart',
-    'get_minute_chart',  # v5.9 NEW
-    'get_multi_timeframe_data',  # v5.9 NEW
+    'get_minute_chart',  
+    'get_multi_timeframe_data',  
 ]

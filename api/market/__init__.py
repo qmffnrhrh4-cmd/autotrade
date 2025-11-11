@@ -97,7 +97,7 @@ class MarketAPI:
 
     def get_minute_chart(self, stock_code: str, interval: int = 1, count: int = 100,
                         adjusted: bool = True, base_date: str = None, use_nxt_fallback: bool = True):
-        """분봉 차트 데이터 조회 (v6.0 NXT 지원)"""
+        """분봉 차트 데이터 조회"""
         return self.chart_data.get_minute_chart(stock_code, interval, count, adjusted, base_date, use_nxt_fallback)
 
     def get_multi_timeframe_data(self, stock_code: str, timeframes=None):

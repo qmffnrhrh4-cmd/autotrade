@@ -28,6 +28,15 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeou
 # Set Qt environment before importing koapy
 os.environ['QT_API'] = 'pyqt5'
 
+# Import config constants
+sys.path.insert(0, os.path.dirname(__file__))
+try:
+    from config.constants import OPENAPI_HOST, PORTS
+except ImportError:
+    # Fallback to hardcoded values if config not available
+    OPENAPI_HOST = '127.0.0.1'
+    PORTS = {'openapi': 5001}
+
 app = Flask(__name__)
 CORS(app)
 
@@ -613,10 +622,10 @@ def shutdown():
 
 def run_flask_in_thread():
     """Run Flask server in background thread"""
-    logger.info("🚀 Starting Flask HTTP server on http://localhost:5001")
+    logger.info(f"🚀 Starting Flask HTTP server on http://{OPENAPI_HOST}:{PORTS['openapi']}")
     app.run(
-        host='127.0.0.1',
-        port=5001,
+        host=OPENAPI_HOST,
+        port=PORTS['openapi'],
         debug=False,
         use_reloader=False,
         threaded=False,  # ❗ Qt 메인 스레드 문제 방지

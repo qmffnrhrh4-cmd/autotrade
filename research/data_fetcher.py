@@ -157,7 +157,7 @@ class DataFetcher:
 
         for item in output_list:
             stock_code = item.get('stk_cd', '')
-            # ✅ v5.16: _NX 접미사 유지 (NXT 현재가 조회를 위해 필요)
+            # ✅  _NX 접미사 유지 (NXT 현재가 조회를 위해 필요)
 
             holding = {
                 'stock_code': stock_code,  # _NX 접미사 유지!
@@ -180,7 +180,7 @@ class DataFetcher:
         """
         종목 현재가 조회 (시간대별 자동 처리)
 
-        ✅ v5.16: NXT 시간대 자동 감지 및 _NX 접미사 처리
+        ✅  NXT 시간대 자동 감지 및 _NX 접미사 처리
         - 08:00-09:00, 15:30-20:00: NXT 현재가 (_NX 접미사 사용)
         - 09:00-15:30: KRX 현재가 (기본 코드 사용)
 
@@ -681,7 +681,7 @@ class DataFetcher:
             logger.error(f"투자자별 매매 동향 조회 실패: {response.get('return_msg')}")
             return None
 
-    # v5.9: 외국인/기관 매매 순위 조회
+    #  외국인/기관 매매 순위 조회
     def get_foreign_buying_rank(
         self,
         market: str = 'KOSPI',
@@ -690,7 +690,7 @@ class DataFetcher:
         limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        외국인 순매수 상위 종목 조회 (v5.9 NEW)
+        외국인 순매수 상위 종목 조회
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')
@@ -734,7 +734,7 @@ class DataFetcher:
         limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        외국인 순매도 상위 종목 조회 (v5.9 NEW)
+        외국인 순매도 상위 종목 조회
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')
@@ -769,7 +769,7 @@ class DataFetcher:
         limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        기관 순매수 상위 종목 조회 (v5.9 NEW)
+        기관 순매수 상위 종목 조회
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')
@@ -804,7 +804,7 @@ class DataFetcher:
         limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        기관 순매도 상위 종목 조회 (v5.9 NEW)
+        기관 순매도 상위 종목 조회
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')

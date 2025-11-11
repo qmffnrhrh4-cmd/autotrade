@@ -637,9 +637,7 @@ def get_real_holdings():
             'message': str(e)
         }), 500
 
-# ============================================================================
 # v5.7.2: 수익 최적화 API
-# ============================================================================
 
 @account_bp.route('/api/profit-optimization/rules')
 def get_optimization_rules():

@@ -1,14 +1,16 @@
 """
 utils/alert_manager.py
-v5.7.5: 실시간 알림 시스템
+실시간 알림 시스템
 
 손익 임계값 도달 시 알림 발생
 """
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional, Callable, Any
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 import logging
+
+from utils.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -64,27 +66,29 @@ class Alert:
         }
 
 
-class AlertManager:
+class AlertManager(BaseManager):
     """알림 관리자"""
 
     def __init__(self):
         """초기화"""
+        super().__init__(name="AlertManager")
         self.alerts: List[Alert] = []
-        self.max_alerts = 100  # 최대 알림 개수
+        self.max_alerts = 100
 
         # 임계값 설정
         self.thresholds = {
-            'profit_target': 10.0,  # 익절 목표: 10% 이상
-            'stop_loss': -5.0,  # 손절 기준: -5% 이하
-            'big_profit': 5.0,  # 큰 수익 알림: 5% 이상
-            'big_loss': -3.0,  # 큰 손실 알림: -3% 이하
+            'profit_target': 10.0,
+            'stop_loss': -5.0,
+            'big_profit': 5.0,
+            'big_loss': -3.0,
         }
 
         # 알림 발생 이력 (중복 방지)
         self._alert_history: Dict[str, datetime] = {}
-        self._cooldown_seconds = 300  # 같은 알림 5분 쿨다운
+        self._cooldown_seconds = 300
 
-        logger.info("🔔 알림 관리자 초기화 완료")
+        self.initialized = True
+        self.logger.info("🔔 알림 관리자 초기화 완료")
 
     def set_thresholds(self, profit_target: float = None, stop_loss: float = None,
                       big_profit: float = None, big_loss: float = None):
@@ -280,6 +284,23 @@ class AlertManager:
             if (cutoff_time - alert.timestamp).days < days
         ]
         logger.info(f"오래된 알림 삭제 완료 (보존: {days}일)")
+
+    def initialize(self) -> bool:
+        """초기화"""
+        self.initialized = True
+        self.logger.info("알림 관리자 초기화 완료")
+        return True
+
+    def get_status(self) -> Dict[str, Any]:
+        """상태 정보"""
+        return {
+            **super().get_stats(),
+            'total_alerts': len(self.alerts),
+            'unread_count': self.get_unread_count(),
+            'max_alerts': self.max_alerts,
+            'thresholds': self.thresholds,
+            'cooldown_seconds': self._cooldown_seconds
+        }
 
 
 # 전역 인스턴스

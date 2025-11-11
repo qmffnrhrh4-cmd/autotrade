@@ -2,7 +2,7 @@
 strategy/scoring_system.py
 10가지 기준 스코어링 시스템 (440점 만점)
 
-v6.0 Enhanced Features:
+Enhanced Features:
 - Time-based dynamic weight adjustment
 - Risk score integration
 - Virtual trading performance feedback
@@ -16,6 +16,7 @@ from datetime import datetime, time as dt_time
 from pathlib import Path
 import hashlib
 import json
+import yaml
 
 from utils.logger_new import get_logger
 from utils.data_cache import get_api_cache
@@ -27,7 +28,7 @@ logger = get_logger()
 
 @dataclass
 class ScoringResult:
-    """스코어링 결과 (v6.0)"""
+    """스코어링 결과"""
 
     total_score: float = 0.0
     max_score: float = 440.0
@@ -77,7 +78,7 @@ class ScoringResult:
 
 
 class ScoringSystem:
-    """10가지 기준 스코어링 시스템 (v6.0 Enhanced)"""
+    """10가지 기준 스코어링 시스템"""
 
     def __init__(
         self,
@@ -110,9 +111,20 @@ class ScoringSystem:
         self.stock_history = {}
         self._load_historical_data()
 
-        logger.info("📊 10가지 기준 스코어링 시스템 초기화 완료 (v6.0 - 시간/리스크/학습 통합)")
+        logger.info("📊 10가지 기준 스코어링 시스템 초기화 완료")
 
-        self.time_based_weights = {
+        # YAML 설정 파일에서 가중치 로드
+        self._load_scoring_weights_from_yaml()
+
+    def _load_scoring_weights_from_yaml(self) -> None:
+        """
+        YAML 설정 파일에서 가중치 로드
+        파일이 없을 경우 기본값 사용
+        """
+        yaml_path = Path('config/scoring_weights.yaml')
+
+        # 기본 가중치 (fallback)
+        default_time_based_weights = {
             'early': {
                 'volume_surge': 1.5,
                 'execution_intensity': 1.3,
@@ -133,8 +145,7 @@ class ScoringSystem:
             }
         }
 
-        self.scan_type_weights = {
-            # VolumeBasedStrategy: 거래량, 체결강도, 호가비율 중시
+        default_scan_type_weights = {
             'volume_based': {
                 'volume_surge': 1.5,
                 'price_momentum': 0.8,
@@ -147,7 +158,6 @@ class ScoringSystem:
                 'theme_news': 0.9,
                 'volatility_pattern': 1.0,
             },
-            # PriceChangeStrategy: 가격모멘텀, 기술지표, 변동성 중시
             'price_change': {
                 'volume_surge': 0.9,
                 'price_momentum': 1.5,
@@ -160,7 +170,6 @@ class ScoringSystem:
                 'theme_news': 1.2,
                 'volatility_pattern': 1.3,
             },
-            # AIDrivenStrategy: 기관매수, 증권사, 프로그램매매 중시
             'ai_driven': {
                 'volume_surge': 1.0,
                 'price_momentum': 1.0,
@@ -173,7 +182,6 @@ class ScoringSystem:
                 'theme_news': 1.3,
                 'volatility_pattern': 0.9,
             },
-            # Default: 모든 항목 동일 가중치
             'default': {
                 'volume_surge': 1.0,
                 'price_momentum': 1.0,
@@ -188,9 +196,33 @@ class ScoringSystem:
             },
         }
 
+        try:
+            if yaml_path.exists():
+                with open(yaml_path, 'r', encoding='utf-8') as f:
+                    yaml_config = yaml.safe_load(f)
+
+                # YAML에서 가중치 로드
+                self.time_based_weights = yaml_config.get('time_based_weights', default_time_based_weights)
+                self.scan_type_weights = yaml_config.get('scan_type_weights', default_scan_type_weights)
+
+                logger.info(f"✅ YAML 설정 파일 로드 성공: {yaml_path}")
+            else:
+                # YAML 파일이 없으면 기본값 사용
+                self.time_based_weights = default_time_based_weights
+                self.scan_type_weights = default_scan_type_weights
+
+                logger.warning(f"⚠️ YAML 설정 파일 없음, 기본값 사용: {yaml_path}")
+
+        except Exception as e:
+            # YAML 로드 실패 시 기본값 사용
+            self.time_based_weights = default_time_based_weights
+            self.scan_type_weights = default_scan_type_weights
+
+            logger.error(f"❌ YAML 파일 로드 실패, 기본값 사용: {e}")
+
     def _generate_cache_key(self, stock_data: Dict[str, Any], scan_type: str) -> str:
         """
-        캐시 키 생성 (v5.9)
+        캐시 키 생성
 
         Args:
             stock_data: 종목 데이터
@@ -211,7 +243,7 @@ class ScoringSystem:
 
     def calculate_score(self, stock_data: Dict[str, Any], scan_type: str = 'default') -> ScoringResult:
         """
-        종목 종합 점수 계산 (v6.0 - 시간/리스크 통합)
+        종목 종합 점수 계산
 
         Args:
             stock_data: 종목 데이터
@@ -313,7 +345,7 @@ class ScoringSystem:
         max_workers: int = 4
     ) -> List[Dict[str, Any]]:
         """
-        다중 종목 병렬 스코어링 (v5.9 NEW)
+        다중 종목 병렬 스코어링
 
         Args:
             stocks_data: 종목 데이터 리스트
@@ -375,12 +407,12 @@ class ScoringSystem:
         Returns:
             점수 (0~60)
         """
-        max_score = 60
+        config = self.criteria_config.get('volume_surge', {})
+        max_score = config.get('weight', 60)
 
         volume = stock_data.get('volume', 0)
         avg_volume = stock_data.get('avg_volume', None)
 
-        # v5.7.5: 상세 로그
         stock_code = stock_data.get('stock_code', 'Unknown')
 
         # avg_volume이 있으면 비율 계산
@@ -440,7 +472,8 @@ class ScoringSystem:
         Returns:
             점수 (0~60)
         """
-        max_score = 60
+        config = self.criteria_config.get('price_momentum', {})
+        max_score = config.get('weight', 60)
 
         # change_rate를 % 단위로 받음 (예: 3.5는 3.5%)
         change_rate = stock_data.get('change_rate', stock_data.get('rate', 0.0))
@@ -484,7 +517,6 @@ class ScoringSystem:
 
         min_net_buy = config.get('min_net_buy', 10_000_000)
 
-        # v5.7.5: 상세 로그
         stock_code = stock_data.get('stock_code', 'Unknown')
         print(f"   [기관매수] {stock_code}: 기관={institutional_net_buy:,}원, 외국인={foreign_net_buy:,}원", end="")
 
@@ -597,8 +629,9 @@ class ScoringSystem:
             return 0.0
 
         # 체결강도 기준 점수 계산
-        min_value = 50  # 강제 하드코딩: config 무시
-        print(f"[DEBUG 체결강도] {stock_code}: min_value={min_value} (하드코딩)")
+        config = self.criteria_config.get('execution_intensity', {})
+        min_value = config.get('min_value', 50)
+        print(f"[DEBUG 체결강도] {stock_code}: min_value={min_value} (설정: {config.get('min_value', 'default')})")
 
         if execution_intensity >= min_value * 3.0:  # 150 이상
             score = max_score
@@ -698,18 +731,23 @@ class ScoringSystem:
         Returns:
             점수 (0~40)
         """
-        max_score = 40
+        config = self.criteria_config.get('technical_indicators', {})
+        max_score = config.get('weight', 40)
+        rsi_weight = config.get('rsi_weight', 0.375)
+        macd_weight = config.get('macd_weight', 0.375)
+        bb_weight = config.get('bb_weight', 0.125)
+        ma_weight = config.get('ma_weight', 0.125)
+
         score = 0.0
 
-        # v5.7.5: 상세 로그
         stock_code = stock_data.get('stock_code', 'Unknown')
         score_parts = []
 
-        # RSI (15점)
+        # RSI
         rsi = stock_data.get('rsi', None)
         if rsi is not None:
             if 30 <= rsi <= 70:  # 과매도/과매수 아님
-                rsi_score = max_score * 0.375
+                rsi_score = max_score * rsi_weight
                 score += rsi_score
                 score_parts.append(f"RSI({rsi:.0f})+{rsi_score:.0f}")
         else:
@@ -717,7 +755,7 @@ class ScoringSystem:
             change_rate = stock_data.get('change_rate', 0)
             if 0.5 <= change_rate <= 20.0:
                 score_ratio = min(change_rate / 10.0, 1.0)
-                rsi_score = max_score * 0.375 * score_ratio
+                rsi_score = max_score * rsi_weight * score_ratio
                 score += rsi_score
                 score_parts.append(f"RSI추정+{rsi_score:.0f}")
             elif change_rate > 0:
@@ -725,7 +763,7 @@ class ScoringSystem:
                 score += rsi_score
                 score_parts.append(f"RSI추정+{rsi_score:.0f}")
 
-        # MACD (15점)
+        # MACD
         macd_bullish = stock_data.get('macd_bullish_crossover', False)
         macd = stock_data.get('macd', None)
         macd_positive = False
@@ -736,7 +774,7 @@ class ScoringSystem:
                 macd_positive = macd > 0
 
         if macd_bullish or macd_positive:
-            macd_score = max_score * 0.375
+            macd_score = max_score * macd_weight
             score += macd_score
             score_parts.append(f"MACD+{macd_score:.0f}")
         else:
@@ -752,12 +790,12 @@ class ScoringSystem:
                 score += macd_score
                 score_parts.append(f"MACD추정+{macd_score:.0f}")
 
-        # 볼린저밴드 (BB) (5점)
+        # 볼린저밴드 (BB)
         bollinger_bands = stock_data.get('bollinger_bands', None)
         bb_position = bollinger_bands.get('position') if isinstance(bollinger_bands, dict) else stock_data.get('bb_position', None)
 
         if bb_position is not None and 0.2 <= bb_position <= 0.8:
-            bb_score = max_score * 0.125
+            bb_score = max_score * bb_weight
             score += bb_score
             score_parts.append(f"BB+{bb_score:.0f}")
         else:
@@ -767,13 +805,13 @@ class ScoringSystem:
                 score += bb_score
                 score_parts.append(f"BB추정+{bb_score:.0f}")
 
-        # 이동평균 (MA) (5점)
+        # 이동평균 (MA)
         ma5 = stock_data.get('ma5', None)
         ma20 = stock_data.get('ma20', None)
         current_price = stock_data.get('current_price', 0)
 
         if ma5 and ma20 and ma5 > ma20:
-            ma_score = max_score * 0.125
+            ma_score = max_score * ma_weight
             score += ma_score
             score_parts.append(f"MA+{ma_score:.0f}")
         elif current_price > 0:
@@ -897,7 +935,8 @@ class ScoringSystem:
         Returns:
             등급 (S, A, B, C, D, F)
         """
-        percentage = (total_score / 440) * 100
+        max_score = self.scoring_config.get('max_score', 440)
+        percentage = (total_score / max_score) * 100
 
         if percentage >= 90:
             return 'S'

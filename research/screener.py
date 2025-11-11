@@ -205,7 +205,7 @@ class Screener:
         logger.info(f"거래대금 스크리닝 완료: {len(filtered)}개 종목 (최소 {min_value:,}원)")
         return filtered
 
-    # v5.9: 투자자별 매매 기준 스크리닝
+    #  투자자별 매매 기준 스크리닝
     def screen_by_foreign_buying(
         self,
         market: str = 'KOSPI',
@@ -213,7 +213,7 @@ class Screener:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        외국인 순매수 종목 스크리닝 (v5.9 NEW)
+        외국인 순매수 종목 스크리닝
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')
@@ -242,7 +242,7 @@ class Screener:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        기관 순매수 종목 스크리닝 (v5.9 NEW)
+        기관 순매수 종목 스크리닝
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')
@@ -272,7 +272,7 @@ class Screener:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        스마트머니 (외국인+기관 동시 순매수) 종목 스크리닝 (v5.9 NEW)
+        스마트머니 (외국인+기관 동시 순매수) 종목 스크리닝
 
         외국인과 기관이 동시에 순매수하는 종목을 찾습니다.
         일반적으로 이런 종목은 상승 가능성이 높습니다.
@@ -328,7 +328,7 @@ class Screener:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        외국인 순매도 종목 스크리닝 (v5.9 NEW)
+        외국인 순매도 종목 스크리닝
 
         역발상 투자나 저점 매수 타이밍을 찾는데 활용
 
@@ -359,7 +359,7 @@ class Screener:
         limit: int = 50
     ) -> List[Dict[str, Any]]:
         """
-        기관 순매도 종목 스크리닝 (v5.9 NEW)
+        기관 순매도 종목 스크리닝
 
         Args:
             market: 시장구분 ('KOSPI', 'KOSDAQ')

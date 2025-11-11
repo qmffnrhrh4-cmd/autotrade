@@ -8,6 +8,7 @@ from pathlib import Path
 import sys
 import pandas as pd
 from flask import Blueprint, jsonify, request
+from utils.response_helper import error_response
 
 # Add parent directory to path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -33,10 +34,6 @@ def set_realtime_chart_manager(manager):
     _realtime_chart_manager = manager
 
 
-# ============================================================================
-# ORDERBOOK ENDPOINT
-# ============================================================================
-
 @market_bp.route('/api/orderbook/<stock_code>')
 def get_orderbook_api(stock_code: str):
     """Get real-time order book for stock"""
@@ -48,14 +45,10 @@ def get_orderbook_api(stock_code: str):
             data = service.get_order_book_for_dashboard(stock_code)
             return jsonify(data)
         else:
-            return jsonify({'success': False, 'message': 'Bot not initialized'})
+            return error_response('Bot not initialized')
     except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
-
-# ============================================================================
-# NEWS ENDPOINT
-# ============================================================================
 
 @market_bp.route('/api/news/<stock_code>')
 def get_news_api(stock_code: str):
@@ -75,12 +68,8 @@ def get_news_api(stock_code: str):
         return jsonify(result)
     except Exception as e:
         print(f"News API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
-
-# ============================================================================
-# SEARCH STOCKS ENDPOINT
-# ============================================================================
 
 @market_bp.route('/api/search/stocks')
 def search_stocks():
@@ -135,6 +124,7 @@ def search_stocks():
 
             except Exception as e:
                 print(f"Stock search error: {e}")
+                # Note: error_response doesn't support 'results' key, so keep jsonify for special format
                 return jsonify({
                     'success': False,
                     'message': str(e),
@@ -149,12 +139,9 @@ def search_stocks():
 
     except Exception as e:
         print(f"Search API error: {e}")
+        # Note: error_response doesn't support 'results' key, so keep jsonify for special format
         return jsonify({'success': False, 'message': str(e), 'results': []})
 
-
-# ============================================================================
-# CHART DATA ENDPOINT
-# ============================================================================
 
 @market_bp.route('/api/chart/<stock_code>')
 def get_chart_data(stock_code: str):
@@ -596,12 +583,8 @@ def get_chart_data(stock_code: str):
         print(f"📊 Chart API outer error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)})
+        return error_response(str(e))
 
-
-# ============================================================================
-# REAL-TIME MINUTE CHART API
-# ============================================================================
 
 @market_bp.route('/api/realtime_chart/add/<stock_code>', methods=['POST'])
 def add_realtime_chart(stock_code):
@@ -642,10 +625,7 @@ def add_realtime_chart(stock_code):
                     'error': '종목 추가 시간 초과'
                 })
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return error_response(str(e))
 
 
 @market_bp.route('/api/realtime_chart/remove/<stock_code>', methods=['POST'])
@@ -687,10 +667,7 @@ def remove_realtime_chart(stock_code):
                     'error': '종목 제거 시간 초과'
                 })
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return error_response(str(e))
 
 
 @market_bp.route('/api/realtime_chart/status')
@@ -709,15 +686,8 @@ def get_realtime_chart_status():
             'status': status
         })
     except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return error_response(str(e))
 
-
-# ============================================================================
-# CHART DATA ENDPOINTS (RESTful)
-# ============================================================================
 
 @market_bp.route('/api/chart/<stock_code>/daily')
 def get_daily_chart_data(stock_code: str):
@@ -823,10 +793,6 @@ def get_minute_chart_data(stock_code: str, interval: int):
             'data': []
         })
 
-
-# ============================================================================
-# AI CHART ANALYSIS ENDPOINT
-# ============================================================================
 
 @market_bp.route('/api/chart/ai_analysis/<stock_code>')
 def get_ai_chart_analysis(stock_code: str):
@@ -1037,15 +1003,8 @@ def get_ai_chart_analysis(stock_code: str):
         print(f"AI Chart Analysis error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return error_response(str(e))
 
-
-# ============================================================================
-# MARKET CONDITION DETECTION API
-# ============================================================================
 
 @market_bp.route('/api/market/detect/<stock_code>')
 def detect_market_condition(stock_code: str):
@@ -1072,10 +1031,7 @@ def detect_market_condition(stock_code: str):
 
     except Exception as e:
         logger.error(f"Market detection error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return error_response(str(e))
 
 
 @market_bp.route('/api/market/auto-response/<stock_code>', methods=['POST'])
@@ -1106,7 +1062,4 @@ def auto_response_to_market(stock_code: str):
 
     except Exception as e:
         logger.error(f"Auto response error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        })
+        return error_response(str(e))
