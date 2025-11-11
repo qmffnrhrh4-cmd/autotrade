@@ -47,10 +47,23 @@ def get_account():
             else:
                 print(f"[ACCOUNT] 보유 종목: 없음")
 
-            # 계좌 정보 계산 (kt00001 API 응답 구조에 맞게 수정)
-            # entr: 예수금, 100stk_ord_alow_amt: 100% 주문가능금액 (실제 사용가능액 = 잔존 현금)
+            # 계좌 정보 계산 (kt00001 API 응답 구조)
+            #
+            # 정확한 공식:
+            # - 총자산 = 예수금 + 주식평가액
+            # - 가용금액 = 주문가능금액 (100stk_ord_alow_amt)
+            # - 예수금 = entr (총 현금)
+            #
+            # kt00001 API 주요 필드:
+            # - entr: 예수금 (총 현금)
+            # - 100stk_ord_alow_amt: 100% 주문가능금액 (실제 사용 가능한 금액)
+            # - ord_psbl_amt: 주문가능금액
+            # - wdrw_psbl_amt: 출금가능금액
+
             deposit_amount = int(float(str(deposit.get('entr', '0')).replace(',', ''))) if deposit else 0
-            cash = int(float(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', ''))) if deposit else 0
+            available_cash = int(float(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', ''))) if deposit else 0
+            order_possible = int(float(str(deposit.get('ord_psbl_amt', '0')).replace(',', ''))) if deposit else 0
+            withdraw_possible = int(float(str(deposit.get('wdrw_psbl_amt', '0')).replace(',', ''))) if deposit else 0
 
             # v5.4.2: 주식 현재가치 계산 (장외 시간 대응)
             # eval_amt이 0인 경우 (장외 시간) 수량 × 현재가로 직접 계산
@@ -81,10 +94,21 @@ def get_account():
                         calculated_value = quantity * cur_price
                         stock_value += calculated_value
 
-            # 총 자산 = 주식 현재가치 + 잔존 현금
-            total_assets = stock_value + cash
+            # 정확한 공식 적용:
+            # 총자산 = 예수금 + 주식평가액
+            total_assets = deposit_amount + stock_value
 
-            print(f"[ACCOUNT] 총자산: {total_assets:,}원 (주식: {stock_value:,}원 + 현금: {cash:,}원)")
+            # 가용금액 = 주문가능금액 (available_cash 또는 order_possible)
+            # 일반적으로 100stk_ord_alow_amt를 사용
+            cash = available_cash
+
+            print(f"[ACCOUNT] 계좌 정보:")
+            print(f"  - 예수금: {deposit_amount:,}원")
+            print(f"  - 주식평가액: {stock_value:,}원")
+            print(f"  - 총자산: {total_assets:,}원 (예수금 + 주식평가액)")
+            print(f"  - 가용금액: {cash:,}원")
+            print(f"  - 주문가능금액: {order_possible:,}원")
+            print(f"  - 출금가능금액: {withdraw_possible:,}원")
 
             # 손익 계산 (kt00004 API 필드 사용: avg_prc, rmnd_qty)
             # 계산 방식: get_positions()와 동일하게 통일

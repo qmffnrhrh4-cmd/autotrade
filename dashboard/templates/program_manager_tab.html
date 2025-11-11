@@ -1,0 +1,124 @@
+<!-- Program Manager Tab Content -->
+<div id="program-manager-tab" class="tab-content" style="display: none;">
+    <div class="container-fluid">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h2 class="gradient-text">프로그램 매니저</h2>
+                <p class="text-secondary">시스템 모니터링, 성능 분석, 자동 최적화</p>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="modern-card">
+                    <h3>제어 패널</h3>
+                    <div class="btn-group mt-3">
+                        <button id="pm-health-check-btn" class="btn-modern btn-primary">
+                            <span>건강 검진</span>
+                        </button>
+                        <button id="pm-analyze-btn" class="btn-modern btn-primary">
+                            <span>성능 분석</span>
+                        </button>
+                        <button id="pm-optimize-btn" class="btn-modern btn-primary">
+                            <span>시스템 최적화</span>
+                        </button>
+                        <button id="pm-report-btn" class="btn-modern btn-primary">
+                            <span>보고서 생성</span>
+                        </button>
+                    </div>
+                    <div class="mt-3">
+                        <label>
+                            <input type="checkbox" id="pm-auto-refresh">
+                            자동 새로고침 (30초)
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="modern-card">
+                    <h3>시스템 상태</h3>
+                    <div id="pm-status-container" class="mt-3">
+                        <p class="text-center text-secondary">데이터 로딩 중...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Container -->
+        <div class="row">
+            <!-- Health Check Report -->
+            <div class="col-md-6 mb-4">
+                <div id="pm-health-report">
+                    <!-- Health report will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Performance Analysis -->
+            <div class="col-md-6 mb-4">
+                <div id="pm-analysis-result">
+                    <!-- Analysis result will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Optimization Result -->
+            <div class="col-md-6 mb-4">
+                <div id="pm-optimization-result">
+                    <!-- Optimization result will be displayed here -->
+                </div>
+            </div>
+
+            <!-- Report -->
+            <div class="col-md-6 mb-4">
+                <div id="pm-report-container">
+                    <!-- Report will be displayed here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Script -->
+<script src="{{ url_for('static', filename='js/program_manager.js') }}"></script>
+
+<style>
+.btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-group .btn-modern {
+    flex: 1;
+    min-width: 150px;
+}
+
+#pm-status-container .grid {
+    margin-bottom: 20px;
+}
+
+#pm-health-report ul,
+#pm-analysis-result ul,
+#pm-optimization-result ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+#pm-health-report ul li,
+#pm-analysis-result ul li,
+#pm-optimization-result ul li {
+    padding: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+#pm-health-report ul li:last-child,
+#pm-analysis-result ul li:last-child,
+#pm-optimization-result ul li:last-child {
+    border-bottom: none;
+}
+</style>

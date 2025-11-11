@@ -14,6 +14,11 @@
     --color-danger: #ef4444;
     --color-info: #3b82f6;
 
+    /* 한국 주식 시장 표준 색상 */
+    --color-up: #ef4444;      /* 빨강 = 상승 (한국 표준) */
+    --color-down: #3b82f6;    /* 파랑 = 하락 (한국 표준) */
+    --color-neutral: #64748b; /* 회색 = 보합 */
+
     /* Background Colors */
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
@@ -536,3 +541,160 @@ body {
         --bg-tertiary: #1f2535;
     }
 }
+
+/* ============================================================
+   Korean Stock Market Price Display
+   한국 주식 시장 표준 (빨강=상승, 파랑=하락)
+   ============================================================ */
+
+/* 상승 (빨강) */
+.price-up,
+.change-up,
+.positive {
+    color: var(--color-up) !important;
+}
+
+.price-up::before {
+    content: "⬆️ ";
+    font-size: 0.875em;
+}
+
+.bg-price-up {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--color-up);
+    border: 1px solid var(--color-up);
+}
+
+/* 하락 (파랑) */
+.price-down,
+.change-down,
+.negative {
+    color: var(--color-down) !important;
+}
+
+.price-down::before {
+    content: "⬇️ ";
+    font-size: 0.875em;
+}
+
+.bg-price-down {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--color-down);
+    border: 1px solid var(--color-down);
+}
+
+/* 보합 (회색) */
+.price-neutral,
+.change-neutral {
+    color: var(--color-neutral) !important;
+}
+
+.price-neutral::before {
+    content: "➖ ";
+    font-size: 0.875em;
+}
+
+.bg-price-neutral {
+    background-color: rgba(100, 116, 139, 0.1);
+    color: var(--color-neutral);
+    border: 1px solid var(--color-neutral);
+}
+
+/* 가격 변동 배지 (Price Change Badge) */
+.price-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.price-badge.up {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--color-up);
+}
+
+.price-badge.down {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--color-down);
+}
+
+.price-badge.neutral {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--color-neutral);
+}
+
+/* 가격 애니메이션 */
+@keyframes priceFlash {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.price-flash {
+    animation: priceFlash 0.5s ease-in-out;
+}
+
+/* 호가창 스타일 */
+.bid-ask-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bid-row {
+    background: rgba(239, 68, 68, 0.05);
+    border-left: 3px solid var(--color-up);
+}
+
+.ask-row {
+    background: rgba(59, 130, 246, 0.05);
+    border-left: 3px solid var(--color-down);
+}
+
+/* 차트 색상 */
+.chart-candle-up {
+    fill: var(--color-up);
+    stroke: var(--color-up);
+}
+
+.chart-candle-down {
+    fill: var(--color-down);
+    stroke: var(--color-down);
+}
+
+/* 등락률 텍스트 */
+.rate-text {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-weight: 600;
+}
+
+.rate-text.up::before {
+    content: "+";
+}
+
+.rate-text.down::before {
+    content: "-";
+}
+
+/* ============================================================
+   Responsive Adjustments
+   ============================================================ */
+
+@media (max-width: 768px) {
+    .price-badge {
+        font-size: 0.625rem;
+        padding: 1px 6px;
+    }
+
+    .price-up::before,
+    .price-down::before,
+    .price-neutral::before {
+        font-size: 0.75em;
+    }
+}
+

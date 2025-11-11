@@ -1,6 +1,91 @@
 """
 database/models.py
 SQLAlchemy 데이터베이스 모델
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+쿼리 최적화 가이드라인 (Query Optimization Guidelines)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Eager Loading (N+1 문제 방지)
+   - joinedload: 관계된 객체를 JOIN으로 한 번에 로드
+   - selectinload: 관계된 객체를 별도 SELECT로 로드 (많은 데이터에 유리)
+
+   Example:
+       from sqlalchemy.orm import joinedload
+
+       # Bad: N+1 쿼리 발생
+       positions = session.query(Position).filter_by(is_active=True).all()
+       for pos in positions:
+           print(pos.trades)  # 각 position마다 추가 쿼리 발생
+
+       # Good: Eager loading
+       positions = session.query(Position).options(
+           joinedload(Position.trades)
+       ).filter_by(is_active=True).all()
+
+2. 필요한 컬럼만 조회 (SELECT 최적화)
+   - defer(): 특정 컬럼 로딩 지연
+   - load_only(): 특정 컬럼만 로드
+
+   Example:
+       from sqlalchemy.orm import load_only
+
+       # Bad: 모든 컬럼 조회
+       trades = session.query(Trade).all()
+
+       # Good: 필요한 컬럼만 조회
+       trades = session.query(Trade).options(
+           load_only(Trade.stock_code, Trade.action, Trade.timestamp)
+       ).all()
+
+3. 대량 데이터 삽입 (Bulk Insert)
+   - bulk_insert_mappings(): 대량 삽입 최적화
+
+   Example:
+       # Bad: 개별 삽입
+       for data in data_list:
+           session.add(Trade(**data))
+       session.commit()
+
+       # Good: Bulk insert
+       session.bulk_insert_mappings(Trade, data_list)
+       session.commit()
+
+4. 인덱스 활용 쿼리
+   - 복합 인덱스는 순서가 중요 (왼쪽부터 사용)
+
+   Example:
+       # idx_stock_action_timestamp (stock_code, action, timestamp)
+
+       # Good: 인덱스 활용
+       trades = session.query(Trade).filter(
+           Trade.stock_code == '005930',
+           Trade.action == 'buy',
+           Trade.timestamp >= start_date
+       ).all()
+
+       # Partial: 인덱스 부분 활용 (stock_code만)
+       trades = session.query(Trade).filter(
+           Trade.stock_code == '005930',
+           Trade.timestamp >= start_date  # action이 빠져서 인덱스 일부만 사용
+       ).all()
+
+5. 집계 쿼리 최적화
+   - 데이터베이스 레벨에서 집계
+
+   Example:
+       from sqlalchemy import func
+
+       # Bad: Python에서 집계
+       trades = session.query(Trade).filter_by(action='buy').all()
+       total_amount = sum(t.total_amount for t in trades)
+
+       # Good: DB에서 집계
+       total_amount = session.query(
+           func.sum(Trade.total_amount)
+       ).filter_by(action='buy').scalar()
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 from datetime import datetime
 from typing import Optional
@@ -67,7 +152,16 @@ class Trade(Base):
     notes = Column(Text, nullable=True)
 
     __table_args__ = (
+        # 기존 인덱스: 종목별 시간순 조회
         Index('idx_stock_timestamp', 'stock_code', 'timestamp'),
+
+        # 매수/매도 기록 조회 최적화
+        Index('idx_action_timestamp', 'action', 'timestamp',
+              comment='Optimize filtering trades by action (buy/sell) and time'),
+
+        # 종목별 거래 이력 조회 최적화
+        Index('idx_stock_action_timestamp', 'stock_code', 'action', 'timestamp',
+              comment='Optimize queries for specific stock trade history by action'),
     )
 
     def __repr__(self):
@@ -105,6 +199,12 @@ class Position(Base):
 
     # 활성 여부
     is_active = Column(Boolean, default=True, index=True)
+
+    __table_args__ = (
+        # 활성 포지션 조회 최적화 (최근 업데이트된 활성 포지션)
+        Index('idx_is_active_updated_at', 'is_active', 'updated_at',
+              comment='Optimize queries for active positions sorted by update time'),
+    )
 
     def __repr__(self):
         return f"<Position(id={self.id}, {self.stock_name} {self.quantity}주 @ {self.entry_price}원)>"
@@ -192,6 +292,13 @@ class PortfolioSnapshot(Base):
     # 일일 통계
     daily_trades = Column(Integer, default=0)
     daily_profit_loss = Column(Integer, default=0)
+
+    __table_args__ = (
+        # 날짜 범위 쿼리 최적화 (일별/주별/월별 분석)
+        Index('idx_timestamp_desc', 'timestamp',
+              postgresql_ops={'timestamp': 'DESC'},
+              comment='Optimize date range queries for portfolio history analysis'),
+    )
 
     def __repr__(self):
         return f"<PortfolioSnapshot(timestamp={self.timestamp}, capital={self.total_capital:,}원)>"
@@ -300,8 +407,14 @@ class Database:
                 max_overflow=db_config.get('max_overflow', 10),
             )
 
-            # 테이블 생성
+            # 테이블 생성 (인덱스 포함)
             Base.metadata.create_all(self._engine)
+            logger.info("✅ 데이터베이스 테이블 및 인덱스 생성 완료")
+
+            # 생성된 인덱스 로깅
+            for table in Base.metadata.tables.values():
+                for index in table.indexes:
+                    logger.debug(f"  Index: {index.name} on {table.name}({', '.join([c.name for c in index.columns])})")
 
             # 세션 팩토리 생성
             self._Session = sessionmaker(bind=self._engine)

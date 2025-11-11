@@ -3,6 +3,13 @@ Intelligent Cache Manager
 지능형 캐싱 시스템
 
 데이터베이스, API 호출 결과를 캐싱하여 성능 향상
+
+기능:
+- TTL 기반 캐시 만료 (기본: 60초)
+- LRU (Least Recently Used) 제거
+- 캐시 크기 제한 (최대 1000개)
+- 캐시 히트율 모니터링
+- 데이터 타입별 최적화된 TTL 설정
 """
 import logging
 from typing import Any, Optional, Callable
@@ -13,6 +20,19 @@ import json
 import threading
 
 logger = logging.getLogger(__name__)
+
+
+# 데이터 타입별 권장 TTL (초)
+class CacheTTL:
+    """캐시 TTL 상수"""
+    STOCK_PRICE = 5          # 종목 현재가 - 5초 (실시간성 중요)
+    PORTFOLIO = 10           # 포트폴리오 정보 - 10초
+    ACCOUNT_INFO = 30        # 계좌 정보 - 30초
+    STRATEGY_LIST = 60       # 전략 목록 - 60초 (기본값)
+    MARKET_DATA = 60         # 시장 데이터 - 60초
+    STOCK_INFO = 300         # 종목 기본 정보 - 5분
+    HISTORICAL_DATA = 600    # 과거 데이터 - 10분
+    NEVER_EXPIRE = 0         # 만료 없음
 
 
 class CacheEntry:
@@ -47,13 +67,14 @@ class CacheManager:
     - LRU (Least Recently Used) 제거
     - 히트율 모니터링
     - 자동 정리
+    - 데이터 타입별 최적화된 TTL
     """
 
-    def __init__(self, max_size: int = 1000, default_ttl: int = 300):
+    def __init__(self, max_size: int = 1000, default_ttl: int = 60):
         """
         Args:
-            max_size: 최대 캐시 크기
-            default_ttl: 기본 TTL (초)
+            max_size: 최대 캐시 크기 (기본: 1000)
+            default_ttl: 기본 TTL 초 (기본: 60초)
         """
         self.max_size = max_size
         self.default_ttl = default_ttl
@@ -64,8 +85,10 @@ class CacheManager:
         # 통계
         self.hits = 0
         self.misses = 0
+        self.evictions = 0  # LRU 제거 횟수
+        self.expirations = 0  # 만료로 인한 삭제 횟수
 
-        logger.info(f"CacheManager initialized - Max Size: {max_size}, Default TTL: {default_ttl}s")
+        logger.info(f"🚀 CacheManager initialized - Max Size: {max_size}, Default TTL: {default_ttl}s")
 
         # 자동 정리 스레드 시작
         self._start_cleanup_thread()
@@ -85,16 +108,20 @@ class CacheManager:
 
             if entry is None:
                 self.misses += 1
+                logger.debug(f"❌ Cache miss: {key}")
                 return None
 
             # 만료 체크
             if entry.is_expired():
                 del self._cache[key]
                 self.misses += 1
+                self.expirations += 1
+                logger.debug(f"⏰ Cache expired: {key}")
                 return None
 
             # 히트
             self.hits += 1
+            logger.debug(f"✅ Cache hit: {key} (hits: {entry.hit_count + 1})")
             return entry.access()
 
     def set(self, key: str, value: Any, ttl: Optional[int] = None):
@@ -159,18 +186,36 @@ class CacheManager:
         return value
 
     def get_stats(self) -> dict:
-        """캐시 통계 조회"""
+        """
+        캐시 통계 조회
+
+        Returns:
+            dict: 캐시 통계 정보
+                - size: 현재 캐시 항목 수
+                - max_size: 최대 캐시 크기
+                - usage_percent: 사용률 (%)
+                - hits: 캐시 히트 횟수
+                - misses: 캐시 미스 횟수
+                - hit_rate: 캐시 히트율 (%)
+                - total_requests: 총 요청 수
+                - evictions: LRU 제거 횟수
+                - expirations: 만료 삭제 횟수
+        """
         with self._lock:
             total_requests = self.hits + self.misses
             hit_rate = (self.hits / total_requests * 100) if total_requests > 0 else 0
+            usage_percent = (len(self._cache) / self.max_size * 100) if self.max_size > 0 else 0
 
             return {
                 'size': len(self._cache),
                 'max_size': self.max_size,
+                'usage_percent': round(usage_percent, 2),
                 'hits': self.hits,
                 'misses': self.misses,
-                'hit_rate': hit_rate,
-                'total_requests': total_requests
+                'hit_rate': round(hit_rate, 2),
+                'total_requests': total_requests,
+                'evictions': self.evictions,
+                'expirations': self.expirations
             }
 
     def _evict_lru(self):
@@ -185,7 +230,8 @@ class CacheManager:
         )
 
         del self._cache[lru_key]
-        logger.debug(f"LRU evicted: {lru_key}")
+        self.evictions += 1
+        logger.debug(f"🗑️  LRU evicted: {lru_key} (total evictions: {self.evictions})")
 
     def _cleanup_expired(self):
         """만료된 항목 정리"""
@@ -197,9 +243,10 @@ class CacheManager:
 
             for key in expired_keys:
                 del self._cache[key]
+                self.expirations += 1
 
             if expired_keys:
-                logger.debug(f"Cleaned up {len(expired_keys)} expired entries")
+                logger.debug(f"🧹 Cleaned up {len(expired_keys)} expired entries (total expirations: {self.expirations})")
 
     def _start_cleanup_thread(self):
         """정리 스레드 시작"""
@@ -287,14 +334,48 @@ _cache_manager = None
 
 
 def get_cache_manager() -> CacheManager:
-    """Get cache manager singleton"""
+    """
+    Get cache manager singleton
+
+    Returns:
+        CacheManager: 싱글톤 캐시 관리자 인스턴스
+    """
     global _cache_manager
     if _cache_manager is None:
         _cache_manager = CacheManager(
             max_size=1000,
-            default_ttl=300  # 5분
+            default_ttl=60  # 기본 60초 (CacheTTL.STRATEGY_LIST)
         )
     return _cache_manager
 
 
-__all__ = ['CacheManager', 'get_cache_manager', 'cached']
+def print_cache_stats():
+    """
+    캐시 통계 출력 (디버깅/모니터링용)
+
+    Example:
+        >>> from utils.cache_manager import print_cache_stats
+        >>> print_cache_stats()
+        📊 Cache Statistics:
+           Size: 125/1000 (12.5%)
+           Hits: 1,245 | Misses: 156
+           Hit Rate: 88.87%
+           Evictions: 3 | Expirations: 42
+    """
+    cache_mgr = get_cache_manager()
+    stats = cache_mgr.get_stats()
+
+    logger.info("📊 Cache Statistics:")
+    logger.info(f"   Size: {stats['size']}/{stats['max_size']} ({stats['usage_percent']}%)")
+    logger.info(f"   Hits: {stats['hits']:,} | Misses: {stats['misses']:,}")
+    logger.info(f"   Hit Rate: {stats['hit_rate']}%")
+    logger.info(f"   Evictions: {stats['evictions']} | Expirations: {stats['expirations']}")
+
+
+__all__ = [
+    'CacheTTL',
+    'CacheManager',
+    'get_cache_manager',
+    'cached',
+    'print_cache_stats'
+]

@@ -53,10 +53,35 @@ class VirtualTradingDB:
                 win_count INTEGER DEFAULT 0,
                 loss_count INTEGER DEFAULT 0,
                 is_active INTEGER DEFAULT 1,
+                split_buy_enabled INTEGER DEFAULT 1,
+                split_sell_enabled INTEGER DEFAULT 1,
+                split_buy_ratios TEXT DEFAULT '0.33,0.33,0.34',
+                split_sell_ratios TEXT DEFAULT '0.33,0.33,0.34',
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+
+        # 기존 테이블에 컬럼 추가 (ALTER TABLE)
+        try:
+            cursor.execute("ALTER TABLE virtual_strategies ADD COLUMN split_buy_enabled INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass  # 컬럼이 이미 존재함
+
+        try:
+            cursor.execute("ALTER TABLE virtual_strategies ADD COLUMN split_sell_enabled INTEGER DEFAULT 1")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE virtual_strategies ADD COLUMN split_buy_ratios TEXT DEFAULT '0.33,0.33,0.34'")
+        except sqlite3.OperationalError:
+            pass
+
+        try:
+            cursor.execute("ALTER TABLE virtual_strategies ADD COLUMN split_sell_ratios TEXT DEFAULT '0.33,0.33,0.34'")
+        except sqlite3.OperationalError:
+            pass
 
         # 2. 가상매매 포지션 테이블
         cursor.execute("""
@@ -98,18 +123,56 @@ class VirtualTradingDB:
         """)
 
         # 인덱스 생성
+        logger.info("인덱스 생성 시작...")
+
+        # 기존 인덱스
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_positions_strategy
             ON virtual_positions(strategy_id, is_closed)
         """)
+        logger.debug("  ✅ idx_positions_strategy created")
 
         cursor.execute("""
             CREATE INDEX IF NOT EXISTS idx_trades_strategy
             ON virtual_trades(strategy_id, timestamp DESC)
         """)
+        logger.debug("  ✅ idx_trades_strategy created")
+
+        # 전략 테이블 인덱스 - 생성/수정 시간 기반 조회 최적화
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_strategies_created_at
+            ON virtual_strategies(created_at DESC)
+        """)
+        logger.debug("  ✅ idx_strategies_created_at: 전략 목록 최신순 조회 최적화")
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_strategies_updated_at
+            ON virtual_strategies(updated_at DESC)
+        """)
+        logger.debug("  ✅ idx_strategies_updated_at: 최근 업데이트된 전략 조회 최적화")
+
+        # 포지션 테이블 복합 인덱스 - 전략별 활성 포지션 조회 최적화
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_positions_strategy_active
+            ON virtual_positions(strategy_id, is_closed, updated_at DESC)
+        """)
+        logger.debug("  ✅ idx_positions_strategy_active: 전략별 활성 포지션 조회 최적화")
+
+        # 거래 테이블 복합 인덱스 - 전략별 거래 이력 조회 최적화
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_trades_strategy_timestamp
+            ON virtual_trades(strategy_id, timestamp DESC)
+        """)
+        logger.debug("  ✅ idx_trades_strategy_timestamp: 전략별 거래 이력 시간순 조회 최적화")
+
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_trades_stock_timestamp
+            ON virtual_trades(stock_code, timestamp DESC)
+        """)
+        logger.debug("  ✅ idx_trades_stock_timestamp: 종목별 거래 이력 조회 최적화")
 
         self.conn.commit()
-        logger.info("가상매매 데이터베이스 초기화 완료")
+        logger.info("✅ 가상매매 데이터베이스 초기화 및 인덱스 생성 완료")
 
     def create_strategy(
         self,
