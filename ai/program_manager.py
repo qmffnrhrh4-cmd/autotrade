@@ -216,18 +216,62 @@ class ProgramManager:
             }
 
     def _check_automation_features(self) -> Dict[str, Any]:
-        """자동화 기능 상태 확인"""
-        return {
-            'status': 'healthy',
-            'message': '자동화 기능 정상',
-            'active_features': [
-                'AI 종목 스크리닝',
-                '동적 손절/익절',
-                '포트폴리오 최적화',
-                '리스크 관리',
-                '매매 전략 학습'
-            ]
-        }
+        """자동화 기능 상태 확인 - Fix: 실제 활성화된 기능 감지"""
+        active_features = []
+
+        try:
+            # Fix: 실제 봇 기능 확인
+            if self.bot:
+                # AI 분석기 확인
+                if hasattr(self.bot, 'ai_analyzer') or hasattr(self.bot, 'gemini_analyzer'):
+                    active_features.append('AI 종목 스크리닝')
+
+                # 거래 시스템 확인
+                if hasattr(self.bot, 'trader'):
+                    active_features.append('자동 매매 실행')
+
+                # 리스크 관리자 확인
+                if hasattr(self.bot, 'risk_manager'):
+                    active_features.append('리스크 관리')
+                    active_features.append('동적 손절/익절')
+
+            # Fix: 파일 시스템에서 활성화된 모듈 확인
+            import os
+            modules_path = os.path.join(os.path.dirname(__file__), '..')
+
+            # 가상매매 모듈 확인
+            if os.path.exists(os.path.join(modules_path, 'virtual_trading')):
+                active_features.append('가상매매 시스템')
+
+            # 백테스팅 모듈 확인
+            if os.path.exists(os.path.join(modules_path, 'ai', 'strategy_backtester.py')):
+                active_features.append('백테스팅 엔진')
+
+            # 전략 최적화 모듈 확인
+            if os.path.exists(os.path.join(modules_path, 'ai', 'strategy_optimizer.py')):
+                active_features.append('전략 최적화 (유전 알고리즘)')
+
+            # 자동 배포 모듈 확인
+            if os.path.exists(os.path.join(modules_path, 'ai', 'strategy_auto_deployer.py')):
+                active_features.append('전략 자동 배포')
+
+            # Fix: 활성화된 기능이 없으면 기본 메시지
+            if not active_features:
+                active_features = ['기본 시스템 기능']
+
+            return {
+                'status': 'healthy' if len(active_features) >= 3 else 'warning',
+                'message': f'{len(active_features)}개 자동화 기능 활성',
+                'active_features': active_features
+            }
+
+        except Exception as e:
+            logger.error(f"자동화 기능 확인 실패: {e}")
+            return {
+                'status': 'warning',
+                'message': f'자동화 기능 확인 중 오류: {str(e)}',
+                'active_features': ['상태 확인 불가']
+            }
 
     def _check_risk_management(self) -> Dict[str, Any]:
         """리스크 관리 상태 확인"""
@@ -869,16 +913,87 @@ class ProgramManager:
         }
 
     def _generate_executive_summary(self) -> str:
-        """경영진 요약 생성"""
-        return """
-        [프로그램 매니저 종합 보고서]
+        """경영진 요약 생성 - Fix: 실제 데이터 기반 동적 생성"""
+        try:
+            # Fix: 실제 성능 데이터 가져오기
+            trading_perf = self._analyze_trading_performance()
+            automation_eff = self._analyze_automation_efficiency()
+            risk_metrics = self._analyze_risk_metrics()
 
-        시스템 상태: 정상
-        주요 성과: 안정적인 운영 중
-        개선 권장사항: 지속적인 모니터링 필요
+            # Fix: 시스템 상태 평가
+            total_trades = trading_perf.get('total_trades', 0)
+            win_rate = trading_perf.get('win_rate', 0)
+            total_return = trading_perf.get('total_return', 0)
+            auto_ratio = automation_eff.get('auto_trades_ratio', 0)
+            risk_level = risk_metrics.get('current_risk_level', 'low')
 
-        전체 시스템이 정상적으로 작동하고 있습니다.
-        """
+            # Fix: 상태 판단
+            if total_trades == 0:
+                status = "초기화 중"
+                performance = "거래 데이터 없음"
+            elif total_return > 5:
+                status = "우수"
+                performance = f"높은 수익률 달성 ({total_return:.1f}%)"
+            elif total_return > 0:
+                status = "양호"
+                performance = f"안정적인 수익 달성 ({total_return:.1f}%)"
+            elif total_return > -5:
+                status = "보통"
+                performance = f"손실 제한 중 ({total_return:.1f}%)"
+            else:
+                status = "개선 필요"
+                performance = f"손실 확대 ({total_return:.1f}%)"
+
+            # Fix: 자동화 수준 평가
+            if auto_ratio >= 80:
+                automation_status = "매우 높음"
+            elif auto_ratio >= 50:
+                automation_status = "높음"
+            elif auto_ratio >= 20:
+                automation_status = "보통"
+            else:
+                automation_status = "낮음"
+
+            # Fix: 권장사항 생성
+            recommendations = []
+            if win_rate < 50:
+                recommendations.append("승률 개선을 위한 전략 재검토 필요")
+            if total_return < 0:
+                recommendations.append("손실 최소화를 위한 리스크 관리 강화 권장")
+            if auto_ratio < 50:
+                recommendations.append("자동화 비율 향상을 통한 효율성 개선 필요")
+            if risk_level == 'high':
+                recommendations.append("높은 리스크 수준 - 포지션 축소 검토")
+
+            if not recommendations:
+                recommendations.append("현재 전략 유지 및 지속적인 모니터링")
+
+            # Fix: 동적 요약 생성
+            summary = f"""
+[프로그램 매니저 종합 보고서]
+
+📊 시스템 상태: {status}
+📈 주요 성과: {performance}
+🤖 자동화 수준: {automation_status} ({auto_ratio:.1f}%)
+💰 총 거래 수: {total_trades}건 (승률: {win_rate:.1f}%)
+⚠️  리스크 수준: {risk_level}
+
+💡 개선 권장사항:
+{chr(10).join(f"  • {rec}" for rec in recommendations)}
+
+✅ 시스템이 {'정상적으로' if status in ['우수', '양호'] else '작동'} 운영되고 있습니다.
+"""
+            return summary
+
+        except Exception as e:
+            logger.error(f"요약 생성 실패: {e}")
+            return f"""
+[프로그램 매니저 종합 보고서]
+
+⚠️ 보고서 생성 중 오류가 발생했습니다: {str(e)}
+
+시스템 점검이 필요합니다.
+"""
 
     def _save_report(self, report: Dict[str, Any]):
         """보고서 저장"""
