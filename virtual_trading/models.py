@@ -202,7 +202,15 @@ class VirtualTradingDB:
         existing = cursor.fetchone()
         if existing:
             strategy_id = existing['id']
-            logger.info(f"♻️ 가상매매 전략 이미 존재: {name} (ID: {strategy_id})")
+            # Fix: 기존 전략이 있으면 활성화 상태로 업데이트 및 updated_at 갱신
+            cursor.execute("""
+                UPDATE virtual_strategies
+                SET is_active = 1,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (strategy_id,))
+            self.conn.commit()
+            logger.info(f"♻️ 가상매매 전략 재활성화: {name} (ID: {strategy_id})")
             return strategy_id
 
         # 없으면 새로 생성
@@ -217,15 +225,25 @@ class VirtualTradingDB:
             logger.info(f"✅ 가상매매 전략 생성: {name} (ID: {strategy_id})")
             return strategy_id
         except sqlite3.IntegrityError as e:
-            # UNIQUE constraint 에러 발생 시 다시 조회
-            logger.warning(f"전략 생성 중 충돌 감지, 기존 전략 조회: {name}")
+            # Fix: UNIQUE constraint 에러 발생 시 다시 조회 및 활성화
+            logger.warning(f"전략 생성 중 충돌 감지, 기존 전략 재활성화: {name}")
             cursor.execute("""
                 SELECT id FROM virtual_strategies
                 WHERE name = ?
             """, (name,))
             existing = cursor.fetchone()
             if existing:
-                return existing['id']
+                strategy_id = existing['id']
+                # Fix: 활성화 상태로 업데이트
+                cursor.execute("""
+                    UPDATE virtual_strategies
+                    SET is_active = 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (strategy_id,))
+                self.conn.commit()
+                logger.info(f"✅ 기존 전략 재활성화 완료: {name} (ID: {strategy_id})")
+                return strategy_id
             raise  # 여전히 찾을 수 없으면 에러 발생
 
     def get_all_strategies(self) -> List[Dict[str, Any]]:
