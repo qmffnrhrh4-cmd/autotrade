@@ -13,17 +13,20 @@ virtual_trading_bp = Blueprint('virtual_trading', __name__)
 
 # 가상매매 매니저 인스턴스 (전역 변수)
 virtual_manager: VirtualTradingManager = None
+_bot_instance = None
 
 
-def init_virtual_trading_manager(db_path: str = "data/virtual_trading.db"):
+def init_virtual_trading_manager(bot=None, db_path: str = "data/virtual_trading.db"):
     """
     가상매매 매니저 초기화
 
     Args:
+        bot: Bot instance with data_fetcher
         db_path: SQLite 데이터베이스 파일 경로
     """
-    global virtual_manager
+    global virtual_manager, _bot_instance
     virtual_manager = VirtualTradingManager(db_path)
+    _bot_instance = bot
     logger.info("가상매매 매니저 초기화 완료")
 
 
@@ -349,17 +352,13 @@ def run_backtest():
         # BacktestAdapter 임포트 및 실행
         from virtual_trading import BacktestAdapter
 
-        # data_fetcher를 bot_instance에서 가져오기
-        # (실제 구현에서는 init_virtual_trading_manager에서 설정 필요)
-        from flask import current_app
-        bot_instance = getattr(current_app, 'bot_instance', None)
-
-        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+        # data_fetcher를 _bot_instance에서 가져오기
+        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
             return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
 
         adapter = BacktestAdapter(
             virtual_manager=virtual_manager,
-            data_fetcher=bot_instance.data_fetcher
+            data_fetcher=_bot_instance.data_fetcher
         )
 
         result = adapter.run_backtest(
@@ -399,15 +398,13 @@ def apply_backtest_result():
             return jsonify({'error': '필수 파라미터가 누락되었습니다'}), 400
 
         from virtual_trading import BacktestAdapter
-        from flask import current_app
-        bot_instance = getattr(current_app, 'bot_instance', None)
 
-        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
             return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
 
         adapter = BacktestAdapter(
             virtual_manager=virtual_manager,
-            data_fetcher=bot_instance.data_fetcher
+            data_fetcher=_bot_instance.data_fetcher
         )
 
         success = adapter.apply_best_conditions(strategy_id, backtest_result)
@@ -437,15 +434,12 @@ def ai_initialize_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        from flask import current_app
-        bot_instance = getattr(current_app, 'bot_instance', None)
-
-        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
             return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
 
         data = request.json or {}
         initial_capital = data.get('initial_capital', 10000000)
@@ -470,15 +464,12 @@ def ai_review_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        from flask import current_app
-        bot_instance = getattr(current_app, 'bot_instance', None)
-
-        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
             return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
 
         # 모든 전략 가져오기
         strategies = virtual_manager.get_strategy_summary()
@@ -503,15 +494,12 @@ def ai_improve_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        from flask import current_app
-        bot_instance = getattr(current_app, 'bot_instance', None)
-
-        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
             return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
 
         # 모든 전략 가져오기
         strategies = virtual_manager.get_strategy_summary()
@@ -539,15 +527,12 @@ def ai_auto_manage():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        from flask import current_app
-        bot_instance = getattr(current_app, 'bot_instance', None)
-
-        if not bot_instance or not hasattr(bot_instance, 'data_fetcher'):
+        if not _bot_instance or not hasattr(_bot_instance, 'data_fetcher'):
             return jsonify({'error': 'DataFetcher를 사용할 수 없습니다'}), 500
 
         from virtual_trading import AIStrategyManager
 
-        ai_manager = AIStrategyManager(virtual_manager, bot_instance.data_fetcher)
+        ai_manager = AIStrategyManager(virtual_manager, _bot_instance.data_fetcher)
 
         # 모든 전략 가져오기
         strategies = virtual_manager.get_strategy_summary()

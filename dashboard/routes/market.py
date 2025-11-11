@@ -379,26 +379,53 @@ def get_chart_data(stock_code: str):
                 df['low'] = df['low'].astype(float)
                 df['volume'] = df['volume'].astype(float)
 
-                # Calculate indicators
+                # Calculate indicators with safety checks
                 from indicators.momentum import rsi, macd
                 from indicators.trend import sma, ema
                 from indicators.volatility import bollinger_bands
 
-                # RSI
-                rsi_values = rsi(df['close'], period=14)
+                # Initialize indicators as None
+                rsi_values = None
+                macd_line = signal_line = histogram = None
+                sma_5 = sma_20 = sma_60 = None
+                ema_12 = ema_26 = None
+                bb_upper = bb_middle = bb_lower = None
 
-                # MACD
-                macd_line, signal_line, histogram = macd(df['close'])
+                try:
+                    # RSI (requires at least 15 data points)
+                    if len(df) >= 15:
+                        rsi_values = rsi(df['close'], period=14)
+                except Exception as e:
+                    print(f"⚠️ RSI calculation error: {e}")
 
-                # Moving Averages
-                sma_5 = sma(df['close'], 5)
-                sma_20 = sma(df['close'], 20)
-                sma_60 = sma(df['close'], 60)
-                ema_12 = ema(df['close'], 12)
-                ema_26 = ema(df['close'], 26)
+                try:
+                    # MACD (requires at least 34 data points: 26 + 9 - 1)
+                    if len(df) >= 34:
+                        macd_line, signal_line, histogram = macd(df['close'])
+                except Exception as e:
+                    print(f"⚠️ MACD calculation error: {e}")
 
-                # Bollinger Bands
-                bb_upper, bb_middle, bb_lower = bollinger_bands(df['close'], period=20, std_dev=2.0)
+                try:
+                    # Moving Averages
+                    if len(df) >= 5:
+                        sma_5 = sma(df['close'], 5)
+                    if len(df) >= 20:
+                        sma_20 = sma(df['close'], 20)
+                    if len(df) >= 60:
+                        sma_60 = sma(df['close'], 60)
+                    if len(df) >= 12:
+                        ema_12 = ema(df['close'], 12)
+                    if len(df) >= 26:
+                        ema_26 = ema(df['close'], 26)
+                except Exception as e:
+                    print(f"⚠️ Moving averages calculation error: {e}")
+
+                try:
+                    # Bollinger Bands (requires at least 20 data points)
+                    if len(df) >= 20:
+                        bb_upper, bb_middle, bb_lower = bollinger_bands(df['close'], period=20, std_dev=2.0)
+                except Exception as e:
+                    print(f"⚠️ Bollinger Bands calculation error: {e}")
 
                 # Prepare indicator data
                 indicators = {
@@ -452,20 +479,20 @@ def get_chart_data(stock_code: str):
                             # Add indicator data (use time_value for both daily and minute data)
                             # Use try-except for each indicator to avoid slice errors
                             try:
-                                if idx < len(rsi_values) and not pd.isna(rsi_values.iloc[idx]):
+                                if rsi_values is not None and idx < len(rsi_values) and not pd.isna(rsi_values.iloc[idx]):
                                     indicators['rsi'].append({'time': time_value, 'value': float(rsi_values.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                             try:
-                                if idx < len(macd_line) and not pd.isna(macd_line.iloc[idx]):
+                                if macd_line is not None and idx < len(macd_line) and not pd.isna(macd_line.iloc[idx]):
                                     indicators['macd'].append({
                                         'time': time_value,
                                         'macd': float(macd_line.iloc[idx]),
                                         'signal': float(signal_line.iloc[idx]),
                                         'histogram': float(histogram.iloc[idx])
                                     })
-                            except:
+                            except Exception as e:
                                 pass
 
                             # Volume - Korean stock market convention: 상승(빨강), 하락(파랑)
@@ -479,42 +506,42 @@ def get_chart_data(stock_code: str):
 
                             # Moving Averages (only add if not NaN)
                             try:
-                                if idx < len(sma_5) and not pd.isna(sma_5.iloc[idx]):
+                                if sma_5 is not None and idx < len(sma_5) and not pd.isna(sma_5.iloc[idx]):
                                     indicators['ma5'].append({'time': time_value, 'value': float(sma_5.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                             try:
-                                if idx < len(sma_20) and not pd.isna(sma_20.iloc[idx]):
+                                if sma_20 is not None and idx < len(sma_20) and not pd.isna(sma_20.iloc[idx]):
                                     indicators['ma20'].append({'time': time_value, 'value': float(sma_20.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                             try:
-                                if idx < len(sma_60) and not pd.isna(sma_60.iloc[idx]):
+                                if sma_60 is not None and idx < len(sma_60) and not pd.isna(sma_60.iloc[idx]):
                                     indicators['ma60'].append({'time': time_value, 'value': float(sma_60.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                             try:
-                                if idx < len(ema_12) and not pd.isna(ema_12.iloc[idx]):
+                                if ema_12 is not None and idx < len(ema_12) and not pd.isna(ema_12.iloc[idx]):
                                     indicators['ema12'].append({'time': time_value, 'value': float(ema_12.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                             try:
-                                if idx < len(ema_26) and not pd.isna(ema_26.iloc[idx]):
+                                if ema_26 is not None and idx < len(ema_26) and not pd.isna(ema_26.iloc[idx]):
                                     indicators['ema26'].append({'time': time_value, 'value': float(ema_26.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                             # Bollinger Bands
                             try:
-                                if idx < len(bb_upper) and not pd.isna(bb_upper.iloc[idx]):
+                                if bb_upper is not None and idx < len(bb_upper) and not pd.isna(bb_upper.iloc[idx]):
                                     indicators['bb_upper'].append({'time': time_value, 'value': float(bb_upper.iloc[idx])})
                                     indicators['bb_middle'].append({'time': time_value, 'value': float(bb_middle.iloc[idx])})
                                     indicators['bb_lower'].append({'time': time_value, 'value': float(bb_lower.iloc[idx])})
-                            except:
+                            except Exception as e:
                                 pass
 
                     except Exception as e:

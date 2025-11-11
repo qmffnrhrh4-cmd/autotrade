@@ -255,6 +255,122 @@ class AIConfig(BaseModel):
 
 
 # ==================================================
+# Advanced Automation Configuration
+# ==================================================
+
+class AutomationFeaturesConfig(BaseModel):
+    """고급 자동화 기능 설정"""
+
+    # 🆕 시장 분위기 자동 감지 및 대응
+    market_sentiment_auto_response: bool = Field(
+        default=False,
+        description="시장 분위기 자동 감지 및 대응"
+    )
+    market_sentiment_threshold: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="시장 분위기 임계값"
+    )
+
+    # 🆕 계절성 및 패턴 기반 자동 매매
+    seasonal_pattern_trading: bool = Field(
+        default=False,
+        description="계절성 및 패턴 기반 자동 매매"
+    )
+    seasonal_lookback_years: int = Field(
+        default=3,
+        ge=1,
+        le=10,
+        description="계절성 분석 기간 (년)"
+    )
+
+    # 🆕 스마트 자금 관리 시스템
+    smart_money_management: bool = Field(
+        default=True,
+        description="스마트 자금 관리 시스템"
+    )
+    dynamic_position_sizing: bool = Field(
+        default=True,
+        description="동적 포지션 사이징"
+    )
+
+    # 🆕 다중 시간프레임 자동 분석
+    multi_timeframe_analysis: bool = Field(
+        default=True,
+        description="다중 시간프레임 자동 분석"
+    )
+    timeframes: List[str] = Field(
+        default=["1m", "5m", "15m", "1h", "1d"],
+        description="분석할 시간프레임 목록"
+    )
+
+    # 🆕 유동성 기반 자동 주문 분할
+    liquidity_based_order_split: bool = Field(
+        default=True,
+        description="유동성 기반 자동 주문 분할"
+    )
+    max_order_impact_pct: float = Field(
+        default=0.05,
+        ge=0.01,
+        le=0.2,
+        description="최대 주문 영향 비율 (%)"
+    )
+
+    # 🆕 자동 섹터 로테이션
+    auto_sector_rotation: bool = Field(
+        default=False,
+        description="자동 섹터 로테이션"
+    )
+    sector_rotation_interval_days: int = Field(
+        default=30,
+        ge=7,
+        le=365,
+        description="섹터 로테이션 주기 (일)"
+    )
+
+    # 🆕 페어 트레이딩 자동화
+    pairs_trading_automation: bool = Field(
+        default=False,
+        description="페어 트레이딩 자동화"
+    )
+    correlation_threshold: float = Field(
+        default=0.8,
+        ge=0.5,
+        le=1.0,
+        description="상관관계 임계값"
+    )
+
+    # 🆕 실시간 백테스팅 및 전략 검증
+    realtime_backtest_validation: bool = Field(
+        default=True,
+        description="실시간 백테스팅 및 전략 검증"
+    )
+    validation_interval_hours: int = Field(
+        default=24,
+        ge=1,
+        le=168,
+        description="검증 주기 (시간)"
+    )
+
+    # 🆕 비상 상황 자동 대응 시스템
+    emergency_auto_response: bool = Field(
+        default=True,
+        description="비상 상황 자동 대응 시스템"
+    )
+    emergency_stop_loss_pct: float = Field(
+        default=0.15,
+        ge=0.05,
+        le=0.5,
+        description="비상 손절 비율 (%)"
+    )
+    circuit_breaker_enabled: bool = Field(
+        default=True,
+        description="서킷 브레이커 활성화"
+    )
+
+
+# ==================================================
 # Backtesting Configuration
 # ==================================================
 
@@ -535,6 +651,9 @@ class AutoTradeConfig(BaseModel):
     # 메인 사이클
     main_cycle: MainCycleConfig = Field(default_factory=MainCycleConfig)
 
+    # 고급 자동화 기능 (v6.1 NEW)
+    automation_features: AutomationFeaturesConfig = Field(default_factory=AutomationFeaturesConfig)
+
     # 전역 설정
     environment: str = Field(default="production", description="환경 (production/development/test)")
     debug_mode: bool = Field(default=False, description="디버그 모드")
@@ -720,6 +839,7 @@ __all__ = [
     'InstitutionalFollowingConfig',
     'AIConfig',
     'MarketRegimeConfig',
+    'AutomationFeaturesConfig',
     'BacktestingConfig',
     'OptimizationConfig',
     'RebalancingConfig',

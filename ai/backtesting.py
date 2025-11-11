@@ -214,9 +214,12 @@ class BacktestEngine:
             if equity > self.peak_equity:
                 self.peak_equity = equity
 
-            drawdown = (self.peak_equity - equity) / self.peak_equity * 100
-            if drawdown > self.max_drawdown:
-                self.max_drawdown = drawdown
+            if self.peak_equity > 0:
+                drawdown = (self.peak_equity - equity) / self.peak_equity * 100
+                # Cap drawdown at 100% (cannot lose more than all capital)
+                drawdown = min(drawdown, 100.0)
+                if drawdown > self.max_drawdown:
+                    self.max_drawdown = drawdown
 
             # Progress update
             if (i + 1) % 50 == 0:
@@ -392,8 +395,19 @@ class BacktestEngine:
                           end_date: str, final_equity: float) -> BacktestResult:
         """Calculate comprehensive performance metrics"""
         initial_capital = self.config.initial_capital
+
+        # Safety check: prevent division by zero
+        if initial_capital <= 0:
+            print(f"⚠️ Warning: Invalid initial capital: {initial_capital}")
+            initial_capital = 10000000  # Default to 10M KRW
+
         total_return = final_equity - initial_capital
         total_return_pct = total_return / initial_capital * 100
+
+        # Safety check: warn if return is abnormally high
+        if abs(total_return_pct) > 1000:  # More than 1000% is likely an error
+            print(f"⚠️ Warning: Abnormally high return detected: {total_return_pct:.2f}%")
+            print(f"   Initial: {initial_capital:,.0f}, Final: {final_equity:,.0f}")
 
         # Trading metrics
         winning_trades = [t for t in self.trades if t.action == 'sell' and
@@ -435,7 +449,9 @@ class BacktestEngine:
         calmar_ratio = (total_return_pct / self.max_drawdown) if self.max_drawdown > 0 else 0
 
         # Max drawdown in currency
-        max_drawdown_value = self.peak_equity * (self.max_drawdown / 100)
+        # Safety check: cap drawdown at 100%
+        safe_max_drawdown = min(self.max_drawdown, 100.0)
+        max_drawdown_value = self.peak_equity * (safe_max_drawdown / 100)
 
         return BacktestResult(
             strategy_name=strategy_name,
@@ -448,7 +464,7 @@ class BacktestEngine:
             sharpe_ratio=float(sharpe_ratio),
             sortino_ratio=float(sortino_ratio),
             max_drawdown=max_drawdown_value,
-            max_drawdown_pct=self.max_drawdown,
+            max_drawdown_pct=safe_max_drawdown,
             calmar_ratio=float(calmar_ratio),
             total_trades=total_trades,
             winning_trades=num_wins,
