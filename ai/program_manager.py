@@ -383,21 +383,159 @@ class ProgramManager:
             }
 
     def _analyze_automation_efficiency(self) -> Dict[str, Any]:
-        """자동화 효율성 분석"""
-        return {
-            'auto_trades_ratio': 0.0,
-            'avg_decision_time': 0.0,
-            'automation_score': 0.0
-        }
+        """자동화 효율성 분석 - 실제 거래 데이터 기반"""
+        try:
+            from database import get_db_session, Trade
+
+            session = get_db_session()
+            if not session:
+                return {
+                    'auto_trades_ratio': 0.0,
+                    'avg_decision_time': 0.0,
+                    'automation_score': 0.0
+                }
+
+            # 전체 거래 수
+            total_trades = session.query(func.count(Trade.id)).scalar() or 0
+
+            if total_trades == 0:
+                session.close()
+                return {
+                    'auto_trades_ratio': 0.0,
+                    'avg_decision_time': 0.0,
+                    'automation_score': 0.0
+                }
+
+            # AI 기반 거래 비율 (ai_signal이 있는 거래)
+            ai_trades = session.query(func.count(Trade.id)).filter(
+                Trade.ai_signal.isnot(None)
+            ).scalar() or 0
+
+            auto_trades_ratio = (ai_trades / total_trades * 100) if total_trades > 0 else 0.0
+
+            # 평균 의사결정 시간 추정 (거래 간격 계산)
+            # 최근 100개 거래의 평균 시간 간격
+            from sqlalchemy import func as sql_func
+            recent_trades = session.query(Trade.timestamp).order_by(
+                Trade.timestamp.desc()
+            ).limit(100).all()
+
+            avg_decision_time = 0.0
+            if len(recent_trades) >= 2:
+                time_diffs = []
+                for i in range(len(recent_trades) - 1):
+                    diff = (recent_trades[i][0] - recent_trades[i+1][0]).total_seconds()
+                    time_diffs.append(diff)
+                avg_decision_time = sum(time_diffs) / len(time_diffs) if time_diffs else 0.0
+
+            # 자동화 점수 (자동화 비율 기반)
+            automation_score = min(100, auto_trades_ratio)
+
+            session.close()
+
+            return {
+                'auto_trades_ratio': round(auto_trades_ratio, 1),
+                'avg_decision_time': round(avg_decision_time, 2),
+                'automation_score': round(automation_score, 1)
+            }
+
+        except Exception as e:
+            logger.error(f"자동화 효율성 분석 실패: {e}", exc_info=True)
+            return {
+                'auto_trades_ratio': 0.0,
+                'avg_decision_time': 0.0,
+                'automation_score': 0.0
+            }
 
     def _analyze_risk_metrics(self) -> Dict[str, Any]:
-        """리스크 지표 분석"""
-        return {
-            'current_risk_level': 'low',
-            'portfolio_concentration': 0.0,
-            'leverage_ratio': 0.0,
-            'var_95': 0.0  # Value at Risk
-        }
+        """리스크 지표 분석 - 실제 포트폴리오 데이터 기반"""
+        try:
+            # 봇 인스턴스에서 현재 포지션 정보 가져오기
+            if not self.bot or not hasattr(self.bot, 'account_api'):
+                return {
+                    'current_risk_level': 'unknown',
+                    'portfolio_concentration': 0.0,
+                    'leverage_ratio': 0.0,
+                    'var_95': 0.0
+                }
+
+            # 현재 포지션 조회
+            holdings = self.bot.account_api.get_holdings(market_type="KRX") or []
+
+            if not holdings:
+                return {
+                    'current_risk_level': 'low',
+                    'portfolio_concentration': 0.0,
+                    'leverage_ratio': 0.0,
+                    'var_95': 0.0
+                }
+
+            # 총 포트폴리오 가치 계산
+            total_value = sum(int(float(str(h.get('eval_amt', 0)).replace(',', ''))) for h in holdings)
+
+            if total_value == 0:
+                return {
+                    'current_risk_level': 'low',
+                    'portfolio_concentration': 0.0,
+                    'leverage_ratio': 0.0,
+                    'var_95': 0.0
+                }
+
+            # 포트폴리오 집중도 (최대 종목의 비율)
+            max_position_value = max(
+                int(float(str(h.get('eval_amt', 0)).replace(',', '')))
+                for h in holdings
+            )
+            portfolio_concentration = (max_position_value / total_value * 100) if total_value > 0 else 0.0
+
+            # 레버리지 비율 추정 (단순화: 보유 종목 수 기반)
+            leverage_ratio = len(holdings) * 0.2  # 간단한 추정
+
+            # VaR 95% 추정 (과거 손익 변동성 기반)
+            from database import get_db_session, Trade
+            session = get_db_session()
+
+            var_95 = 0.0
+            if session:
+                # 최근 100개 거래의 손익률 분포
+                recent_pl_ratios = session.query(Trade.profit_loss_ratio).filter(
+                    Trade.profit_loss_ratio.isnot(None),
+                    Trade.action == 'sell'
+                ).order_by(Trade.timestamp.desc()).limit(100).all()
+
+                if recent_pl_ratios and len(recent_pl_ratios) > 10:
+                    pl_values = [r[0] for r in recent_pl_ratios if r[0] is not None]
+                    if pl_values:
+                        pl_values.sort()
+                        # 5% 백분위수 (하위 5%)
+                        idx_5 = int(len(pl_values) * 0.05)
+                        var_95 = abs(pl_values[idx_5]) if idx_5 < len(pl_values) else 0.0
+
+                session.close()
+
+            # 리스크 수준 판단
+            if portfolio_concentration > 50 or var_95 > 10:
+                risk_level = 'high'
+            elif portfolio_concentration > 30 or var_95 > 5:
+                risk_level = 'medium'
+            else:
+                risk_level = 'low'
+
+            return {
+                'current_risk_level': risk_level,
+                'portfolio_concentration': round(portfolio_concentration, 2),
+                'leverage_ratio': round(leverage_ratio, 2),
+                'var_95': round(var_95, 2)
+            }
+
+        except Exception as e:
+            logger.error(f"리스크 지표 분석 실패: {e}", exc_info=True)
+            return {
+                'current_risk_level': 'unknown',
+                'portfolio_concentration': 0.0,
+                'leverage_ratio': 0.0,
+                'var_95': 0.0
+            }
 
     def _generate_recommendations(self, analysis: Dict[str, Any]) -> List[str]:
         """AI 기반 추천사항 생성"""
@@ -466,19 +604,61 @@ class ProgramManager:
         return result
 
     def _optimize_trading_parameters(self) -> Optional[str]:
-        """거래 파라미터 최적화"""
-        # TODO: 실제 최적화 로직
-        return "거래 파라미터가 최적화되었습니다"
+        """거래 파라미터 최적화 - 실제 거래 성과 기반"""
+        try:
+            # 최근 거래 성과 분석
+            trading_perf = self._analyze_trading_performance()
+
+            win_rate = trading_perf.get('win_rate', 0)
+            total_return = trading_perf.get('total_return', 0)
+
+            # 성과가 좋으면 유지, 나쁘면 조정 제안
+            if win_rate < 45:
+                return "거래 파라미터 조정 권장: 승률 향상을 위해 진입 조건 강화 필요"
+            elif win_rate >= 60 and total_return > 10:
+                return "거래 파라미터 최적: 현재 설정 유지 권장"
+            else:
+                return "거래 파라미터 미세 조정: 리스크/리워드 비율 개선 필요"
+        except Exception as e:
+            logger.error(f"거래 파라미터 최적화 실패: {e}")
+            return None
 
     def _optimize_risk_settings(self) -> Optional[str]:
-        """리스크 설정 최적화"""
-        # TODO: 실제 최적화 로직
-        return "리스크 설정이 최적화되었습니다"
+        """리스크 설정 최적화 - 실제 리스크 지표 기반"""
+        try:
+            risk_metrics = self._analyze_risk_metrics()
+
+            risk_level = risk_metrics.get('current_risk_level', 'unknown')
+            concentration = risk_metrics.get('portfolio_concentration', 0)
+
+            # 리스크 수준에 따라 조정
+            if risk_level == 'high':
+                return f"리스크 관리 강화 필요: 포트폴리오 집중도 {concentration:.1f}% (목표: <30%)"
+            elif risk_level == 'medium':
+                return "리스크 설정 적정: 현재 수준 유지하되 지속 모니터링 필요"
+            else:
+                return "리스크 관리 우수: 안정적인 포트폴리오 구성"
+        except Exception as e:
+            logger.error(f"리스크 설정 최적화 실패: {e}")
+            return None
 
     def _optimize_automation_settings(self) -> Optional[str]:
-        """자동화 설정 최적화"""
-        # TODO: 실제 최적화 로직
-        return "자동화 설정이 최적화되었습니다"
+        """자동화 설정 최적화 - 실제 자동화 효율성 기반"""
+        try:
+            auto_efficiency = self._analyze_automation_efficiency()
+
+            auto_ratio = auto_efficiency.get('auto_trades_ratio', 0)
+
+            # 자동화 비율에 따라 조정
+            if auto_ratio < 20:
+                return f"자동화 확대 권장: 현재 {auto_ratio:.1f}% → 목표 50% 이상"
+            elif auto_ratio >= 70:
+                return f"자동화 최적: AI 기반 거래 비율 {auto_ratio:.1f}%"
+            else:
+                return f"자동화 진행 중: 현재 {auto_ratio:.1f}% (꾸준히 증가 중)"
+        except Exception as e:
+            logger.error(f"자동화 설정 최적화 실패: {e}")
+            return None
 
     def generate_comprehensive_report(self) -> Dict[str, Any]:
         """

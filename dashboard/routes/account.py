@@ -61,26 +61,26 @@ def get_account():
             # - wdrw_psbl_amt: 출금가능금액
 
             # 디버깅: deposit 원본 데이터 출력
-            print(f"[DEBUG] deposit 원본 데이터: {deposit}")
+            logger.debug(f"deposit 원본 데이터: {deposit}")
 
             deposit_amount = int(float(str(deposit.get('entr', '0')).replace(',', ''))) if deposit else 0
             available_cash = int(float(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', ''))) if deposit else 0
             order_possible = int(float(str(deposit.get('ord_psbl_amt', '0')).replace(',', ''))) if deposit else 0
             withdraw_possible = int(float(str(deposit.get('wdrw_psbl_amt', '0')).replace(',', ''))) if deposit else 0
 
-            print(f"[DEBUG] entr (예수금?): {deposit_amount:,}원")
-            print(f"[DEBUG] 100stk_ord_alow_amt: {available_cash:,}원")
-            print(f"[DEBUG] ord_psbl_amt: {order_possible:,}원")
+            logger.debug(f"entr (예수금?): {deposit_amount:,}원")
+            logger.debug(f"100stk_ord_alow_amt: {available_cash:,}원")
+            logger.debug(f"ord_psbl_amt: {order_possible:,}원")
 
             # v5.4.2: 주식 현재가치 계산 (장외 시간 대응)
             # eval_amt이 0인 경우 (장외 시간) 수량 × 현재가로 직접 계산
             # v5.17: NXT 시간대에는 실시간 현재가 조회
             in_nxt = is_nxt_hours()
             stock_value = 0
-            print(f"[DEBUG] 보유 종목 수: {len(holdings) if holdings else 0}")
+            logger.debug(f"보유 종목 수: {len(holdings) if holdings else 0}")
             if holdings:
                 for idx, h in enumerate(holdings, 1):
-                    print(f"[DEBUG] 종목 {idx}: {h}")
+                    logger.debug(f"종목 {idx}: {h}")
                     quantity = int(float(str(h.get('rmnd_qty', 0)).replace(',', '')))
                     cur_price = int(float(str(h.get('cur_prc', 0)).replace(',', '')))
 
@@ -97,12 +97,12 @@ def get_account():
                     eval_amt = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
                     if eval_amt > 0 and not in_nxt:
                         # API에서 평가금액이 정상적으로 오는 경우 (장중)
-                        print(f"[DEBUG]   -> eval_amt 사용: {eval_amt:,}원")
+                        logger.debug(f"  -> eval_amt 사용: {eval_amt:,}원")
                         stock_value += eval_amt
                     else:
                         # 장외 시간 또는 NXT 시간대는 직접 계산
                         calculated_value = quantity * cur_price
-                        print(f"[DEBUG]   -> 직접 계산: {quantity} × {cur_price:,} = {calculated_value:,}원")
+                        logger.debug(f"  -> 직접 계산: {quantity} × {cur_price:,} = {calculated_value:,}원")
                         stock_value += calculated_value
 
             # 정확한 공식 적용:
@@ -113,24 +113,24 @@ def get_account():
             # 일반적으로 100stk_ord_alow_amt를 사용
             cash = available_cash
 
-            print(f"\n[ACCOUNT] ===== 계좌 정보 요약 =====")
-            print(f"  예수금 (entr): {deposit_amount:,}원")
-            print(f"  주식평가액: {stock_value:,}원")
-            print(f"  --------------------------------")
-            print(f"  총자산: {total_assets:,}원")
-            print(f"  계산식: {deposit_amount:,} + {stock_value:,} = {total_assets:,}원")
-            print(f"  ================================")
-            print(f"  가용금액: {cash:,}원")
+            logger.info(f"===== 계좌 정보 요약 =====")
+            logger.info(f"  예수금 (entr): {deposit_amount:,}원")
+            logger.info(f"  주식평가액: {stock_value:,}원")
+            logger.info(f"  --------------------------------")
+            logger.info(f"  총자산: {total_assets:,}원")
+            logger.info(f"  계산식: {deposit_amount:,} + {stock_value:,} = {total_assets:,}원")
+            logger.info(f"  ================================")
+            logger.info(f"  가용금액: {cash:,}원")
 
             # 92만원 vs 105만원 문제 디버깅
             if deposit_amount > 900000 and total_assets > 1000000:
-                print(f"\n[경고] 총 자산 차이 감지!")
-                print(f"  예수금(entr): {deposit_amount:,}원")
-                print(f"  총자산: {total_assets:,}원")
-                print(f"  차이: {total_assets - deposit_amount:,}원")
-                print(f"  의심: entr 필드가 이미 주식평가액을 포함하는지 확인 필요")
-            print(f"  - 주문가능금액: {order_possible:,}원")
-            print(f"  - 출금가능금액: {withdraw_possible:,}원")
+                logger.warning(f"총 자산 차이 감지!")
+                logger.warning(f"  예수금(entr): {deposit_amount:,}원")
+                logger.warning(f"  총자산: {total_assets:,}원")
+                logger.warning(f"  차이: {total_assets - deposit_amount:,}원")
+                logger.warning(f"  의심: entr 필드가 이미 주식평가액을 포함하는지 확인 필요")
+            logger.info(f"  주문가능금액: {order_possible:,}원")
+            logger.info(f"  출금가능금액: {withdraw_possible:,}원")
 
             # 손익 계산 (kt00004 API 필드 사용: avg_prc, rmnd_qty)
             # 계산 방식: get_positions()와 동일하게 통일
