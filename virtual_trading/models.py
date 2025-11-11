@@ -435,6 +435,26 @@ class VirtualTradingDB:
         """, (current_price, position_id))
         self.conn.commit()
 
+    def delete_strategy(self, strategy_id: int):
+        """
+        가상매매 전략 삭제 (비활성화)
+
+        Args:
+            strategy_id: 전략 ID
+        """
+        cursor = self.conn.cursor()
+
+        # 전략을 비활성화 (실제 삭제가 아닌 is_active=0)
+        cursor.execute("""
+            UPDATE virtual_strategies
+            SET is_active = 0,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (strategy_id,))
+
+        self.conn.commit()
+        logger.info(f"가상매매 전략 비활성화: ID={strategy_id}")
+
     def close(self):
         """데이터베이스 연결 닫기"""
         if self.conn:

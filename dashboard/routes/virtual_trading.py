@@ -113,6 +113,31 @@ def get_strategy_detail(strategy_id: int):
         return jsonify({'error': str(e)}), 500
 
 
+@virtual_trading_bp.route('/api/virtual-trading/strategies/<int:strategy_id>', methods=['DELETE'])
+def delete_strategy(strategy_id: int):
+    """가상매매 전략 삭제"""
+    try:
+        if not virtual_manager:
+            return jsonify({'success': False, 'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
+
+        success = virtual_manager.delete_strategy(strategy_id)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'전략 #{strategy_id} 삭제 완료'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': '전략 삭제 실패 (활성 포지션이 있거나 오류 발생)'
+            }), 400
+
+    except Exception as e:
+        logger.error(f"전략 삭제 실패: {e}", exc_info=True)
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @virtual_trading_bp.route('/api/virtual-trading/positions', methods=['GET'])
 def get_positions():
     """활성 포지션 조회"""

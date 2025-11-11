@@ -726,52 +726,80 @@ class AdvancedTradingChart {
         // Set indicator data (only for daily and minute charts)
         const indicators = originalData.indicators || {};
 
-        if (indicators.ma5 && this.series.ma5) {
-            this.series.ma5.setData(indicators.ma5);
+        try {
+            if (indicators.ma5 && Array.isArray(indicators.ma5) && this.series.ma5) {
+                this.series.ma5.setData(indicators.ma5);
+            }
+        } catch (e) {
+            console.warn('MA5 데이터 설정 오류:', e);
         }
 
-        if (indicators.ma20 && this.series.ma20) {
-            this.series.ma20.setData(indicators.ma20);
+        try {
+            if (indicators.ma20 && Array.isArray(indicators.ma20) && this.series.ma20) {
+                this.series.ma20.setData(indicators.ma20);
+            }
+        } catch (e) {
+            console.warn('MA20 데이터 설정 오류:', e);
         }
 
-        if (indicators.ma60 && this.series.ma60) {
-            this.series.ma60.setData(indicators.ma60);
+        try {
+            if (indicators.ma60 && Array.isArray(indicators.ma60) && this.series.ma60) {
+                this.series.ma60.setData(indicators.ma60);
+            }
+        } catch (e) {
+            console.warn('MA60 데이터 설정 오류:', e);
         }
 
-        if (indicators.bb_upper && this.series.bb_upper) {
-            this.series.bb_upper.setData(indicators.bb_upper);
-            this.series.bb_middle.setData(indicators.bb_middle);
-            this.series.bb_lower.setData(indicators.bb_lower);
+        try {
+            if (indicators.bb_upper && Array.isArray(indicators.bb_upper) && this.series.bb_upper) {
+                this.series.bb_upper.setData(indicators.bb_upper);
+                this.series.bb_middle.setData(indicators.bb_middle);
+                this.series.bb_lower.setData(indicators.bb_lower);
+            }
+        } catch (e) {
+            console.warn('볼린저 밴드 데이터 설정 오류:', e);
         }
 
-        if (indicators.rsi && this.series.rsi) {
-            this.series.rsi.setData(indicators.rsi);
+        try {
+            if (indicators.rsi && Array.isArray(indicators.rsi) && this.series.rsi) {
+                this.series.rsi.setData(indicators.rsi);
+            }
+        } catch (e) {
+            console.warn('RSI 데이터 설정 오류:', e);
         }
 
-        if (indicators.macd && this.series.macd_line) {
-            const macdData = indicators.macd.map(item => ({
-                time: item.time,
-                value: item.macd
-            }));
+        try {
+            if (indicators.macd && Array.isArray(indicators.macd) && this.series.macd_line) {
+                const macdData = indicators.macd.map(item => ({
+                    time: item.time,
+                    value: item.macd
+                }));
 
-            const signalData = indicators.macd.map(item => ({
-                time: item.time,
-                value: item.signal
-            }));
+                const signalData = indicators.macd.map(item => ({
+                    time: item.time,
+                    value: item.signal
+                }));
 
-            const histogramData = indicators.macd.map(item => ({
-                time: item.time,
-                value: item.histogram,
-                color: item.histogram >= 0 ? 'rgba(38, 166, 154, 0.8)' : 'rgba(239, 83, 80, 0.8)'
-            }));
+                const histogramData = indicators.macd.map(item => ({
+                    time: item.time,
+                    value: item.histogram,
+                    color: item.histogram >= 0 ? 'rgba(38, 166, 154, 0.8)' : 'rgba(239, 83, 80, 0.8)'
+                }));
 
-            this.series.macd_line.setData(macdData);
-            this.series.macd_signal.setData(signalData);
-            this.series.macd_histogram.setData(histogramData);
+                this.series.macd_line.setData(macdData);
+                this.series.macd_signal.setData(signalData);
+                this.series.macd_histogram.setData(histogramData);
+            }
+        } catch (e) {
+            console.warn('MACD 데이터 설정 오류:', e);
         }
 
-        if (indicators.volume && this.series.volume) {
-            this.series.volume.setData(indicators.volume);
+        try {
+            if (indicators.volume && Array.isArray(indicators.volume) && this.series.volume) {
+                this.series.volume.setData(indicators.volume);
+            }
+        } catch (e) {
+            console.warn('거래량 데이터 설정 오류:', e);
         }
 
         console.log('✅ Chart updated successfully with indicators');
