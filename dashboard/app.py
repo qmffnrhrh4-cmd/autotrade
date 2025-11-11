@@ -61,6 +61,9 @@ from .routes import (
     portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp
 )
 
+# Import automation routes (v5.5: 고급 자동화 시스템)
+from .routes.automation import automation_bp, init_automation_routes
+
 # Import AI routes registration function (v5.7.5: modularized AI routes)
 from .routes.ai import register_ai_routes, set_bot_instance as ai_set_bot
 
@@ -88,6 +91,7 @@ app.register_blueprint(pages_bp)
 app.register_blueprint(alerts_bp)  # v5.7.5: 알림 시스템
 app.register_blueprint(backtest_bp)  # 백테스팅 시스템
 app.register_blueprint(virtual_trading_bp)  # 가상매매 시스템
+app.register_blueprint(automation_bp)  # v5.5: 고급 자동화 시스템
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
@@ -172,6 +176,13 @@ def run_dashboard(bot=None, host: str = '0.0.0.0', port: int = 5000, debug: bool
         print("✅ Virtual trading manager initialized")
     except Exception as e:
         print(f"⚠️ Failed to initialize virtual trading manager: {e}")
+
+    # Initialize automation routes (v5.5: 고급 자동화 시스템)
+    try:
+        init_automation_routes(bot=bot_instance)
+        print("✅ Automation routes initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize automation routes: {e}")
 
     # Initialize real-time minute chart manager if WebSocket is available
     if bot_instance and hasattr(bot_instance, 'websocket_manager') and bot_instance.websocket_manager:
