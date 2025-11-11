@@ -1401,9 +1401,45 @@
                                             <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
                                             리스크 자동 관리 및 조절
                                         </li>
-                                        <li style="padding: 0.5rem 0;">
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
                                             <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
                                             매매 전략 자동 학습 및 개선
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 시장 분위기 자동 감지 및 대응
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 계절성 및 패턴 기반 자동 매매
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 스마트 자금 관리 시스템
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 다중 시간프레임 자동 분석
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 유동성 기반 자동 주문 분할
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 자동 섹터 로테이션
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 페어 트레이딩 자동화
+                                        </li>
+                                        <li style="padding: 0.5rem 0; border-bottom: 1px solid var(--border-glass);">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 실시간 백테스팅 및 전략 검증
+                                        </li>
+                                        <li style="padding: 0.5rem 0;">
+                                            <i class="fas fa-chevron-right" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                                            🆕 비상 상황 자동 대응 시스템
                                         </li>
                                     </ul>
                                 </div>
@@ -1970,6 +2006,9 @@
                                         return `주가: ${context.parsed.y.toLocaleString()}원`;
                                     }
                                 }
+                            },
+                            annotation: {
+                                annotations: {}  // AI 분석 화살표/선을 위한 초기화
                             }
                         },
                         scales: {
@@ -2252,22 +2291,41 @@
         // ==================== UI Update Functions ====================
         function updateVirtualTradingDisplay(strategies) {
             const content = document.getElementById('virtual-trading-content');
+
+            if (!strategies || Object.keys(strategies).length === 0) {
+                content.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-vial"></i>
+                        <h3>가상매매 정보</h3>
+                        <p>가상매매 전략별 성과가 여기에 표시됩니다</p>
+                    </div>
+                `;
+                return;
+            }
+
             let html = '<div style="margin-top: 1rem;">';
 
             for (const [name, stats] of Object.entries(strategies)) {
+                // capital이 현재 자본, return이 수익률(%)
+                const capital = stats.capital || 0;
+                const returnPct = stats.return || 0;
+                const trades = stats.trades || 0;
+                const status = stats.status || 'inactive';
+
                 html += `
                     <div style="padding: 1rem; margin-bottom: 1rem; background: var(--bg-glass); border-radius: var(--radius-md);">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
-                                <div style="font-weight: 600; margin-bottom: 0.5rem;">${name}</div>
-                                <div style="font-size: 1.5rem; font-weight: 700;">${stats.total_assets?.toLocaleString() || 0}원</div>
+                                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 600;">${name}</div>
+                                    <span style="font-size: 0.75rem; padding: 0.125rem 0.5rem; background: ${status === 'active' ? 'var(--color-success)' : 'var(--color-muted)'}; border-radius: 9999px;">${status === 'active' ? '활성' : '비활성'}</span>
+                                </div>
+                                <div style="font-size: 1.5rem; font-weight: 700;">${capital.toLocaleString()}원</div>
+                                <div style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">거래 ${trades}회</div>
                             </div>
                             <div style="text-align: right;">
-                                <div style="color: ${stats.total_profit >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: 600;">
-                                    ${stats.total_profit?.toLocaleString() || 0}원
-                                </div>
-                                <div style="font-size: 0.875rem; color: var(--text-muted);">
-                                    ${stats.return_rate?.toFixed(2) || 0}%
+                                <div style="color: ${returnPct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}; font-weight: 700; font-size: 1.25rem;">
+                                    ${returnPct >= 0 ? '+' : ''}${returnPct.toFixed(2)}%
                                 </div>
                             </div>
                         </div>
