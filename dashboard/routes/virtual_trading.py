@@ -127,10 +127,23 @@ def get_strategies():
         if not virtual_manager:
             return jsonify({'error': '가상매매 매니저가 초기화되지 않았습니다'}), 500
 
-        strategies = virtual_manager.get_strategy_summary()
+        strategies_list = virtual_manager.get_strategy_summary()
+
+        # JavaScript가 기대하는 형식으로 변환 (리스트 -> 딕셔너리)
+        strategies_dict = {}
+        for strategy in strategies_list:
+            name = strategy.get('name', f"전략{strategy.get('id', '?')}")
+            strategies_dict[name] = {
+                'id': strategy.get('id'),
+                'return': round((strategy.get('current_capital', 0) - strategy.get('initial_capital', 0)) / strategy.get('initial_capital', 1) * 100, 2) if strategy.get('initial_capital') else 0,
+                'capital': strategy.get('current_capital', 0),
+                'trades': 0,  # TODO: 실제 거래 수 계산
+                'status': 'active' if strategy.get('is_active') else 'inactive'
+            }
+
         return jsonify({
             'success': True,
-            'strategies': strategies
+            'strategies': strategies_dict
         })
 
     except Exception as e:

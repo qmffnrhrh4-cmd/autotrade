@@ -970,12 +970,60 @@ def get_ai_chart_analysis(stock_code: str):
             summary['trend'] = 'bearish'
             summary['recommendation'] = 'sell'
 
+        # JavaScript가 기대하는 형식으로 변환
+        # analysis_points를 annotations 형식으로 변환
+        annotations = []
+        for idx, point in enumerate(analysis_points):
+            anno = {
+                'type': 'point' if point['type'] in ['trend', 'volume'] else 'line',
+                'price': point.get('price', 0),
+                'label': point.get('description', ''),
+                'signal': point.get('signal', ''),
+                'color': 'rgba(255, 99, 132, 0.8)' if 'bullish' in point.get('signal', '') or 'buy' in point.get('signal', '') else 'rgba(54, 162, 235, 0.8)'
+            }
+            # 인덱스 추정 (최근 포인트들이므로 차트 끝부분)
+            if idx < len(daily_data):
+                anno['position'] = len(daily_data) - len(analysis_points) + idx
+            else:
+                anno['position'] = len(daily_data) - 1
+
+            annotations.append(anno)
+
+        # 지지/저항선 추가
+        if support > 0:
+            annotations.append({
+                'type': 'line',
+                'price': support,
+                'label': f'지지선: {support:,.0f}원',
+                'color': 'rgb(75, 192, 192)'
+            })
+
+        if resistance > 0:
+            annotations.append({
+                'type': 'line',
+                'price': resistance,
+                'label': f'저항선: {resistance:,.0f}원',
+                'color': 'rgb(255, 205, 86)'
+            })
+
+        # summary를 문자열로 변환
+        summary_text = f"{summary['recommendation'].upper()} | 추세: {summary['trend']} | 현재가: {summary['key_levels']['current']:,.0f}원"
+
+        # key_points 생성
+        key_points = [point.get('description', '') for point in analysis_points]
+
+        analysis_result = {
+            'signal': summary['recommendation'],
+            'summary': summary_text,
+            'key_points': key_points,
+            'annotations': annotations
+        }
+
         return jsonify({
             'success': True,
             'stock_code': stock_code,
             'timeframe': timeframe,
-            'analysis_points': analysis_points,
-            'summary': summary,
+            'analysis': analysis_result,  # JavaScript가 기대하는 키
             'timestamp': datetime.now().isoformat()
         })
 
