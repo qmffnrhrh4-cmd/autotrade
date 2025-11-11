@@ -42,7 +42,7 @@ class Trade(Base):
     stock_name = Column(String(50), nullable=False)
 
     # 거래 정보
-    action = Column(String(10), nullable=False)  # 'buy' or 'sell'
+    action = Column(String(10), nullable=False, index=True)  # 'buy' or 'sell' - indexed for filtering
     quantity = Column(Integer, nullable=False)
     price = Column(Integer, nullable=False)
     total_amount = Column(Integer, nullable=False)

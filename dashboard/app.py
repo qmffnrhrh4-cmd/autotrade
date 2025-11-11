@@ -168,7 +168,7 @@ def run_dashboard(bot=None, host: str = '0.0.0.0', port: int = 5000, debug: bool
 
     # Initialize virtual trading manager
     try:
-        init_virtual_trading_manager()
+        init_virtual_trading_manager(bot=bot_instance)
         print("✅ Virtual trading manager initialized")
     except Exception as e:
         print(f"⚠️ Failed to initialize virtual trading manager: {e}")
