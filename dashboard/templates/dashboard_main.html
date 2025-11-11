@@ -679,6 +679,10 @@
                     <i class="fas fa-history"></i>
                     <span>백테스팅</span>
                 </div>
+                <div class="nav-tab" data-tab="program-manager">
+                    <i class="fas fa-robot"></i>
+                    <span>프로그램 매니저</span>
+                </div>
                 <div class="nav-tab" data-tab="settings">
                     <i class="fas fa-cog"></i>
                     <span>설정</span>
@@ -1245,6 +1249,113 @@
                     </div>
                 </div>
 
+                <!-- Program Manager Tab -->
+                <div class="tab-content" id="program-manager">
+                    <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
+                        <i class="fas fa-robot" style="color: var(--color-primary);"></i>
+                        프로그램 매니저
+                    </h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">시스템 모니터링, 성능 분석, 자동 최적화</p>
+
+                    <!-- Control Panel -->
+                    <div class="glass-card" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-sliders-h"></i>
+                                제어 패널
+                            </h3>
+                        </div>
+                        <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+                            <button id="pm-health-check-btn" class="btn btn-primary" style="flex: 1; min-width: 150px;">
+                                <i class="fas fa-heartbeat"></i> 건강 검진
+                            </button>
+                            <button id="pm-analyze-btn" class="btn btn-primary" style="flex: 1; min-width: 150px;">
+                                <i class="fas fa-chart-line"></i> 성능 분석
+                            </button>
+                            <button id="pm-optimize-btn" class="btn btn-primary" style="flex: 1; min-width: 150px;">
+                                <i class="fas fa-magic"></i> 시스템 최적화
+                            </button>
+                            <button id="pm-report-btn" class="btn btn-primary" style="flex: 1; min-width: 150px;">
+                                <i class="fas fa-file-alt"></i> 보고서 생성
+                            </button>
+                        </div>
+                        <div style="margin-top: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="pm-auto-refresh">
+                                <span>자동 새로고침 (30초)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- System Status -->
+                    <div class="glass-card" style="margin-bottom: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-server"></i>
+                                시스템 상태
+                            </h3>
+                        </div>
+                        <div id="pm-status-container" style="margin-top: 1.5rem;">
+                            <p style="text-align: center; color: var(--text-secondary);">데이터 로딩 중...</p>
+                        </div>
+                    </div>
+
+                    <!-- Results Grid -->
+                    <div class="grid grid-2" style="gap: 2rem;">
+                        <!-- Health Check Report -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-heartbeat"></i>
+                                    건강 검진 결과
+                                </h3>
+                            </div>
+                            <div id="pm-health-report" style="margin-top: 1.5rem;">
+                                <p style="text-align: center; color: var(--text-secondary);">검진 실행 후 결과가 표시됩니다</p>
+                            </div>
+                        </div>
+
+                        <!-- Performance Analysis -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-chart-bar"></i>
+                                    성능 분석 결과
+                                </h3>
+                            </div>
+                            <div id="pm-analysis-result" style="margin-top: 1.5rem;">
+                                <p style="text-align: center; color: var(--text-secondary);">분석 실행 후 결과가 표시됩니다</p>
+                            </div>
+                        </div>
+
+                        <!-- Optimization Result -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-cogs"></i>
+                                    최적화 결과
+                                </h3>
+                            </div>
+                            <div id="pm-optimization-result" style="margin-top: 1.5rem;">
+                                <p style="text-align: center; color: var(--text-secondary);">최적화 실행 후 결과가 표시됩니다</p>
+                            </div>
+                        </div>
+
+                        <!-- Report -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-file-alt"></i>
+                                    종합 보고서
+                                </h3>
+                            </div>
+                            <div id="pm-report-container" style="margin-top: 1.5rem;">
+                                <p style="text-align: center; color: var(--text-secondary);">보고서 생성 후 결과가 표시됩니다</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Settings Tab -->
                 <div class="tab-content" id="settings">
                     <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
@@ -1729,18 +1840,28 @@
                 }
                 const chartData = rawData.slice(0, 100).reverse(); // Show last 100 candles
                 const labels = chartData.map(item => {
-                    const date = (item['일자'] || item['날짜'] || '').toString();
-                    const time = (item['체결시간'] || item['시간'] || '').toString();
+                    try {
+                        const date = (item['일자'] || item['날짜'] || '').toString();
+                        const time = (item['체결시간'] || item['시간'] || '').toString();
 
-                    // Validate date has minimum length
-                    if (date.length < 8) {
+                        // Skip if no valid date
+                        if (!date || date === 'undefined' || date === 'null') {
+                            return 'N/A';
+                        }
+
+                        // Validate date has minimum length (YYYYMMDD = 8)
+                        if (date.length >= 8) {
+                            if (time && time.length >= 4) {
+                                return `${date.slice(4, 6)}/${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
+                            }
+                            return `${date.slice(4, 6)}/${date.slice(6, 8)}`;
+                        }
+
+                        return 'N/A';
+                    } catch (e) {
+                        console.error('Date parsing error:', e, item);
                         return 'N/A';
                     }
-
-                    if (time && time.length >= 4) {
-                        return `${date.slice(4, 6)}/${date.slice(6, 8)} ${time.slice(0, 2)}:${time.slice(2, 4)}`;
-                    }
-                    return `${date.slice(4, 6)}/${date.slice(6, 8)}`;
                 });
 
                 const prices = chartData.map(item => parseInt(item['현재가'] || item['종가'] || 0));
@@ -2420,6 +2541,9 @@
             setInterval(refreshVirtualTrading, 10000);  // Every 10 seconds
         });
     </script>
+
+    <!-- Program Manager JavaScript -->
+    <script src="/static/js/program_manager.js"></script>
 
     <!-- Virtual Trading JavaScript -->
     <script src="/static/js/virtual_trading.js"></script>
