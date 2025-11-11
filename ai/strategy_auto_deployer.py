@@ -31,7 +31,7 @@ class DeployedStrategy:
 
 
 class StrategyAutoDeployer:
-    """전략 자동 배포 및 관리"""
+    """전략 자동 배포 및 관리 (강화된 실시간 모니터링)"""
 
     def __init__(
         self,
@@ -39,23 +39,32 @@ class StrategyAutoDeployer:
         virtual_trading_manager = None,
         performance_threshold: float = -0.30,  # 백테스팅 대비 -30% 이하 시 교체
         min_trades_before_replace: int = 10,    # 최소 10회 거래 후 교체 가능
-        check_interval_seconds: int = 3600      # 1시간마다 체크
+        check_interval_seconds: int = 1800,     # 30분마다 체크 (더 빈번하게)
+        alert_threshold: float = -0.15,         # -15% 이하 시 경고
+        max_deployed_strategies: int = 3        # 최대 동시 배포 전략 수
     ):
         """초기화"""
         self.evolution_db_path = evolution_db_path
         self.vt_manager = virtual_trading_manager
         self.performance_threshold = performance_threshold
+        self.alert_threshold = alert_threshold
         self.min_trades_before_replace = min_trades_before_replace
         self.check_interval = check_interval_seconds
+        self.max_deployed_strategies = max_deployed_strategies
 
         # 배포된 전략 추적
         self.deployed_strategies: Dict[int, DeployedStrategy] = {}
         self.running = False
 
-        logger.info("전략 자동 배포 시스템 초기화 완료")
+        # 성과 추적 히스토리
+        self.performance_history: List[Dict[str, Any]] = []
+
+        logger.info("전략 자동 배포 시스템 초기화 완료 (강화 버전)")
         logger.info(f"  - 성과 임계값: {performance_threshold * 100:.1f}%")
+        logger.info(f"  - 경고 임계값: {alert_threshold * 100:.1f}%")
         logger.info(f"  - 최소 거래 횟수: {min_trades_before_replace}")
         logger.info(f"  - 체크 주기: {check_interval_seconds}초")
+        logger.info(f"  - 최대 동시 배포: {max_deployed_strategies}개")
 
     def get_best_strategy(self, top_n: int = 1) -> List[Dict[str, Any]]:
         """
@@ -190,7 +199,7 @@ class StrategyAutoDeployer:
 
     def check_deployed_strategies_performance(self) -> List[Tuple[int, str]]:
         """
-        배포된 전략들의 성과 체크
+        배포된 전략들의 성과 체크 (강화 버전)
 
         Returns:
             [(strategy_id, status), ...] - 교체가 필요한 전략 목록
@@ -199,6 +208,11 @@ class StrategyAutoDeployer:
             return []
 
         underperforming = []
+        alerts = []
+
+        logger.info("=" * 60)
+        logger.info(f"📊 배포 전략 성과 체크 시작 ({len([d for d in self.deployed_strategies.values() if d.status == 'active'])}개 활성)")
+        logger.info("=" * 60)
 
         for strategy_id, deployed in self.deployed_strategies.items():
             if deployed.status != "active":
@@ -209,12 +223,15 @@ class StrategyAutoDeployer:
                 vt_strategy = self._get_virtual_trading_performance(deployed.virtual_trading_id)
 
                 if not vt_strategy:
+                    logger.warning(f"전략 {strategy_id}: 성과 데이터 없음")
                     continue
 
                 # 거래 횟수 체크
                 trades_count = vt_strategy.get('total_trades', 0)
+                win_rate = vt_strategy.get('win_rate', 0)
+
                 if trades_count < self.min_trades_before_replace:
-                    logger.info(f"전략 {strategy_id}: 거래 횟수 부족 ({trades_count}/{self.min_trades_before_replace})")
+                    logger.info(f"전략 {strategy_id}: 거래 횟수 부족 ({trades_count}/{self.min_trades_before_replace}) - 대기 중")
                     continue
 
                 # 성과 비교
@@ -226,18 +243,48 @@ class StrategyAutoDeployer:
                 deployed.live_return_pct = live_return
                 deployed.last_check_at = datetime.now()
 
-                logger.info(f"전략 {strategy_id} 성과 체크:")
-                logger.info(f"  백테스팅: {backtest_return:.2f}% | 실전: {live_return:.2f}%")
-                logger.info(f"  성과비율: {performance_ratio * 100:.1f}% (임계값: {self.performance_threshold * 100:.1f}%)")
+                # 성과 히스토리 기록
+                self.performance_history.append({
+                    'strategy_id': strategy_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'backtest_return': backtest_return,
+                    'live_return': live_return,
+                    'performance_ratio': performance_ratio,
+                    'trades_count': trades_count,
+                    'win_rate': win_rate
+                })
 
-                # 성과 저하 체크
+                # 최근 100개만 유지
+                if len(self.performance_history) > 100:
+                    self.performance_history = self.performance_history[-100:]
+
+                # 상세 로깅
+                logger.info(f"전략 {strategy_id} (세대 {deployed.generation}, VT ID: {deployed.virtual_trading_id}):")
+                logger.info(f"  백테스팅 수익률: {backtest_return:+.2f}%")
+                logger.info(f"  실전 수익률:     {live_return:+.2f}%")
+                logger.info(f"  성과비율:       {performance_ratio * 100:+.1f}%")
+                logger.info(f"  거래횟수:       {trades_count}회 (승률: {win_rate:.1f}%)")
+
+                # 경고 임계값 체크
+                if self.alert_threshold <= performance_ratio < self.performance_threshold:
+                    logger.warning(f"⚠️  경고: 전략 {strategy_id} 성과 저하 중 ({performance_ratio * 100:+.1f}%)")
+                    alerts.append((strategy_id, "warning", performance_ratio))
+
+                # 교체 임계값 체크
                 if performance_ratio < self.performance_threshold:
-                    logger.warning(f"⚠️ 전략 {strategy_id} 성과 저하 감지! 교체 필요")
+                    logger.error(f"🚨 심각: 전략 {strategy_id} 성과 저하 심각! 교체 필요")
+                    logger.error(f"   백테스팅 대비 {abs(performance_ratio) * 100:.1f}% 저조")
                     deployed.status = "underperforming"
                     underperforming.append((strategy_id, "underperforming"))
+                elif performance_ratio > 0:
+                    logger.info(f"✅ 양호: 백테스팅 대비 {performance_ratio * 100:+.1f}% 우수")
 
             except Exception as e:
-                logger.error(f"전략 {strategy_id} 성과 체크 실패: {e}")
+                logger.error(f"전략 {strategy_id} 성과 체크 실패: {e}", exc_info=True)
+
+        logger.info("=" * 60)
+        logger.info(f"체크 완료: 경고 {len(alerts)}개, 교체 필요 {len(underperforming)}개")
+        logger.info("=" * 60)
 
         return underperforming
 

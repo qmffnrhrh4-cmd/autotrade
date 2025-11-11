@@ -20,32 +20,60 @@ logger = get_logger()
 
 @dataclass
 class StrategyGene:
-    """전략 유전자"""
-    # 매수 조건
+    """전략 유전자 (확장판 - 다양한 기술적 지표)"""
+    # RSI 조건
     buy_rsi_min: float = 20.0
     buy_rsi_max: float = 40.0
+    sell_rsi_min: float = 60.0
+    sell_rsi_max: float = 80.0
+
+    # MACD 조건
+    use_macd: bool = True
+    buy_macd_signal_cross: bool = True  # MACD > Signal 일 때 매수
+    macd_threshold: float = 0.0
+
+    # 이동평균선 조건
+    use_ma: bool = True
+    buy_ma_5_above_20: bool = True  # 5일선이 20일선 위에 있을 때
+    buy_ma_20_above_60: bool = False  # 20일선이 60일선 위에 있을 때
+    buy_price_above_ma5: bool = False  # 현재가가 5일선 위에 있을 때
+
+    # 볼린저밴드 조건
+    use_bollinger: bool = True
+    buy_near_lower_band: float = 0.05  # 하단 밴드 5% 이내
+    sell_near_upper_band: float = 0.05  # 상단 밴드 5% 이내
+
+    # 거래량 조건
     buy_volume_ratio_min: float = 1.2
     buy_volume_ratio_max: float = 3.0
+    buy_volume_spike: float = 2.0  # 평균 대비 2배 이상
+
+    # 호가 조건
     buy_bid_ask_ratio_min: float = 1.1
 
     # 매도 조건
-    sell_rsi_min: float = 60.0
-    sell_rsi_max: float = 80.0
     sell_take_profit: float = 0.10  # 10%
     sell_stop_loss: float = -0.05  # -5%
     sell_trailing_stop: float = 0.03  # 3%
 
     # 포지션 크기
     position_size_pct: float = 0.10  # 계좌의 10%
+    max_positions: int = 5  # 최대 동시 보유 종목 수
+
+    # 타임프레임
+    timeframe: str = "5"  # 1, 5, 15, 30, 60 (분봉)
 
     # 시간 필터
     trade_time_start: str = "09:30"
     trade_time_end: str = "15:00"
+    avoid_first_30min: bool = True  # 시초 30분 회피
+    avoid_last_30min: bool = True   # 종가 30분 회피
 
     # 종목 필터
     min_price: float = 10000
     max_price: float = 200000
     min_volume: float = 100000
+    min_market_cap: float = 1000000000  # 시가총액 10억 이상
 
     def to_dict(self) -> Dict[str, Any]:
         """딕셔너리로 변환"""
@@ -169,17 +197,58 @@ class StrategyOptimizationEngine:
         logger.info(f"데이터베이스 초기화 완료: {self.db_path}")
 
     def initialize_population(self) -> List[StrategyGene]:
-        """초기 세대 생성"""
+        """초기 세대 생성 (확장된 유전자)"""
         logger.info(f"초기 세대 생성 중... (크기: {self.population_size})")
         population = []
         for i in range(self.population_size):
             gene = StrategyGene(
+                # RSI
                 buy_rsi_min=random.uniform(15, 35),
                 buy_rsi_max=random.uniform(35, 50),
+                sell_rsi_min=random.uniform(60, 75),
+                sell_rsi_max=random.uniform(75, 90),
+
+                # MACD
+                use_macd=random.choice([True, False]),
+                buy_macd_signal_cross=random.choice([True, False]),
+                macd_threshold=random.uniform(-0.5, 0.5),
+
+                # 이동평균
+                use_ma=random.choice([True, False]),
+                buy_ma_5_above_20=random.choice([True, False]),
+                buy_ma_20_above_60=random.choice([True, False]),
+                buy_price_above_ma5=random.choice([True, False]),
+
+                # 볼린저밴드
+                use_bollinger=random.choice([True, False]),
+                buy_near_lower_band=random.uniform(0.02, 0.10),
+                sell_near_upper_band=random.uniform(0.02, 0.10),
+
+                # 거래량
                 buy_volume_ratio_min=random.uniform(1.1, 2.0),
+                buy_volume_ratio_max=random.uniform(2.0, 5.0),
+                buy_volume_spike=random.uniform(1.5, 3.0),
+
+                # 매도 조건
                 sell_take_profit=random.uniform(0.05, 0.25),
                 sell_stop_loss=random.uniform(-0.15, -0.03),
-                position_size_pct=random.uniform(0.05, 0.20)
+                sell_trailing_stop=random.uniform(0.02, 0.08),
+
+                # 포지션
+                position_size_pct=random.uniform(0.05, 0.20),
+                max_positions=random.randint(3, 8),
+
+                # 타임프레임
+                timeframe=random.choice(["1", "5", "15", "30", "60"]),
+
+                # 시간 필터
+                avoid_first_30min=random.choice([True, False]),
+                avoid_last_30min=random.choice([True, False]),
+
+                # 종목 필터
+                min_price=random.uniform(5000, 20000),
+                max_price=random.uniform(100000, 500000),
+                min_volume=random.uniform(50000, 200000)
             )
             population.append(gene)
         logger.info(f"✅ 초기 세대 {self.population_size}개 생성 완료")
@@ -199,16 +268,53 @@ class StrategyOptimizationEngine:
                 self.positions = {}
 
             def should_buy(self, stock_data, market_data, ai_analysis):
-                """매수 조건"""
+                """매수 조건 (확장된 기술적 지표)"""
                 # RSI 조건
                 rsi = stock_data.get('rsi', 50)
                 if not (self.gene.buy_rsi_min <= rsi <= self.gene.buy_rsi_max):
                     return False
 
+                # MACD 조건
+                if self.gene.use_macd:
+                    macd = stock_data.get('macd', 0)
+                    macd_signal = stock_data.get('macd_signal', 0)
+                    if self.gene.buy_macd_signal_cross:
+                        if not (macd > macd_signal and macd > self.gene.macd_threshold):
+                            return False
+
+                # 이동평균선 조건
+                if self.gene.use_ma:
+                    ma5 = stock_data.get('ma5', 0)
+                    ma20 = stock_data.get('ma20', 0)
+                    ma60 = stock_data.get('ma60', 0)
+                    price = stock_data.get('close', 0)
+
+                    if self.gene.buy_ma_5_above_20 and ma5 > 0 and ma20 > 0:
+                        if ma5 <= ma20:
+                            return False
+                    if self.gene.buy_ma_20_above_60 and ma20 > 0 and ma60 > 0:
+                        if ma20 <= ma60:
+                            return False
+                    if self.gene.buy_price_above_ma5 and ma5 > 0:
+                        if price <= ma5:
+                            return False
+
+                # 볼린저밴드 조건
+                if self.gene.use_bollinger:
+                    bb_lower = stock_data.get('bb_lower', 0)
+                    price = stock_data.get('close', 0)
+                    if bb_lower > 0:
+                        distance_to_lower = abs(price - bb_lower) / bb_lower
+                        if distance_to_lower > self.gene.buy_near_lower_band:
+                            return False
+
                 # 거래량 조건
                 volume_ratio = stock_data.get('volume_ratio', 1.0)
-                if volume_ratio < self.gene.buy_volume_ratio_min:
+                if not (self.gene.buy_volume_ratio_min <= volume_ratio <= self.gene.buy_volume_ratio_max):
                     return False
+                if volume_ratio < self.gene.buy_volume_spike:
+                    # 거래량 급증 조건 (선택적)
+                    pass
 
                 # 호가 비율 조건 (매수우위)
                 bid_ask_ratio = stock_data.get('bid_ask_ratio', 1.0)
@@ -220,15 +326,25 @@ class StrategyOptimizationEngine:
                 if not (self.gene.trade_time_start <= current_time <= self.gene.trade_time_end):
                     return False
 
+                # 시초/종가 30분 회피
+                if self.gene.avoid_first_30min and current_time < "10:00":
+                    return False
+                if self.gene.avoid_last_30min and current_time > "14:30":
+                    return False
+
                 # 가격 필터
                 price = stock_data.get('close', 0)
                 if not (self.gene.min_price <= price <= self.gene.max_price):
                     return False
 
+                # 최대 포지션 수 체크
+                if len(self.positions) >= self.gene.max_positions:
+                    return False
+
                 return True
 
             def should_sell(self, stock_code, position, current_price):
-                """매도 조건"""
+                """매도 조건 (확장판)"""
                 buy_price = position['buy_price']
                 profit_pct = ((current_price - buy_price) / buy_price)
 
@@ -251,6 +367,14 @@ class StrategyOptimizationEngine:
                 rsi = position.get('current_rsi', 50)
                 if self.gene.sell_rsi_min <= rsi <= self.gene.sell_rsi_max:
                     return True
+
+                # 볼린저밴드 상단 근접 시 매도
+                if self.gene.use_bollinger:
+                    bb_upper = position.get('bb_upper', 0)
+                    if bb_upper > 0:
+                        distance_to_upper = abs(current_price - bb_upper) / bb_upper
+                        if distance_to_upper <= self.gene.sell_near_upper_band:
+                            return True
 
                 return False
 
@@ -282,7 +406,7 @@ class StrategyOptimizationEngine:
                     stock_codes=stock_codes,
                     start_date=start_date.strftime('%Y%m%d'),
                     end_date=end_date.strftime('%Y%m%d'),
-                    interval='5',  # 5분봉
+                    interval=gene.timeframe,  # 유전자의 타임프레임 사용
                     parallel=False
                 )
 
