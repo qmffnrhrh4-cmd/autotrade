@@ -285,15 +285,60 @@ class ProgramManager:
         return result
 
     def _analyze_trading_performance(self) -> Dict[str, Any]:
-        """거래 성능 분석"""
-        # TODO: 실제 거래 데이터 분석
-        return {
-            'total_trades': 0,
-            'win_rate': 0.0,
-            'total_return': 0.0,
-            'sharpe_ratio': 0.0,
-            'max_drawdown': 0.0
-        }
+        """거래 성능 분석 - 실제 거래 데이터"""
+        try:
+            from database.models import get_db_session, TradeHistory
+            import sqlalchemy as sa
+
+            session = get_db_session()
+            if not session:
+                # DB 연결 실패 시 기본값
+                return {
+                    'total_trades': 0,
+                    'win_rate': 0.0,
+                    'total_return': 0.0,
+                    'sharpe_ratio': 0.0,
+                    'max_drawdown': 0.0
+                }
+
+            # 실제 거래 기록 조회
+            trades = session.query(TradeHistory).all()
+
+            total_trades = len(trades)
+            winning_trades = 0
+            total_profit = 0
+
+            for trade in trades:
+                if trade.action == 'sell' and trade.profit_loss:
+                    total_profit += trade.profit_loss
+                    if trade.profit_loss > 0:
+                        winning_trades += 1
+
+            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0.0
+
+            # 초기 자본 대비 수익률 추정 (초기 자본 1억 가정)
+            initial_capital = 100000000
+            total_return = (total_profit / initial_capital * 100) if initial_capital > 0 else 0.0
+
+            session.close()
+
+            return {
+                'total_trades': total_trades,
+                'win_rate': win_rate,
+                'total_return': total_return,
+                'sharpe_ratio': 0.0,  # 복잡한 계산 필요
+                'max_drawdown': 0.0   # 복잡한 계산 필요
+            }
+
+        except Exception as e:
+            logger.error(f"거래 성능 분석 실패: {e}")
+            return {
+                'total_trades': 0,
+                'win_rate': 0.0,
+                'total_return': 0.0,
+                'sharpe_ratio': 0.0,
+                'max_drawdown': 0.0
+            }
 
     def _analyze_automation_efficiency(self) -> Dict[str, Any]:
         """자동화 효율성 분석"""

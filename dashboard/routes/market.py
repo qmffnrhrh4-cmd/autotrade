@@ -873,6 +873,12 @@ def get_ai_chart_analysis(stock_code: str):
         # Analyze chart patterns and signals
         analysis_points = []
 
+        # Initialize variables
+        trend_change = 0
+        support = 0
+        resistance = 0
+        current_price = 0
+
         # Simple trend analysis - with safety check
         recent_prices = [item.get('close', 0) for item in daily_data[-20:]] if len(daily_data) >= 20 else [item.get('close', 0) for item in daily_data]
         if len(recent_prices) >= 20:
