@@ -45,6 +45,18 @@ def initialize_market_api():
         return None
 
 
+def initialize_virtual_trading():
+    """Virtual Trading Manager 초기화"""
+    try:
+        from virtual_trading.manager import VirtualTradingManager
+        vt_manager = VirtualTradingManager(db_path="data/virtual_trading.db")
+        logger.info("✅ Virtual Trading Manager 초기화 완료")
+        return vt_manager
+    except Exception as e:
+        logger.warning(f"⚠️ Virtual Trading Manager 초기화 실패: {e}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description='전략 최적화 엔진')
     parser.add_argument('--population-size', type=int, default=20, help='세대당 전략 개수')
@@ -54,6 +66,7 @@ def main():
     parser.add_argument('--max-generations', type=int, default=None, help='최대 세대 수 (None=무한)')
     parser.add_argument('--stocks', type=str, default='005930,000660,035720', help='테스트 종목 (쉼표 구분)')
     parser.add_argument('--simulation', action='store_true', help='시뮬레이션 모드 강제 (Market API 없이 실행)')
+    parser.add_argument('--auto-deploy', action='store_true', help='최우수 전략 자동 배포 (가상매매 연동)')
 
     args = parser.parse_args()
 
@@ -71,17 +84,23 @@ def main():
     logger.info(f"  - 세대 간 대기: {args.interval}초")
     logger.info(f"  - 최대 세대: {args.max_generations or '무한'}")
     logger.info(f"  - 테스트 종목: {args.stocks}")
+    logger.info(f"  - 자동 배포: {'활성화' if args.auto_deploy else '비활성화'}")
     logger.info("=" * 100)
 
     # Market API 초기화 (시뮬레이션 모드가 아닌 경우)
     market_api = None if args.simulation else initialize_market_api()
+
+    # Virtual Trading Manager 초기화 (자동 배포 모드인 경우)
+    vt_manager = initialize_virtual_trading() if args.auto_deploy else None
 
     global engine
     engine = StrategyOptimizationEngine(
         population_size=args.population_size,
         mutation_rate=args.mutation_rate,
         crossover_rate=args.crossover_rate,
-        market_api=market_api
+        market_api=market_api,
+        virtual_trading_manager=vt_manager,
+        auto_deploy=args.auto_deploy
     )
 
     stock_codes = args.stocks.split(',')

@@ -23,10 +23,22 @@ python run_strategy_optimizer.py \
     --stocks 005930,000660
 ```
 
-### 3. 프로덕션 실행 (24/7 무한 실행)
+### 3. 자동 배포 모드 (가상매매 연동) 🆕
 ```bash
-# 백그라운드에서 실행 (실제 백테스팅)
+# 최우수 전략을 가상매매에 자동 배포
+python run_strategy_optimizer.py \
+    --auto-deploy \
+    --population-size 10 \
+    --max-generations 20 \
+    --interval 300 \
+    --stocks 005930,000660
+```
+
+### 4. 프로덕션 실행 (24/7 무한 실행 + 자동 배포)
+```bash
+# 백그라운드에서 실행 (실제 백테스팅 + 자동 배포)
 nohup python run_strategy_optimizer.py \
+    --auto-deploy \
     --population-size 20 \
     --mutation-rate 0.15 \
     --crossover-rate 0.7 \
@@ -38,7 +50,7 @@ nohup python run_strategy_optimizer.py \
 echo $! > data/optimizer.pid
 ```
 
-### 3. 실행 중인 엔진 확인
+### 5. 실행 중인 엔진 확인
 ```bash
 # 로그 확인
 tail -f logs/optimizer.log
@@ -69,6 +81,7 @@ pkill -f run_strategy_optimizer.py
 2. **진화 히스토리**: `GET /api/evolution/history`
 3. **최우수 전략**: `GET /api/evolution/best-strategy`
 4. **세대 상세**: `GET /api/evolution/generation/<generation>`
+5. **배포 현황**: `GET /api/evolution/deployment-status` 🆕
 
 ## 💡 사용 팁
 
@@ -119,10 +132,10 @@ kill -9 $(ps aux | grep run_strategy_optimizer | grep -v grep | awk '{print $2}'
 ## 📈 다음 단계
 
 - [x] Phase 1: 유전 알고리즘 기반 전략 진화 엔진
-- [x] Phase 2: 실제 백테스터 연동 (완료!)
-- [ ] Phase 3: 가상매매 자동 실행
+- [x] Phase 2: 실제 백테스터 연동
+- [x] Phase 3: 가상매매 자동 배포 (완료!) 🎉
 - [ ] Phase 4: 대시보드 UI 추가
-- [ ] Phase 5: 자동 배포 시스템
+- [ ] Phase 5: 실시간 성과 모니터링 및 자동 교체
 
 ## 로그 예시
 

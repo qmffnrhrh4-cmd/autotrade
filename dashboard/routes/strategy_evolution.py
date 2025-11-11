@@ -188,4 +188,62 @@ def get_generation_detail(generation: int):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@evolution_bp.route('/deployment-status', methods=['GET'])
+def get_deployment_status():
+    """배포된 전략 현황 조회"""
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 최근 배포 가능한 최우수 전략들
+        cursor.execute("""
+            SELECT
+                gs.generation,
+                gs.best_fitness,
+                gs.best_strategy_id,
+                es.genes,
+                fr.total_return_pct,
+                fr.win_rate,
+                fr.sharpe_ratio,
+                gs.created_at
+            FROM generation_stats gs
+            JOIN evolved_strategies es ON gs.best_strategy_id = es.id
+            JOIN fitness_results fr ON es.id = fr.strategy_id
+            ORDER BY gs.generation DESC
+            LIMIT 10
+        """)
+
+        deployable_strategies = []
+        for row in cursor.fetchall():
+            genes = json.loads(row['genes'])
+            deployable_strategies.append({
+                'generation': row['generation'],
+                'fitness': round(row['best_fitness'], 2),
+                'strategy_id': row['best_strategy_id'],
+                'backtest_return': round(row['total_return_pct'] or 0, 2),
+                'win_rate': round(row['win_rate'] or 0, 2),
+                'sharpe_ratio': round(row['sharpe_ratio'] or 0, 2),
+                'created_at': row['created_at'],
+                'genes_summary': {
+                    'buy_rsi': f"{genes.get('buy_rsi_min', 0):.1f}-{genes.get('buy_rsi_max', 0):.1f}",
+                    'sell_profit': f"+{genes.get('sell_take_profit', 0)*100:.1f}%",
+                    'sell_loss': f"{genes.get('sell_stop_loss', 0)*100:.1f}%"
+                }
+            })
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'deployable_strategies': deployable_strategies,
+            'total': len(deployable_strategies),
+            'note': '자동 배포 활성화 시 --auto-deploy 플래그 사용'
+        })
+
+    except Exception as e:
+        logger.error(f"배포 현황 조회 실패: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 __all__ = ['evolution_bp']

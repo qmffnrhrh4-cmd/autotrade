@@ -67,7 +67,9 @@ class StrategyOptimizationEngine:
         mutation_rate: float = 0.15,
         crossover_rate: float = 0.7,
         elite_ratio: float = 0.2,
-        market_api = None
+        market_api = None,
+        virtual_trading_manager = None,
+        auto_deploy: bool = False
     ):
         """초기화"""
         self.db_path = db_path
@@ -79,6 +81,8 @@ class StrategyOptimizationEngine:
         self.running = False
         self.market_api = market_api
         self.backtester = None
+        self.auto_deploy = auto_deploy
+        self.auto_deployer = None
 
         # 백테스터 초기화 (market_api가 제공된 경우)
         if market_api:
@@ -92,12 +96,28 @@ class StrategyOptimizationEngine:
         else:
             logger.warning("⚠️ market_api 미제공 - 시뮬레이션 모드로 실행됩니다")
 
+        # 자동 배포 시스템 초기화
+        if auto_deploy and virtual_trading_manager:
+            try:
+                from ai.strategy_auto_deployer import StrategyAutoDeployer
+                self.auto_deployer = StrategyAutoDeployer(
+                    evolution_db_path=db_path,
+                    virtual_trading_manager=virtual_trading_manager
+                )
+                logger.info("✅ 자동 배포 시스템 연결 완료")
+            except Exception as e:
+                logger.warning(f"자동 배포 초기화 실패: {e}")
+                self.auto_deployer = None
+        elif auto_deploy:
+            logger.warning("⚠️ VirtualTradingManager 미제공 - 자동 배포 비활성화")
+
         self._init_database()
 
         logger.info(f"전략 최적화 엔진 초기화 완료")
         logger.info(f"  - 세대당 전략 수: {population_size}")
         logger.info(f"  - 변이 확률: {mutation_rate * 100}%")
         logger.info(f"  - 모드: {'실제 백테스팅' if self.backtester else '시뮬레이션'}")
+        logger.info(f"  - 자동 배포: {'활성화' if self.auto_deployer else '비활성화'}")
 
     def _init_database(self):
         """데이터베이스 초기화"""
@@ -467,6 +487,23 @@ class StrategyOptimizationEngine:
 
             # DB 저장
             self.save_generation(population, fitness_scores, metrics_list)
+
+            # 자동 배포: 최우수 전략을 가상매매에 배포
+            if self.auto_deployer and self.current_generation % 5 == 0:  # 5세대마다 배포
+                logger.info("🚀 최우수 전략 자동 배포 시작...")
+                try:
+                    best_strategies = self.auto_deployer.get_best_strategy(top_n=1)
+                    if best_strategies:
+                        best_strategy = best_strategies[0]
+                        # 이미 배포된 전략이 아닌 경우만 배포
+                        if best_strategy['id'] not in [d.strategy_id for d in self.auto_deployer.deployed_strategies.values() if d.status == "active"]:
+                            vt_id = self.auto_deployer.deploy_strategy(best_strategy)
+                            if vt_id:
+                                logger.info(f"✅ 가상매매 배포 완료: VT ID {vt_id}")
+                        else:
+                            logger.info("ℹ️  최우수 전략이 이미 배포되어 있습니다")
+                except Exception as e:
+                    logger.error(f"자동 배포 실패: {e}")
 
             # 다음 세대 진화
             logger.info(f"세대 진화 중... (현재 세대: {self.current_generation})")
