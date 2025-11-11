@@ -315,13 +315,22 @@ class StrategyBacktester:
             if not self.chart_api:
                 self.chart_api = ChartDataAPI(self.market_api.client)
 
+            # 기간에 따라 필요한 데이터 개수 계산
+            # 3개월 = 60거래일 * 390분(장 시간) / 분봉 간격
+            try:
+                interval_int = int(interval) if isinstance(interval, str) else interval
+            except:
+                interval_int = 5
+
+            # 넉넉하게 10000개 요청 (한투 API 최대값)
+            data_count = 10000
+
             for stock_code in stock_codes:
                 try:
                     data = self.chart_api.get_minute_chart(
                         stock_code=stock_code,
-                        interval=interval,
-                        period='D',
-                        count=1000
+                        interval=interval_int,
+                        count=data_count
                     )
 
                     if data and isinstance(data, list) and len(data) > 0:

@@ -332,36 +332,64 @@ class GeminiAnalyzer(BaseAnalyzer):
         """종목 분석 프롬프트 준비"""
         prompt_template = load_prompt('stock_analysis_simple')
 
+        # 기술적 지표 포맷팅
+        technical_indicators = "기술적 지표 정보 없음"
+        if 'indicators' in stock_data:
+            indicators = stock_data['indicators']
+            technical_indicators = f"""
+- RSI(14): {indicators.get('rsi', 'N/A')}
+- MACD: {indicators.get('macd', 'N/A')}
+- Signal: {indicators.get('signal', 'N/A')}
+- 이동평균선:
+  * 5일: {indicators.get('ma5', 'N/A')}
+  * 20일: {indicators.get('ma20', 'N/A')}
+  * 60일: {indicators.get('ma60', 'N/A')}
+- 거래량: {stock_data.get('volume', 0):,}주
+- 거래대금: {stock_data.get('trading_value', 0):,}원
+"""
+        elif 'volume' in stock_data:
+            # 최소한의 거래량 정보라도 포함
+            technical_indicators = f"""
+- 거래량: {stock_data.get('volume', 0):,}주
+- 현재가: {stock_data.get('current_price', 0):,}원
+- 등락률: {stock_data.get('change_rate', 0):+.2f}%
+"""
+
+        # 점수 정보 포맷팅
+        score_text = "점수 정보 없음"
         if score_info:
             score = score_info.get('score', 0)
             percentage = score_info.get('percentage', 0)
             breakdown = score_info.get('breakdown', {})
             score_breakdown_detailed = "\n".join([
-                f"  {k}: {v:.1f}점" for k, v in breakdown.items() if v >= 0
+                f"  - {k}: {v:.1f}점" for k, v in breakdown.items() if v >= 0
             ])
-        else:
-            score = 0
-            percentage = 0
-            score_breakdown_detailed = "  점수 정보 없음"
+            score_text = f"""
+- 종합 점수: {score:.1f}점 (상위 {percentage:.1f}%)
+- 세부 점수:
+{score_breakdown_detailed if score_breakdown_detailed else "  세부 점수 없음"}
+"""
 
-        portfolio_text = portfolio_info or "보유 종목 없음"
-
+        # 시장 정보 포맷팅
         institutional_net_buy = stock_data.get('institutional_net_buy', 0)
         foreign_net_buy = stock_data.get('foreign_net_buy', 0)
         bid_ask_ratio = stock_data.get('bid_ask_ratio', 1.0)
+
+        market_info = f"""
+- 기관 순매수: {institutional_net_buy:,}주
+- 외국인 순매수: {foreign_net_buy:,}주
+- 호가 비율(매수/매도): {bid_ask_ratio:.2f}
+"""
+
+        portfolio_text = portfolio_info or "보유 종목 없음"
 
         return prompt_template.format(
             stock_name=stock_data.get('stock_name', ''),
             stock_code=stock_data.get('stock_code', ''),
             current_price=stock_data.get('current_price', 0),
-            change_rate=stock_data.get('change_rate', 0.0),
-            volume=stock_data.get('volume', 0),
-            score=score,
-            percentage=percentage,
-            score_breakdown_detailed=score_breakdown_detailed,
-            institutional_net_buy=institutional_net_buy,
-            foreign_net_buy=foreign_net_buy,
-            bid_ask_ratio=bid_ask_ratio,
+            technical_indicators=technical_indicators,
+            score_info=score_text,
+            market_info=market_info,
             portfolio_info=portfolio_text
         )
 
