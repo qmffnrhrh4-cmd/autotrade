@@ -11,7 +11,12 @@ from .test_mode_manager import TestModeManager, run_test_mode
 try:
     from .order_book import OrderBookService, OrderBook
     from .profit_tracker import ProfitTracker, PerformanceMetrics, TradeRecord
-    from .portfolio_optimizer import PortfolioOptimizer, PortfolioOptimization
+    # Fix: portfolio_optimizer는 strategy 모듈에 있음
+    try:
+        from strategy.portfolio_optimizer import PortfolioOptimizer, PortfolioOptimization
+    except ImportError:
+        # 없으면 None으로 설정
+        PortfolioOptimizer = PortfolioOptimization = None
     from .news_feed import NewsFeedService, NewsArticle, NewsSummary, SentimentAnalyzer
     from .risk_analyzer import RiskAnalyzer, RiskAnalysis, StockRisk, PortfolioRisk
     from .ai_mode import AIAgent, AIDecision, AIStrategy, AIPerformance, get_ai_agent

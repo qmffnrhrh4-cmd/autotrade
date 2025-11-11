@@ -28,9 +28,9 @@ def signal_handler(sig, frame):
 def initialize_market_api():
     """Market API 초기화"""
     try:
-        # config 로드
-        from utils.config_loader import load_config
-        config = load_config()
+        # Fix: config 모듈에서 직접 설정 로드
+        from config import get_config
+        config = get_config()
 
         # Market API 초기화
         from api.market.real_time_api import RealTimeMarketAPI
