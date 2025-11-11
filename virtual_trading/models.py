@@ -181,7 +181,7 @@ class VirtualTradingDB:
         initial_capital: float = 10000000
     ) -> int:
         """
-        가상매매 전략 생성
+        가상매매 전략 생성 (이미 존재하면 기존 ID 반환)
 
         Args:
             name: 전략 이름
@@ -189,18 +189,44 @@ class VirtualTradingDB:
             initial_capital: 초기 자본
 
         Returns:
-            생성된 전략 ID
+            생성된 전략 ID (또는 기존 전략 ID)
         """
         cursor = self.conn.cursor()
-        cursor.execute("""
-            INSERT INTO virtual_strategies (name, description, initial_capital, current_capital)
-            VALUES (?, ?, ?, ?)
-        """, (name, description, initial_capital, initial_capital))
-        self.conn.commit()
 
-        strategy_id = cursor.lastrowid
-        logger.info(f"가상매매 전략 생성: {name} (ID: {strategy_id})")
-        return strategy_id
+        # 먼저 기존 전략이 있는지 확인
+        cursor.execute("""
+            SELECT id FROM virtual_strategies
+            WHERE name = ? AND is_active = 1
+        """, (name,))
+
+        existing = cursor.fetchone()
+        if existing:
+            strategy_id = existing['id']
+            logger.info(f"♻️ 가상매매 전략 이미 존재: {name} (ID: {strategy_id})")
+            return strategy_id
+
+        # 없으면 새로 생성
+        try:
+            cursor.execute("""
+                INSERT INTO virtual_strategies (name, description, initial_capital, current_capital)
+                VALUES (?, ?, ?, ?)
+            """, (name, description, initial_capital, initial_capital))
+            self.conn.commit()
+
+            strategy_id = cursor.lastrowid
+            logger.info(f"✅ 가상매매 전략 생성: {name} (ID: {strategy_id})")
+            return strategy_id
+        except sqlite3.IntegrityError as e:
+            # UNIQUE constraint 에러 발생 시 다시 조회
+            logger.warning(f"전략 생성 중 충돌 감지, 기존 전략 조회: {name}")
+            cursor.execute("""
+                SELECT id FROM virtual_strategies
+                WHERE name = ?
+            """, (name,))
+            existing = cursor.fetchone()
+            if existing:
+                return existing['id']
+            raise  # 여전히 찾을 수 없으면 에러 발생
 
     def get_all_strategies(self) -> List[Dict[str, Any]]:
         """모든 가상매매 전략 조회"""
