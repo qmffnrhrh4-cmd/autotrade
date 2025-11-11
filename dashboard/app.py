@@ -18,6 +18,14 @@ sys.path.insert(0, str(BASE_DIR))
 
 REALTIME_UPDATE_INTERVAL = 3
 
+# Import config constants
+try:
+    from config.constants import HOST, PORTS
+except ImportError:
+    # Fallback to hardcoded values if config not available
+    HOST = '0.0.0.0'
+    PORTS = {'dashboard': 5000}
+
 # Import unified settings manager
 try:
     from config.unified_settings import get_unified_settings
@@ -143,15 +151,20 @@ update_thread.start()
 # MAIN ENTRY POINT
 # ============================================================================
 
-def run_dashboard(bot=None, host: str = '0.0.0.0', port: int = 5000, debug: bool = False):
+def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = False):
     """Run the modular dashboard
 
     Args:
         bot: Trading bot instance
-        host: Host to bind to (default: '0.0.0.0')
-        port: Port to bind to (default: 5000)
+        host: Host to bind to (default: from config.constants.HOST)
+        port: Port to bind to (default: from config.constants.PORTS['dashboard'])
         debug: Enable debug mode (default: False)
     """
+    # Use config defaults if not specified
+    if host is None:
+        host = HOST
+    if port is None:
+        port = PORTS['dashboard']
     global bot_instance, realtime_chart_manager
     bot_instance = bot
 

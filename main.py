@@ -14,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.manager import get_config
-from config.constants import DELAYS, URLS
+from config.constants import DELAYS, URLS, HOST, PORTS
 from utils.logger_new import get_logger
 from database import get_db_session, Trade, Position, PortfolioSnapshot
 from core import KiwoomRESTClient
@@ -82,14 +82,12 @@ class AutoTradingBot:
         self.portfolio_manager = None
         self.analyzer = None
 
-        # v5.5: 고급 자동화 시스템
         self.split_order_executor = None
         self.smart_money_manager = None
         self.emergency_manager = None
         self.liquidity_splitter = None
         self.cache_manager = None
 
-        # v6.0: AI 학습 시스템
         self.split_order_ai = None
         self.parameter_optimizer = None
         self.self_learning_system = None
@@ -163,7 +161,7 @@ class AutoTradingBot:
                 import requests
                 server_already_running = False
                 try:
-                    response = requests.get('http://127.0.0.1:5001/health', timeout=2)
+                    response = requests.get(URLS['openapi_health'], timeout=2)
                     if response.status_code == 200:
                         server_already_running = True
                         logger.info("✅ OpenAPI 서버 이미 실행 중 (외부에서 시작됨)")
@@ -311,6 +309,7 @@ class AutoTradingBot:
             logger.info("AI 분석기 초기화 중...")
             try:
                 from config import GEMINI_API_KEY
+                from ai.enhanced_sentiment_analyzer import get_sentiment_analyzer
 
                 if GEMINI_API_KEY and GEMINI_API_KEY.strip() and GEMINI_API_KEY != "your-gemini-api-key-here":
                     from ai.gemini_analyzer import GeminiAnalyzer
@@ -328,11 +327,15 @@ class AutoTradingBot:
                     self.analyzer.initialize()
                     logger.info("Mock AI 분석기 초기화 완료")
 
+                self.sentiment_analyzer = get_sentiment_analyzer()
+                logger.info("감성 분석기 초기화 완료")
+
             except Exception as e:
                 logger.error(f"AI 분석기 초기화 실패: {e}")
                 from ai.mock_analyzer import MockAnalyzer
                 self.analyzer = MockAnalyzer()
                 self.analyzer.initialize()
+                self.sentiment_analyzer = None
                 logger.warning("Mock 분석기 사용 중")
 
             logger.info("스캐닝 파이프라인 초기화 중...")
@@ -357,7 +360,6 @@ class AutoTradingBot:
             self.portfolio_manager = PortfolioManager(self.client)
             logger.info("포트폴리오 관리자 초기화 완료")
 
-            # v5.5: 고급 자동화 시스템 초기화
             logger.info("자동화 시스템 초기화 중...")
             try:
                 from strategy.split_order_executor import SplitOrderExecutor
@@ -400,7 +402,6 @@ class AutoTradingBot:
                 logger.warning(f"자동화 시스템 초기화 실패: {e}")
                 logger.warning("자동화 기능은 제한적으로 작동합니다")
 
-            # v6.0: AI 학습 시스템 초기화
             logger.info("AI 학습 시스템 초기화 중...")
             try:
                 from ai.split_order_ai import get_split_order_ai
@@ -567,7 +568,7 @@ class AutoTradingBot:
             # 서버가 이미 실행 중인지 확인
             try:
                 import requests
-                response = requests.get('http://127.0.0.1:5001/health', timeout=1)
+                response = requests.get(URLS['openapi_health'], timeout=1)
                 if response.status_code == 200:
                     logger.info("✅ OpenAPI 서버가 이미 실행 중입니다!")
                     return True
@@ -629,14 +630,13 @@ class AutoTradingBot:
             import threading
 
             dashboard_thread = threading.Thread(
-                target=lambda: run_dashboard(bot=self, host='0.0.0.0', port=5000, debug=False),
+                target=lambda: run_dashboard(bot=self, host=HOST, port=PORTS['dashboard'], debug=False),
                 daemon=True
             )
             dashboard_thread.start()
-            logger.info("대시보드 서버 시작됨: http://0.0.0.0:5000")
-            print("📊 Dashboard: http://localhost:5000")
+            logger.info(f"대시보드 서버 시작됨: http://{HOST}:{PORTS['dashboard']}")
+            print(f"📊 Dashboard: {URLS['dashboard']}")
 
-            # v5.5: 비상 상황 모니터링 시작
             if self.emergency_manager:
                 try:
                     logger.info("비상 모니터링 시스템 시작 중...")
@@ -662,7 +662,6 @@ class AutoTradingBot:
         logger.info("오토트레이드 프로 중단 중...")
         self.is_running = False
 
-        # v5.5: 비상 모니터링 중지
         if self.emergency_manager:
             try:
                 logger.info("비상 모니터링 중지 중...")

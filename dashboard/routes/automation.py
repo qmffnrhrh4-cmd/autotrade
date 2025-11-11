@@ -5,29 +5,26 @@ Automation Systems API Routes
 고급 자동화 기능들을 대시보드에서 제어할 수 있는 API
 """
 import logging
-from flask import Blueprint, request, jsonify, current_app
 from datetime import datetime
 from typing import Optional
 
-# Import automation systems
-from strategy.split_order_executor import SplitOrderExecutor
-from strategy.split_order_manager import get_split_order_manager, OrderStatus
-from strategy.smart_money_manager import get_smart_money_manager, RiskLevel
-from strategy.emergency_manager import get_emergency_manager, EmergencyLevel
-from strategy.liquidity_splitter import get_liquidity_splitter
-from utils.cache_manager import get_cache_manager
+from flask import Blueprint, current_app, jsonify, request
 
-# Import AI systems
-from ai.split_order_ai import get_split_order_ai
 from ai.parameter_optimizer import get_parameter_optimizer
 from ai.self_learning_system import get_self_learning_system
+from ai.split_order_ai import get_split_order_ai
+from strategy.emergency_manager import EmergencyLevel, get_emergency_manager
+from strategy.liquidity_splitter import get_liquidity_splitter
+from strategy.smart_money_manager import RiskLevel, get_smart_money_manager
+from strategy.split_order_executor import SplitOrderExecutor
+from strategy.split_order_manager import OrderStatus, get_split_order_manager
+from utils.cache_manager import get_cache_manager
+from utils.response_helper import error_response
 
 logger = logging.getLogger(__name__)
 
-# Blueprint
 automation_bp = Blueprint('automation', __name__, url_prefix='/api/automation')
 
-# Global instances
 _split_executor: Optional[SplitOrderExecutor] = None
 _bot_instance = None
 
@@ -43,7 +40,6 @@ def init_automation_routes(bot):
 
     _bot_instance = bot
 
-    # Split order executor 초기화
     if hasattr(bot, 'order_api') and hasattr(bot, 'data_fetcher'):
         _split_executor = SplitOrderExecutor(
             order_api=bot.order_api,
@@ -53,10 +49,6 @@ def init_automation_routes(bot):
 
     logger.info("✅ Automation routes initialized")
 
-
-# ============================================================
-# Split Order Endpoints
-# ============================================================
 
 @automation_bp.route('/split-order/buy', methods=['POST'])
 def execute_split_buy():
@@ -68,37 +60,31 @@ def execute_split_buy():
         "stock_code": "005930",
         "stock_name": "삼성전자",
         "total_quantity": 30,
-        "entry_strategy": "gradual_down",  # gradual_down, immediate, support_levels
+        "entry_strategy": "gradual_down",
         "num_splits": 3,
-        "price_gaps": [-0.005, -0.01, -0.015]  # Optional
+        "price_gaps": [-0.005, -0.01, -0.015]
     }
     """
     try:
         data = request.get_json()
 
         if not _split_executor:
-            return jsonify({
-                'success': False,
-                'message': 'Split order executor not initialized'
-            }), 500
+            return error_response('Split order executor not initialized', status=500)
 
-        # Required fields
         stock_code = data.get('stock_code')
         stock_name = data.get('stock_name')
         total_quantity = data.get('total_quantity')
 
         if not all([stock_code, stock_name, total_quantity]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: stock_code, stock_name, total_quantity'
-            }), 400
+            return error_response(
+                'Missing required fields: stock_code, stock_name, total_quantity',
+                status=400
+            )
 
-        # Optional fields
         entry_strategy = data.get('entry_strategy', 'gradual_down')
         num_splits = data.get('num_splits', 3)
         price_gaps = data.get('price_gaps')
 
-        # Execute split buy
         group = _split_executor.execute_split_buy(
             stock_code=stock_code,
             stock_name=stock_name,
@@ -109,10 +95,7 @@ def execute_split_buy():
         )
 
         if not group:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to execute split buy'
-            }), 500
+            return error_response('Failed to execute split buy', status=500)
 
         return jsonify({
             'success': True,
@@ -135,10 +118,7 @@ def execute_split_buy():
 
     except Exception as e:
         logger.error(f"Split buy error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/split-order/sell', methods=['POST'])
@@ -152,38 +132,32 @@ def execute_split_sell():
         "stock_name": "삼성전자",
         "total_quantity": 30,
         "entry_price": 73000,
-        "exit_strategy": "gradual_profit",  # gradual_profit, quick_exit, trailing
+        "exit_strategy": "gradual_profit",
         "num_splits": 3,
-        "profit_targets": [0.02, 0.04, 0.07]  # Optional
+        "profit_targets": [0.02, 0.04, 0.07]
     }
     """
     try:
         data = request.get_json()
 
         if not _split_executor:
-            return jsonify({
-                'success': False,
-                'message': 'Split order executor not initialized'
-            }), 500
+            return error_response('Split order executor not initialized', status=500)
 
-        # Required fields
         stock_code = data.get('stock_code')
         stock_name = data.get('stock_name')
         total_quantity = data.get('total_quantity')
         entry_price = data.get('entry_price')
 
         if not all([stock_code, stock_name, total_quantity, entry_price]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: stock_code, stock_name, total_quantity, entry_price'
-            }), 400
+            return error_response(
+                'Missing required fields: stock_code, stock_name, total_quantity, entry_price',
+                status=400
+            )
 
-        # Optional fields
         exit_strategy = data.get('exit_strategy', 'gradual_profit')
         num_splits = data.get('num_splits', 3)
         profit_targets = data.get('profit_targets')
 
-        # Execute split sell
         group = _split_executor.execute_split_sell(
             stock_code=stock_code,
             stock_name=stock_name,
@@ -195,10 +169,7 @@ def execute_split_sell():
         )
 
         if not group:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to execute split sell'
-            }), 500
+            return error_response('Failed to execute split sell', status=500)
 
         return jsonify({
             'success': True,
@@ -221,10 +192,7 @@ def execute_split_sell():
 
     except Exception as e:
         logger.error(f"Split sell error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/split-order/status/<group_id>', methods=['GET'])
@@ -234,10 +202,7 @@ def get_split_order_status(group_id):
         manager = get_split_order_manager()
 
         if group_id not in manager.active_groups:
-            return jsonify({
-                'success': False,
-                'message': 'Group not found'
-            }), 404
+            return error_response('Group not found', status=404)
 
         group = manager.active_groups[group_id]
 
@@ -268,10 +233,7 @@ def get_split_order_status(group_id):
 
     except Exception as e:
         logger.error(f"Get split order status error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/split-order/<group_id>', methods=['DELETE'])
@@ -279,10 +241,7 @@ def cancel_split_order(group_id):
     """분할 주문 그룹 취소"""
     try:
         if not _split_executor:
-            return jsonify({
-                'success': False,
-                'message': 'Split order executor not initialized'
-            }), 500
+            return error_response('Split order executor not initialized', status=500)
 
         success = _split_executor.cancel_group(group_id)
 
@@ -292,17 +251,11 @@ def cancel_split_order(group_id):
                 'message': f'Group {group_id} cancelled'
             })
         else:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to cancel group'
-            }), 500
+            return error_response('Failed to cancel group', status=500)
 
     except Exception as e:
         logger.error(f"Cancel split order error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/split-order/active', methods=['GET'])
@@ -333,15 +286,8 @@ def get_active_split_orders():
 
     except Exception as e:
         logger.error(f"Get active split orders error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Smart Money Manager Endpoints
-# ============================================================
 
 @automation_bp.route('/money-manager/calculate-position', methods=['POST'])
 def calculate_position_size():
@@ -357,39 +303,35 @@ def calculate_position_size():
         "win_rate": 0.6,
         "avg_win_loss_ratio": 1.5,
         "volatility": 0.025,
-        "risk_level": "moderate"  # conservative, moderate, aggressive
+        "risk_level": "moderate"
     }
     """
     try:
         data = request.get_json()
         manager = get_smart_money_manager()
 
-        # Required fields
         stock_code = data.get('stock_code')
         current_price = data.get('current_price')
         available_capital = data.get('available_capital')
 
         if not all([stock_code, current_price, available_capital]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: stock_code, current_price, available_capital'
-            }), 400
+            return error_response(
+                'Missing required fields: stock_code, current_price, available_capital',
+                status=400
+            )
 
-        # Optional fields with defaults
         strategy_confidence = data.get('strategy_confidence', 0.7)
         win_rate = data.get('win_rate', 0.5)
         avg_win_loss_ratio = data.get('avg_win_loss_ratio', 1.5)
         volatility = data.get('volatility', 0.02)
         risk_level_str = data.get('risk_level', 'moderate')
 
-        # Convert risk level string to enum
         risk_level = RiskLevel.MODERATE
         if risk_level_str == 'conservative':
             risk_level = RiskLevel.CONSERVATIVE
         elif risk_level_str == 'aggressive':
             risk_level = RiskLevel.AGGRESSIVE
 
-        # Calculate position size
         position = manager.calculate_position_size(
             stock_code=stock_code,
             current_price=float(current_price),
@@ -414,10 +356,7 @@ def calculate_position_size():
 
     except Exception as e:
         logger.error(f"Calculate position size error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/money-manager/allocate-multi', methods=['POST'])
@@ -449,10 +388,10 @@ def allocate_capital_multi_stock():
         stock_list = data.get('stocks', [])
 
         if not available_capital or not stock_list:
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: available_capital, stocks'
-            }), 400
+            return error_response(
+                'Missing required fields: available_capital, stocks',
+                status=400
+            )
 
         risk_level_str = data.get('risk_level', 'moderate')
         risk_level = RiskLevel.MODERATE
@@ -461,14 +400,12 @@ def allocate_capital_multi_stock():
         elif risk_level_str == 'aggressive':
             risk_level = RiskLevel.AGGRESSIVE
 
-        # Allocate capital
         allocations = manager.allocate_capital_multi_stock(
             stock_list=stock_list,
             available_capital=float(available_capital),
             risk_level=risk_level
         )
 
-        # Format response
         results = []
         for stock_code, position in allocations.items():
             results.append({
@@ -488,10 +425,7 @@ def allocate_capital_multi_stock():
 
     except Exception as e:
         logger.error(f"Allocate capital error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/money-manager/should-reduce', methods=['POST'])
@@ -529,25 +463,15 @@ def check_should_reduce_position():
 
     except Exception as e:
         logger.error(f"Should reduce position error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Emergency Manager Endpoints
-# ============================================================
 
 @automation_bp.route('/emergency/start-monitoring', methods=['POST'])
 def start_emergency_monitoring():
     """비상 모니터링 시작"""
     try:
         if not _bot_instance:
-            return jsonify({
-                'success': False,
-                'message': 'Bot instance not available'
-            }), 500
+            return error_response('Bot instance not available', status=500)
 
         emergency_mgr = get_emergency_manager()
         emergency_mgr.start_monitoring(_bot_instance)
@@ -559,10 +483,7 @@ def start_emergency_monitoring():
 
     except Exception as e:
         logger.error(f"Start emergency monitoring error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/emergency/stop-monitoring', methods=['POST'])
@@ -579,10 +500,7 @@ def stop_emergency_monitoring():
 
     except Exception as e:
         logger.error(f"Stop emergency monitoring error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/emergency/status', methods=['GET'])
@@ -602,10 +520,7 @@ def get_emergency_status():
 
     except Exception as e:
         logger.error(f"Get emergency status error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/emergency/events', methods=['GET'])
@@ -635,10 +550,7 @@ def get_emergency_events():
 
     except Exception as e:
         logger.error(f"Get emergency events error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/emergency/circuit-breaker', methods=['POST'])
@@ -665,15 +577,8 @@ def activate_circuit_breaker():
 
     except Exception as e:
         logger.error(f"Activate circuit breaker error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Liquidity Splitter Endpoints
-# ============================================================
 
 @automation_bp.route('/liquidity/calculate-splits', methods=['POST'])
 def calculate_liquidity_splits():
@@ -686,7 +591,7 @@ def calculate_liquidity_splits():
         "current_price": 73000,
         "avg_daily_volume": 50000000,
         "avg_volume_per_minute": 138888,
-        "strategy": "liquidity_adaptive"  # liquidity_adaptive, twap, vwap, iceberg
+        "strategy": "liquidity_adaptive"
     }
     """
     try:
@@ -698,15 +603,14 @@ def calculate_liquidity_splits():
         avg_daily_volume = data.get('avg_daily_volume')
 
         if not all([target_quantity, current_price, avg_daily_volume]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: target_quantity, current_price, avg_daily_volume'
-            }), 400
+            return error_response(
+                'Missing required fields: target_quantity, current_price, avg_daily_volume',
+                status=400
+            )
 
         avg_volume_per_minute = data.get('avg_volume_per_minute')
         strategy = data.get('strategy', 'liquidity_adaptive')
 
-        # Calculate split orders
         split_orders = splitter.calculate_split_orders(
             target_quantity=int(target_quantity),
             current_price=float(current_price),
@@ -731,10 +635,7 @@ def calculate_liquidity_splits():
 
     except Exception as e:
         logger.error(f"Calculate liquidity splits error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/liquidity/estimate-impact', methods=['POST'])
@@ -758,12 +659,11 @@ def estimate_market_impact():
         avg_daily_volume = data.get('avg_daily_volume')
 
         if not all([order_quantity, current_price, avg_daily_volume]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: order_quantity, current_price, avg_daily_volume'
-            }), 400
+            return error_response(
+                'Missing required fields: order_quantity, current_price, avg_daily_volume',
+                status=400
+            )
 
-        # Estimate impact
         impact = splitter.estimate_market_impact(
             order_quantity=int(order_quantity),
             current_price=float(current_price),
@@ -777,15 +677,8 @@ def estimate_market_impact():
 
     except Exception as e:
         logger.error(f"Estimate market impact error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Cache Manager Endpoints
-# ============================================================
 
 @automation_bp.route('/cache/stats', methods=['GET'])
 def get_cache_stats():
@@ -801,10 +694,7 @@ def get_cache_stats():
 
     except Exception as e:
         logger.error(f"Get cache stats error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/cache/clear', methods=['POST'])
@@ -821,10 +711,7 @@ def clear_cache():
 
     except Exception as e:
         logger.error(f"Clear cache error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/cache/<key>', methods=['DELETE'])
@@ -840,22 +727,12 @@ def delete_cache_key(key):
                 'message': f'Cache key {key} deleted'
             })
         else:
-            return jsonify({
-                'success': False,
-                'message': f'Cache key {key} not found'
-            }), 404
+            return error_response(f'Cache key {key} not found', status=404)
 
     except Exception as e:
         logger.error(f"Delete cache key error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# AI Learning & Optimization Endpoints
-# ============================================================
 
 @automation_bp.route('/ai/split-decision', methods=['POST'])
 def ai_split_decision():
@@ -870,7 +747,7 @@ def ai_split_decision():
         "current_price": 73000,
         "is_buy": true,
         "market_data": {...},
-        "entry_price": 70000  # 매도 시만
+        "entry_price": 70000
     }
     """
     try:
@@ -885,12 +762,8 @@ def ai_split_decision():
         market_data = data.get('market_data', {})
 
         if not all([stock_code, stock_name, total_quantity, current_price]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields'
-            }), 400
+            return error_response('Missing required fields', status=400)
 
-        # AI 분할 결정
         if is_buy:
             decision = ai_system.decide_split_buy_strategy(
                 stock_code=stock_code,
@@ -926,10 +799,7 @@ def ai_split_decision():
 
     except Exception as e:
         logger.error(f"AI split decision error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/ai/optimize-parameter', methods=['POST'])
@@ -959,12 +829,8 @@ def optimize_parameter():
         market_condition = data.get('market_condition', 'neutral')
 
         if not all([parameter_name, current_value is not None]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields'
-            }), 400
+            return error_response('Missing required fields', status=400)
 
-        # 파라미터 최적화
         next_value, expected_score = optimizer.optimize_parameter(
             parameter_name=parameter_name,
             current_value=current_value,
@@ -981,10 +847,7 @@ def optimize_parameter():
 
     except Exception as e:
         logger.error(f"Parameter optimization error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/ai/record-trade', methods=['POST'])
@@ -1018,12 +881,8 @@ def record_trade_experience():
         result = data.get('result', {})
 
         if not all([trade_id, stock_code, stock_name]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields'
-            }), 400
+            return error_response('Missing required fields', status=400)
 
-        # 경험 기록 및 학습
         q_value = learning_system.record_trade_experience(
             trade_id=trade_id,
             stock_code=stock_code,
@@ -1042,10 +901,7 @@ def record_trade_experience():
 
     except Exception as e:
         logger.error(f"Record trade experience error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/ai/learning-insights', methods=['GET'])
@@ -1062,10 +918,7 @@ def get_learning_insights():
 
     except Exception as e:
         logger.error(f"Get learning insights error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/ai/batch-learn', methods=['POST'])
@@ -1094,10 +947,7 @@ def batch_learn():
 
     except Exception as e:
         logger.error(f"Batch learn error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/ai/suggest-action', methods=['POST'])
@@ -1119,12 +969,8 @@ def suggest_action():
         available_actions = data.get('available_actions', [])
 
         if not available_actions:
-            return jsonify({
-                'success': False,
-                'message': 'No available actions provided'
-            }), 400
+            return error_response('No available actions provided', status=400)
 
-        # 최적 행동 추천
         action, q_value = learning_system.suggest_action(
             current_state=current_state,
             available_actions=available_actions
@@ -1139,10 +985,7 @@ def suggest_action():
 
     except Exception as e:
         logger.error(f"Suggest action error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/ai/adapt-to-market', methods=['POST'])
@@ -1176,24 +1019,14 @@ def adapt_to_market():
 
     except Exception as e:
         logger.error(f"Adapt to market error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-__all__ = ['automation_bp', 'init_automation_routes']
-
-# ============================================================
-# Market Sentiment & Pattern Detection Endpoints
-# 시장 분위기 감지 및 패턴 기반 자동 매매
-# ============================================================
 
 @automation_bp.route('/market-sentiment/detect', methods=['POST'])
 def detect_market_sentiment():
     """
     시장 분위기 자동 감지
-    
+
     POST Body:
     {
         "market_data": {
@@ -1207,16 +1040,14 @@ def detect_market_sentiment():
     try:
         data = request.get_json()
         market_data = data.get('market_data', {})
-        
-        # 시장 분위기 판단 로직
+
         kospi_change = market_data.get('kospi_change', 0)
         kosdaq_change = market_data.get('kosdaq_change', 0)
         volume_ratio = market_data.get('volume_ratio', 1.0)
         advance_decline_ratio = market_data.get('advance_decline_ratio', 0.5)
-        
-        # 간단한 감성 분석
+
         sentiment_score = 0
-        
+
         if kospi_change > 1.0 and kosdaq_change > 1.0:
             sentiment = 'bullish'
             sentiment_score = 80
@@ -1229,21 +1060,19 @@ def detect_market_sentiment():
             sentiment = 'neutral'
             sentiment_score = 50
             recommendation = 'hold'
-        
-        # 거래량 가중치
+
         if volume_ratio > 1.2:
             sentiment_score += 10
         elif volume_ratio < 0.8:
             sentiment_score -= 10
-        
-        # 등락주 비율 가중치
+
         if advance_decline_ratio > 0.7:
             sentiment_score += 10
         elif advance_decline_ratio < 0.3:
             sentiment_score -= 10
-        
+
         sentiment_score = max(0, min(100, sentiment_score))
-        
+
         return jsonify({
             'success': True,
             'is_demo': True,
@@ -1258,20 +1087,17 @@ def detect_market_sentiment():
                 'advance_decline_ratio': advance_decline_ratio
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Market sentiment detection error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/pattern/seasonality', methods=['POST'])
 def detect_seasonality():
     """
     계절성 패턴 감지
-    
+
     POST Body:
     {
         "stock_code": "005930",
@@ -1283,8 +1109,7 @@ def detect_seasonality():
         data = request.get_json()
         stock_code = data.get('stock_code')
         current_month = data.get('current_month', datetime.now().month)
-        
-        # 간단한 계절성 분석 (실제로는 더 복잡한 통계 분석 필요)
+
         seasonal_patterns = {
             1: {'strength': 'neutral', 'direction': 'up', 'confidence': 0.5},
             2: {'strength': 'weak', 'direction': 'down', 'confidence': 0.4},
@@ -1299,9 +1124,9 @@ def detect_seasonality():
             11: {'strength': 'strong', 'direction': 'up', 'confidence': 0.7},
             12: {'strength': 'strong', 'direction': 'up', 'confidence': 0.75}
         }
-        
+
         pattern = seasonal_patterns.get(current_month, {'strength': 'neutral', 'direction': 'neutral', 'confidence': 0.5})
-        
+
         return jsonify({
             'success': True,
             'stock_code': stock_code,
@@ -1309,25 +1134,17 @@ def detect_seasonality():
             'seasonality': pattern,
             'recommendation': 'buy' if pattern['direction'] == 'up' and pattern['confidence'] > 0.6 else 'hold'
         })
-        
+
     except Exception as e:
         logger.error(f"Seasonality detection error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Multi-Timeframe Analysis Endpoints
-# 다중 시간프레임 자동 분석
-# ============================================================
 
 @automation_bp.route('/multi-timeframe/analyze', methods=['POST'])
 def analyze_multi_timeframe():
     """
     다중 시간프레임 자동 분석
-    
+
     POST Body:
     {
         "stock_code": "005930",
@@ -1338,31 +1155,28 @@ def analyze_multi_timeframe():
         data = request.get_json()
         stock_code = data.get('stock_code')
         timeframes = data.get('timeframes', ['1min', '5min', '15min', '60min', 'daily'])
-        
-        # 각 시간프레임별 분석 (실제로는 차트 데이터 분석 필요)
+
         analysis = {}
         overall_signal = 'neutral'
         signal_count = {'buy': 0, 'sell': 0, 'neutral': 0}
-        
+
         for tf in timeframes:
-            # 임시 분석 결과 (실제로는 기술적 지표 계산 필요)
             trend = 'up' if hash(stock_code + tf) % 3 == 0 else ('down' if hash(stock_code + tf) % 3 == 1 else 'neutral')
             signal = 'buy' if trend == 'up' else ('sell' if trend == 'down' else 'neutral')
-            
+
             analysis[tf] = {
                 'trend': trend,
                 'signal': signal,
                 'strength': 0.6 + (hash(stock_code + tf) % 20) / 100.0
             }
-            
+
             signal_count[signal] += 1
-        
-        # 전체 신호 판단
+
         if signal_count['buy'] > len(timeframes) / 2:
             overall_signal = 'buy'
         elif signal_count['sell'] > len(timeframes) / 2:
             overall_signal = 'sell'
-        
+
         return jsonify({
             'success': True,
             'stock_code': stock_code,
@@ -1371,25 +1185,17 @@ def analyze_multi_timeframe():
             'signal_distribution': signal_count,
             'confidence': max(signal_count.values()) / len(timeframes)
         })
-        
+
     except Exception as e:
         logger.error(f"Multi-timeframe analysis error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Sector Rotation & Pair Trading Endpoints
-# 자동 섹터 로테이션 및 페어 트레이딩
-# ============================================================
 
 @automation_bp.route('/sector-rotation/analyze', methods=['POST'])
 def analyze_sector_rotation():
     """
     자동 섹터 로테이션 분석
-    
+
     POST Body:
     {
         "sectors": ["technology", "finance", "healthcare", "energy"]
@@ -1398,24 +1204,22 @@ def analyze_sector_rotation():
     try:
         data = request.get_json()
         sectors = data.get('sectors', ['technology', 'finance', 'healthcare', 'energy', 'consumer'])
-        
-        # 각 섹터 강도 분석 (실제로는 섹터 지수 및 주요 종목 분석 필요)
+
         sector_analysis = {}
-        
+
         for sector in sectors:
             strength = 50 + (hash(sector) % 50)
             momentum = (hash(sector + 'momentum') % 20) - 10
-            
+
             sector_analysis[sector] = {
                 'strength': strength,
                 'momentum': momentum,
                 'recommendation': 'overweight' if strength > 70 else ('underweight' if strength < 40 else 'neutral')
             }
-        
-        # 최고 강도 섹터 찾기
+
         best_sector = max(sector_analysis.items(), key=lambda x: x[1]['strength'])
         worst_sector = min(sector_analysis.items(), key=lambda x: x[1]['strength'])
-        
+
         return jsonify({
             'success': True,
             'sectors': sector_analysis,
@@ -1431,20 +1235,17 @@ def analyze_sector_rotation():
             },
             'rotation_signal': 'rotate_to_' + best_sector[0] if best_sector[1]['strength'] > 75 else 'hold'
         })
-        
+
     except Exception as e:
         logger.error(f"Sector rotation analysis error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/pair-trading/find-pairs', methods=['POST'])
 def find_trading_pairs():
     """
     페어 트레이딩 쌍 찾기
-    
+
     POST Body:
     {
         "stocks": ["005930", "000660", "035420"],
@@ -1455,24 +1256,19 @@ def find_trading_pairs():
         data = request.get_json()
         stocks = data.get('stocks', [])
         min_correlation = data.get('min_correlation', 0.7)
-        
+
         if len(stocks) < 2:
-            return jsonify({
-                'success': False,
-                'message': 'At least 2 stocks required'
-            }), 400
-        
-        # 페어 찾기 (실제로는 상관관계 분석 필요)
+            return error_response('At least 2 stocks required', status=400)
+
         pairs = []
-        
+
         for i in range(len(stocks)):
             for j in range(i + 1, len(stocks)):
                 stock1 = stocks[i]
                 stock2 = stocks[j]
-                
-                # 임시 상관관계 (실제로는 과거 데이터 분석 필요)
+
                 correlation = 0.5 + (hash(stock1 + stock2) % 50) / 100.0
-                
+
                 if correlation >= min_correlation:
                     pairs.append({
                         'stock1': stock1,
@@ -1482,31 +1278,23 @@ def find_trading_pairs():
                         'z_score': ((hash(stock1 + stock2 + 'zscore') % 400) - 200) / 100.0,
                         'signal': 'long_stock1_short_stock2' if (hash(stock1 + stock2) % 2 == 0) else 'short_stock1_long_stock2'
                     })
-        
+
         return jsonify({
             'success': True,
             'pairs': pairs,
             'count': len(pairs)
         })
-        
+
     except Exception as e:
         logger.error(f"Pair trading error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================
-# Real-time Backtesting & Strategy Validation
-# 실시간 백테스팅 및 전략 검증
-# ============================================================
 
 @automation_bp.route('/backtest/real-time', methods=['POST'])
 def real_time_backtest():
     """
     실시간 백테스팅 (Forward Testing)
-    
+
     POST Body:
     {
         "strategy_name": "momentum_strategy",
@@ -1519,14 +1307,13 @@ def real_time_backtest():
         strategy_name = data.get('strategy_name')
         stock_code = data.get('stock_code')
         lookback_days = data.get('lookback_days', 30)
-        
+
         if not all([strategy_name, stock_code]):
-            return jsonify({
-                'success': False,
-                'message': 'Missing required fields: strategy_name, stock_code'
-            }), 400
-        
-        # 간단한 백테스팅 결과 (실제로는 전략 실행 필요)
+            return error_response(
+                'Missing required fields: strategy_name, stock_code',
+                status=400
+            )
+
         result = {
             'strategy_name': strategy_name,
             'stock_code': stock_code,
@@ -1543,26 +1330,23 @@ def real_time_backtest():
             'total_return': 8.5,
             'validation_status': 'passed' if 60.0 > 55 else 'failed'
         }
-        
+
         return jsonify({
             'success': True,
             'result': result,
             'recommendation': 'deploy' if result['validation_status'] == 'passed' else 'adjust_parameters'
         })
-        
+
     except Exception as e:
         logger.error(f"Real-time backtest error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 @automation_bp.route('/strategy/validate', methods=['POST'])
 def validate_strategy():
     """
     전략 검증
-    
+
     POST Body:
     {
         "strategy_config": {...},
@@ -1577,28 +1361,25 @@ def validate_strategy():
         data = request.get_json()
         strategy_config = data.get('strategy_config', {})
         validation_rules = data.get('validation_rules', {})
-        
-        # 기본 검증 규칙
+
         min_win_rate = validation_rules.get('min_win_rate', 55)
         min_profit_factor = validation_rules.get('min_profit_factor', 1.5)
         max_drawdown = validation_rules.get('max_drawdown', -10)
-        
-        # 전략 성과 (실제로는 백테스팅 결과 사용)
+
         performance = {
             'win_rate': 58.5,
             'profit_factor': 1.8,
             'max_drawdown': -7.2
         }
-        
-        # 검증
+
         validation_results = {
             'win_rate_check': performance['win_rate'] >= min_win_rate,
             'profit_factor_check': performance['profit_factor'] >= min_profit_factor,
             'max_drawdown_check': performance['max_drawdown'] >= max_drawdown
         }
-        
+
         passed = all(validation_results.values())
-        
+
         return jsonify({
             'success': True,
             'validation_passed': passed,
@@ -1606,13 +1387,10 @@ def validate_strategy():
             'validation_results': validation_results,
             'recommendation': 'deploy' if passed else 'needs_improvement'
         })
-        
+
     except Exception as e:
         logger.error(f"Strategy validation error: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)
 
 
 __all__ = ['automation_bp', 'init_automation_routes']

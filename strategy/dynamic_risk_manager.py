@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from enum import Enum
 
 from utils.logger_new import get_logger
+from utils.base_manager import BaseManager
 from config.manager import get_config
 
 
@@ -39,7 +40,7 @@ class RiskModeConfig:
     trigger_return_max: Optional[float] = None
 
 
-class DynamicRiskManager:
+class DynamicRiskManager(BaseManager):
     """
     통합 동적 리스크 관리자
 
@@ -60,6 +61,7 @@ class DynamicRiskManager:
         Args:
             initial_capital: 초기 자본금
         """
+        super().__init__(name="DynamicRiskManager")
         self.initial_capital = initial_capital
         self.current_capital = initial_capital
 
@@ -71,7 +73,7 @@ class DynamicRiskManager:
         self.current_mode = RiskMode.NORMAL
         self.mode_changed_at = datetime.now()
 
-        # 손익 추적 (from risk_manager.py)
+        # 손익 추적
         self.daily_profit_loss = 0.0
         self.total_profit_loss = 0.0
         self.consecutive_losses = 0
@@ -86,8 +88,9 @@ class DynamicRiskManager:
 
         # 모드별 설정 로드
         self._load_mode_configs()
+        self.initialized = True
 
-        logger.info(
+        self.logger.info(
             f"🛡️ 통합 동적 리스크 관리자 초기화 완료 "
             f"(초기자본: {self.initial_capital:,}원, 모드: {self.current_mode.value})"
         )
@@ -645,6 +648,40 @@ class DynamicRiskManager:
         """긴급 정지 해제"""
         self.emergency_stop = False
         logger.warning("긴급 정지 해제됨")
+
+    def initialize(self) -> bool:
+        """초기화"""
+        self.initialized = True
+        self.logger.info("동적 리스크 관리자 초기화 완료")
+        return True
+
+    def get_status(self) -> Dict[str, Any]:
+        """상태 정보"""
+        config = self.get_current_mode_config()
+        return_rate = self.get_return_rate()
+
+        return {
+            **super().get_stats(),
+            'mode': self.current_mode.value,
+            'mode_changed_at': self.mode_changed_at.isoformat(),
+            'initial_capital': self.initial_capital,
+            'current_capital': self.current_capital,
+            'return_rate': return_rate,
+            'return_percentage': return_rate * 100,
+            'profit_loss': self.current_capital - self.initial_capital,
+            'daily_profit_loss': self.daily_profit_loss,
+            'total_profit_loss': self.total_profit_loss,
+            'consecutive_losses': self.consecutive_losses,
+            'trading_enabled': self.trading_enabled,
+            'emergency_stop': self.emergency_stop,
+            'config': {
+                'max_open_positions': config.max_open_positions,
+                'risk_per_trade_ratio': config.risk_per_trade_ratio,
+                'take_profit_ratio': config.take_profit_ratio,
+                'stop_loss_ratio': config.stop_loss_ratio,
+                'ai_min_score': config.ai_min_score,
+            },
+        }
 
 
 __all__ = ['DynamicRiskManager', 'RiskMode', 'RiskModeConfig']

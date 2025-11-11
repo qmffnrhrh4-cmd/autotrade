@@ -1,6 +1,6 @@
 """
 research/deep_scan_utils.py
-v5.7.5: Deep Scan 공통 유틸리티
+ Deep Scan 공통 유틸리티
 
 모든 스캔 전략에서 사용하는 Deep Scan 로직을 공통화
 """
@@ -124,7 +124,7 @@ def enrich_candidates_with_deep_scan(
     verbose: bool = True
 ) -> List[StockCandidate]:
     """
-    v5.7.5: 모든 스캔 전략에서 사용하는 Deep Scan 공통 로직
+     모든 스캔 전략에서 사용하는 Deep Scan 공통 로직
 
     후보 종목들에 대해 상세 데이터를 조회하여 enrichment:
     1. 기관/외국인 매매 데이터 (ka10059)
@@ -218,7 +218,7 @@ def enrich_candidates_with_deep_scan(
                     if verbose:
                         print(f"      일봉: 변동성={candidate.volatility*100:.2f}%")
 
-                # v5.7.5: 기술적 지표 계산 (RSI, MACD, BB)
+                #  기술적 지표 계산 (RSI, MACD, BB)
                 closes = [d.get('close', 0) for d in daily_data if d.get('close')]
                 if len(closes) >= 14:
                     # RSI 계산

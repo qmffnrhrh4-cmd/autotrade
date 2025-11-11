@@ -7,6 +7,7 @@ import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import Blueprint, jsonify, request
+from utils.response_helper import error_response
 
 # Create logger
 logger = logging.getLogger(__name__)
@@ -43,10 +44,6 @@ def set_control_status(enabled: bool) -> bool:
         return False
 
 
-# ============================================================================
-# TRADING CONTROL API
-# ============================================================================
-
 @trading_bp.route('/api/control/start', methods=['POST'])
 def start_trading():
     """Start trading"""
@@ -66,10 +63,6 @@ def stop_trading():
         return jsonify({'success': True, 'message': 'Trading stopped'})
     return jsonify({'success': False, 'message': 'Failed to stop'}), 500
 
-
-# ============================================================================
-# PAPER TRADING API
-# ============================================================================
 
 @trading_bp.route('/api/paper_trading/status')
 def get_paper_trading_status():
@@ -93,6 +86,7 @@ def get_paper_trading_status():
         })
     except Exception as e:
         print(f"Paper trading status API error: {e}")
+        # Note: error_response doesn't support 'enabled' key, so keep jsonify for special format
         return jsonify({'success': False, 'message': str(e), 'enabled': False})
 
 
@@ -117,7 +111,7 @@ def start_paper_trading():
         })
     except Exception as e:
         print(f"Start paper trading API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @trading_bp.route('/api/paper_trading/stop', methods=['POST'])
@@ -136,7 +130,7 @@ def stop_paper_trading():
         })
     except Exception as e:
         print(f"Stop paper trading API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @trading_bp.route('/api/paper_trading/account/<strategy_name>')
@@ -155,15 +149,11 @@ def get_paper_trading_account(strategy_name: str):
                 'account': asdict(account)
             })
         else:
-            return jsonify({'success': False, 'message': 'Strategy not found'})
+            return error_response('Strategy not found', status=404)
     except Exception as e:
         print(f"Paper trading account API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
-
-# ============================================================================
-# VIRTUAL TRADING API
-# ============================================================================
 
 @trading_bp.route('/api/virtual_trading/status')
 def get_virtual_trading_status():
@@ -198,6 +188,7 @@ def get_virtual_trading_status():
         })
     except Exception as e:
         print(f"Virtual trading status API error: {e}")
+        # Note: error_response doesn't support 'enabled' key, so keep jsonify for special format
         return jsonify({'success': False, 'message': str(e), 'enabled': False})
 
 
@@ -206,14 +197,14 @@ def get_virtual_trading_account(strategy_name: str):
     """Get virtual trading account details for specific strategy"""
     try:
         if not _bot_instance or not hasattr(_bot_instance, 'virtual_trader'):
-            return jsonify({'success': False, 'message': 'Virtual trading not initialized'})
+            return error_response('Virtual trading not initialized')
 
         virtual_trader = _bot_instance.virtual_trader
         if not virtual_trader:
-            return jsonify({'success': False, 'message': 'Virtual trading not enabled'})
+            return error_response('Virtual trading not enabled')
 
         if strategy_name not in virtual_trader.accounts:
-            return jsonify({'success': False, 'message': 'Strategy not found'})
+            return error_response('Strategy not found', status=404)
 
         account = virtual_trader.accounts[strategy_name]
         summary = account.get_summary()
@@ -231,7 +222,7 @@ def get_virtual_trading_account(strategy_name: str):
         })
     except Exception as e:
         print(f"Virtual trading account API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @trading_bp.route('/api/virtual_trading/trades')
@@ -239,11 +230,11 @@ def get_virtual_trading_trades():
     """Get virtual trading trade history"""
     try:
         if not _bot_instance or not hasattr(_bot_instance, 'trade_logger'):
-            return jsonify({'success': False, 'message': 'Trade logger not initialized'})
+            return error_response('Trade logger not initialized')
 
         trade_logger = _bot_instance.trade_logger
         if not trade_logger:
-            return jsonify({'success': False, 'message': 'Trade logger not enabled'})
+            return error_response('Trade logger not enabled')
 
         # Get recent trades
         limit = request.args.get('limit', default=20, type=int)
@@ -261,7 +252,7 @@ def get_virtual_trading_trades():
         })
     except Exception as e:
         print(f"Virtual trading trades API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @trading_bp.route('/api/virtual-trades')
@@ -307,10 +298,6 @@ def get_virtual_trades():
             'message': str(e)
         }), 500
 
-
-# ============================================================================
-# BACKTESTING API
-# ============================================================================
 
 @trading_bp.route('/api/v4.1/backtest/run', methods=['POST'])
 def run_backtest():
@@ -372,12 +359,8 @@ def run_backtest():
         print(f"Backtest error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
-
-# ============================================================================
-# QUICK ACTION API (Emergency Controls)
-# ============================================================================
 
 @trading_bp.route('/api/emergency-stop', methods=['POST'])
 def emergency_stop():
@@ -403,7 +386,7 @@ def emergency_stop():
             })
     except Exception as e:
         logger.error(f"Emergency stop error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return error_response(str(e))
 
 
 @trading_bp.route('/api/sell-all', methods=['POST'])
@@ -411,10 +394,10 @@ def sell_all_positions():
     """Sell all positions at market price"""
     try:
         if not _bot_instance:
-            return jsonify({'success': False, 'error': 'Bot instance not available'})
-        
+            return error_response('Bot instance not available')
+
         if not hasattr(_bot_instance, 'trading_api'):
-            return jsonify({'success': False, 'error': 'Trading API not available'})
+            return error_response('Trading API not available')
         
         # Get current positions
         if hasattr(_bot_instance, 'account_api'):
@@ -453,11 +436,11 @@ def sell_all_positions():
                 'message': f'{sell_count}건 매도 주문 완료'
             })
         else:
-            return jsonify({'success': False, 'error': 'Account API not available'})
-            
+            return error_response('Account API not available')
+
     except Exception as e:
         logger.error(f"Sell all error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return error_response(str(e))
 
 
 @trading_bp.route('/api/pause-trading', methods=['POST'])
@@ -492,12 +475,8 @@ def pause_trading():
         })
     except Exception as e:
         logger.error(f"Pause trading error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
-
-# ============================================================================
-# QUICK BUY API
-# ============================================================================
 
 @trading_bp.route('/api/quick-buy', methods=['POST'])
 def quick_buy():
@@ -524,25 +503,22 @@ def quick_buy():
         data = request.get_json()
 
         if not data:
-            return jsonify({'success': False, 'error': '요청 데이터가 없습니다'}), 400
+            return error_response('요청 데이터가 없습니다', status=400)
 
         stock_code = data.get('stock_code')
         stock_name = data.get('stock_name')
         price = data.get('price', 0)
 
         if not stock_code or not stock_name:
-            return jsonify({'success': False, 'error': '종목 코드 또는 이름이 없습니다'}), 400
+            return error_response('종목 코드 또는 이름이 없습니다', status=400)
 
         # bot_instance 확인
         if not _bot_instance:
-            return jsonify({'success': False, 'error': '봇 인스턴스가 연결되지 않았습니다'}), 503
+            return error_response('봇 인스턴스가 연결되지 않았습니다', status=503)
 
         # 테스트 모드 확인
         if hasattr(_bot_instance, 'market_status') and _bot_instance.market_status.get('is_test_mode'):
-            return jsonify({
-                'success': False,
-                'error': '테스트 모드에서는 실제 주문을 실행할 수 없습니다'
-            }), 403
+            return error_response('테스트 모드에서는 실제 주문을 실행할 수 없습니다', status=403)
 
         # 매수 금액 계산 (포트폴리오 관리자 사용)
         if hasattr(_bot_instance, 'portfolio_manager'):
@@ -553,7 +529,7 @@ def quick_buy():
             quantity = int(1_000_000 / price)
 
         if quantity == 0:
-            return jsonify({'success': False, 'error': '매수 수량이 0입니다'}), 400
+            return error_response('매수 수량이 0입니다', status=400)
 
         # 매수 주문 실행
         if hasattr(_bot_instance, 'order_api'):
@@ -589,10 +565,10 @@ def quick_buy():
             else:
                 error_msg = order_response.get('error', '알 수 없는 오류') if order_response else '주문 응답 없음'
                 logger.error(f"❌ Quick buy failed: {error_msg}")
-                return jsonify({'success': False, 'error': error_msg}), 500
+                return error_response(error_msg, status=500)
         else:
-            return jsonify({'success': False, 'error': 'order_api가 연결되지 않았습니다'}), 503
+            return error_response('order_api가 연결되지 않았습니다', status=503)
 
     except Exception as e:
         logger.error(f"Quick buy error: {e}", exc_info=True)
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return error_response(str(e), status=500)

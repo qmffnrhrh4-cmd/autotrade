@@ -4,6 +4,7 @@ Handles portfolio optimization, risk analysis, and performance tracking
 """
 from datetime import datetime
 from flask import Blueprint, jsonify, request
+from utils.response_helper import error_response
 
 # Create Blueprint
 portfolio_bp = Blueprint('portfolio', __name__)
@@ -137,12 +138,12 @@ def get_portfolio_optimization():
             result = optimizer.get_optimization_for_dashboard(positions)
             return jsonify(result)
         else:
-            return jsonify({'success': False, 'message': 'Bot not initialized'})
+            return error_response('Bot not initialized')
     except Exception as e:
         print(f"Portfolio optimization API error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 @portfolio_bp.route('/api/risk/analysis')
 def get_risk_analysis():
@@ -188,10 +189,10 @@ def get_risk_analysis():
             result = analyzer.get_risk_analysis_for_dashboard(positions)
             return jsonify(result)
         else:
-            return jsonify({'success': False, 'message': 'Bot not initialized'})
+            return error_response('Bot not initialized')
     except Exception as e:
         print(f"Risk analysis API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @portfolio_bp.route('/api/performance/metrics')
@@ -204,10 +205,7 @@ def get_performance_metrics():
 
         session = get_db_session()
         if not session:
-            return jsonify({
-                'success': False,
-                'message': 'Database not available'
-            })
+            return error_response('Database not available')
 
         # Get completed trades (sell transactions) from last 30 days
         from datetime import timedelta
@@ -317,7 +315,4 @@ def get_performance_metrics():
         print(f"Performance metrics error: {e}")
         import traceback
         traceback.print_exc()
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        })
+        return error_response(str(e))

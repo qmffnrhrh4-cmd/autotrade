@@ -1,7 +1,7 @@
 """
 research/scanner_pipeline.py
 3단계 스캐닝 파이프라인 (Fast → Deep → AI)
-Enhanced v2.0: Virtual trading learning integration, adaptive scanning
+Enhanced  Virtual trading learning integration, adaptive scanning
 """
 import time
 from typing import List, Dict, Any, Optional, Tuple
@@ -85,7 +85,7 @@ class StockCandidate:
 
 
 class ScannerPipeline:
-    """3단계 스캐닝 파이프라인 (Enhanced v2.0)"""
+    """3단계 스캐닝 파이프라인"""
 
     def __init__(
         self,
@@ -154,7 +154,7 @@ class ScannerPipeline:
 
         self._load_learning_data()
 
-        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료 (개선 v2.0)")
+        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료")
 
     def should_run_fast_scan(self) -> bool:
         """Fast Scan 실행 여부 확인"""

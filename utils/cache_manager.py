@@ -12,12 +12,14 @@ Intelligent Cache Manager
 - 데이터 타입별 최적화된 TTL 설정
 """
 import logging
-from typing import Any, Optional, Callable
+from typing import Any, Optional, Callable, Dict
 from datetime import datetime, timedelta
 from functools import wraps
 import hashlib
 import json
 import threading
+
+from utils.base_manager import BaseManager
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +60,7 @@ class CacheEntry:
         return self.value
 
 
-class CacheManager:
+class CacheManager(BaseManager):
     """
     지능형 캐시 관리자
 
@@ -76,6 +78,7 @@ class CacheManager:
             max_size: 최대 캐시 크기 (기본: 1000)
             default_ttl: 기본 TTL 초 (기본: 60초)
         """
+        super().__init__(name="CacheManager")
         self.max_size = max_size
         self.default_ttl = default_ttl
 
@@ -85,10 +88,11 @@ class CacheManager:
         # 통계
         self.hits = 0
         self.misses = 0
-        self.evictions = 0  # LRU 제거 횟수
-        self.expirations = 0  # 만료로 인한 삭제 횟수
+        self.evictions = 0
+        self.expirations = 0
 
-        logger.info(f"🚀 CacheManager initialized - Max Size: {max_size}, Default TTL: {default_ttl}s")
+        self.initialized = True
+        self.logger.info(f"🚀 CacheManager 초기화 완료 - Max Size: {max_size}, Default TTL: {default_ttl}s")
 
         # 자동 정리 스레드 시작
         self._start_cleanup_thread()
@@ -262,6 +266,20 @@ class CacheManager:
 
         thread = threading.Thread(target=cleanup_loop, daemon=True)
         thread.start()
+
+    def initialize(self) -> bool:
+        """초기화"""
+        self.initialized = True
+        self.logger.info("캐시 관리자 초기화 완료")
+        return True
+
+    def get_status(self) -> Dict[str, Any]:
+        """상태 정보"""
+        stats = self.get_stats()
+        return {
+            **super().get_stats(),
+            'cache_stats': stats
+        }
 
 
 # 데코레이터: 함수 결과 캐싱

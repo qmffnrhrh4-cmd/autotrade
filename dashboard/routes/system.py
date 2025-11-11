@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 from flask import Blueprint, jsonify, request
+from utils.response_helper import error_response
 import yaml
 
 # Create blueprint
@@ -89,9 +90,7 @@ def set_control_status(enabled: bool) -> bool:
         return False
 
 
-# ===========================
 # System Status Endpoints
-# ===========================
 
 @system_bp.route('/api/status')
 def get_status():
@@ -191,7 +190,7 @@ def get_v42_all_status():
         })
     except Exception as e:
         print(f"v4.2 status error: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return error_response(str(e))
 
 
 @system_bp.route('/api/system-connections')
@@ -279,12 +278,10 @@ def get_system_connections():
 
         return jsonify(connections)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
-# ===========================
 # Candidates & Scan Progress
-# ===========================
 
 @system_bp.route('/api/candidates')
 def get_candidates():
@@ -364,9 +361,7 @@ def get_scan_progress():
         })
 
 
-# ===========================
 # Activities & Monitoring
-# ===========================
 
 @system_bp.route('/api/activities')
 def get_activities():
@@ -450,9 +445,7 @@ def get_trading_activity():
         return jsonify({'success': True, 'activities': []})
 
 
-# ===========================
 # Configuration Endpoints
-# ===========================
 
 @system_bp.route('/api/config/features', methods=['GET'])
 def get_features_config():
@@ -514,9 +507,9 @@ def get_settings():
         if _unified_settings:
             return jsonify(_unified_settings.settings)
         else:
-            return jsonify({'error': 'Settings manager not available'}), 500
+            return error_response('Settings manager not available', status=500)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @system_bp.route('/api/settings', methods=['POST'])
@@ -524,7 +517,7 @@ def save_settings():
     """통합 설정 저장"""
     try:
         if not _unified_settings:
-            return jsonify({'error': 'Settings manager not available'}), 500
+            return error_response('Settings manager not available', status=500)
 
         new_settings = request.json
 
@@ -538,7 +531,7 @@ def save_settings():
 
         return jsonify({'success': True, 'message': '설정이 저장되었습니다.'})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @system_bp.route('/api/settings/reset', methods=['POST'])
@@ -546,17 +539,15 @@ def reset_settings():
     """설정 기본값 복원"""
     try:
         if not _unified_settings:
-            return jsonify({'error': 'Settings manager not available'}), 500
+            return error_response('Settings manager not available', status=500)
 
         _unified_settings.reset_to_defaults()
         return jsonify({'success': True, 'message': '기본값으로 복원되었습니다.'})
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
-# ===========================
 # Journal Endpoints
-# ===========================
 
 @system_bp.route('/api/journal/entries')
 def get_journal_entries():
@@ -570,7 +561,7 @@ def get_journal_entries():
         return jsonify(data)
     except Exception as e:
         print(f"Journal entries API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @system_bp.route('/api/journal/statistics')
@@ -589,7 +580,7 @@ def get_journal_statistics():
         })
     except Exception as e:
         print(f"Journal statistics API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @system_bp.route('/api/journal/insights')
@@ -608,12 +599,10 @@ def get_journal_insights():
         })
     except Exception as e:
         print(f"Journal insights API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
-# ===========================
 # Notification Endpoints
-# ===========================
 
 @system_bp.route('/api/notifications')
 def get_notifications():
@@ -627,7 +616,7 @@ def get_notifications():
         return jsonify(data)
     except Exception as e:
         print(f"Notifications API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @system_bp.route('/api/notifications/mark_read/<notification_id>', methods=['POST'])
@@ -645,7 +634,7 @@ def mark_notification_read(notification_id: str):
         })
     except Exception as e:
         print(f"Mark notification API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @system_bp.route('/api/notifications/configure/telegram', methods=['POST'])
@@ -667,7 +656,7 @@ def configure_telegram():
         })
     except Exception as e:
         print(f"Configure Telegram API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
 @system_bp.route('/api/notifications/send', methods=['POST'])
@@ -693,12 +682,10 @@ def send_notification():
         })
     except Exception as e:
         print(f"Send notification API error: {e}")
-        return jsonify({'success': False, 'message': str(e)})
+        return error_response(str(e))
 
 
-# ===========================
 # Market Regime & Anomalies
-# ===========================
 
 @system_bp.route('/api/market-regime')
 def get_market_regime():
@@ -713,7 +700,7 @@ def get_market_regime():
             'last_update': datetime.now().isoformat()
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
 @system_bp.route('/api/anomalies')
@@ -731,12 +718,10 @@ def get_anomalies():
             'events': []
         })
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return error_response(str(e), status=500)
 
 
-# ===========================
 # WebSocket Endpoints
-# ===========================
 
 @system_bp.route('/api/websocket/subscriptions')
 def get_websocket_subscriptions():
@@ -816,7 +801,4 @@ def get_websocket_subscriptions():
 
     except Exception as e:
         logger.error(f"웹소켓 구독 리스트 조회 실패: {e}", exc_info=True)
-        return jsonify({
-            'success': False,
-            'message': str(e)
-        }), 500
+        return error_response(str(e), status=500)

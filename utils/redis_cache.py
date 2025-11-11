@@ -13,6 +13,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import config constants
+try:
+    from config.constants import REDIS_HOST, PORTS
+    _REDIS_HOST = REDIS_HOST
+    _REDIS_PORT = PORTS['redis']
+except ImportError:
+    # Fallback to hardcoded values if config not available
+    _REDIS_HOST = 'localhost'
+    _REDIS_PORT = 6379
+
 # Redis 사용 가능 여부 확인
 try:
     import redis
@@ -36,8 +46,8 @@ class RedisCacheManager:
 
     def __init__(
         self,
-        host: str = 'localhost',
-        port: int = 6379,
+        host: str = None,
+        port: int = None,
         db: int = 0,
         password: Optional[str] = None,
         use_fallback: bool = True
@@ -46,12 +56,18 @@ class RedisCacheManager:
         초기화
 
         Args:
-            host: Redis 호스트
-            port: Redis 포트
+            host: Redis 호스트 (default: from config.constants.REDIS_HOST)
+            port: Redis 포트 (default: from config.constants.PORTS['redis'])
             db: Redis 데이터베이스 번호
             password: Redis 비밀번호
             use_fallback: Redis 없을 때 메모리 캐시 사용
         """
+        # Use config defaults if not specified
+        if host is None:
+            host = _REDIS_HOST
+        if port is None:
+            port = _REDIS_PORT
+
         self.redis_client = None
         self.fallback_cache = {} if use_fallback else None
         self.stats = {
