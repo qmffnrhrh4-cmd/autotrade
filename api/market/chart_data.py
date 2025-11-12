@@ -285,7 +285,7 @@ class ChartDataAPI:
                 logger.error(f"   → 요청 파라미터: stock_code={base_code}, interval={interval}, count={count}, base_date={base_date}")
                 logger.error(f"   → 해결 방법:")
                 logger.error(f"      1. API 인증 정보 확인 (secrets.json)")
-                logger.error(f"      2. API 서비스 상태 확인 (한국투자증권)")
+                logger.error(f"      2. API 서비스 상태 확인 (키움증권)")
                 logger.error(f"      3. 네트워크 연결 상태 확인")
                 return []
 
