@@ -392,15 +392,29 @@ class StrategyBacktester:
                                         logger.warning(f"      🔍 date 샘플: {repr(df['date'].iloc[0])} (type: {type(df['date'].iloc[0])})")
                                         logger.warning(f"      🔍 time 샘플: {repr(df['time'].iloc[0])} (type: {type(df['time'].iloc[0])})")
 
-                                        # 날짜/시간 문자열 결합
-                                        datetime_str = df['date'].astype(str).str.strip() + ' ' + df['time'].astype(str).str.strip()
-                                        logger.warning(f"      🔍 결합된 문자열 샘플: {repr(datetime_str.iloc[0])}")
+                                        # time 필드가 이미 전체 datetime인지 확인 (YYYYMMDDHHMMSS - 14자리)
+                                        time_str = df['time'].astype(str).str.strip()
+                                        sample_time = time_str.iloc[0]
 
-                                        df['datetime'] = pd.to_datetime(
-                                            datetime_str,
-                                            format='%Y%m%d %H%M%S',
-                                            errors='coerce'
-                                        )
+                                        if len(sample_time) == 14:
+                                            # time 필드가 이미 전체 datetime을 포함 (YYYYMMDDHHMMSS)
+                                            logger.warning(f"      🔍 time 필드가 전체 datetime 포함 (14자리): {repr(sample_time)}")
+                                            df['datetime'] = pd.to_datetime(
+                                                time_str,
+                                                format='%Y%m%d%H%M%S',
+                                                errors='coerce'
+                                            )
+                                        else:
+                                            # time 필드가 시간만 포함 (HHMMSS) - date와 결합 필요
+                                            logger.warning(f"      🔍 time 필드가 시간만 포함 ({len(sample_time)}자리): {repr(sample_time)}")
+                                            datetime_str = df['date'].astype(str).str.strip() + ' ' + time_str
+                                            logger.warning(f"      🔍 결합된 문자열 샘플: {repr(datetime_str.iloc[0])}")
+                                            df['datetime'] = pd.to_datetime(
+                                                datetime_str,
+                                                format='%Y%m%d %H%M%S',
+                                                errors='coerce'
+                                            )
+
                                         logger.warning(f"      🔍 파싱된 datetime 샘플: {df['datetime'].iloc[0]}")
                                     except Exception as e:
                                         logger.error(f"  {stock_code}: ❌ datetime 파싱 실패 - {e}")
