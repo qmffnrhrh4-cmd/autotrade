@@ -444,14 +444,14 @@ class VirtualTradingDB:
 
         cursor = self.conn.cursor()
 
-        # Fix: 모든 컬럼 명시적으로 SELECT (p.* 대신)
+        # Fix: 모든 컬럼 명시적으로 SELECT (스키마에 실제 존재하는 컬럼만)
         if strategy_id:
             cursor.execute("""
                 SELECT
                     p.id, p.strategy_id, p.stock_code, p.stock_name,
                     p.quantity, p.avg_price, p.current_price,
                     p.buy_date, p.stop_loss_price, p.take_profit_price,
-                    p.is_closed, p.close_date, p.sell_price, p.profit,
+                    p.is_closed,
                     s.name as strategy_name
                 FROM virtual_positions p
                 JOIN virtual_strategies s ON p.strategy_id = s.id
@@ -464,7 +464,7 @@ class VirtualTradingDB:
                     p.id, p.strategy_id, p.stock_code, p.stock_name,
                     p.quantity, p.avg_price, p.current_price,
                     p.buy_date, p.stop_loss_price, p.take_profit_price,
-                    p.is_closed, p.close_date, p.sell_price, p.profit,
+                    p.is_closed,
                     s.name as strategy_name
                 FROM virtual_positions p
                 JOIN virtual_strategies s ON p.strategy_id = s.id

@@ -554,45 +554,49 @@ class GeminiAnalyzer(BaseAnalyzer):
 
             if json_str:
                 try:
-                    # Fix: 더 강력한 JSON 정제 - 줄바꿈, 탭, 추가 공백 제거
+                    # Fix: 더 강력한 JSON 정제
                     json_str = json_str.strip()
 
-                    # Fix: JSON 시작 전 불필요한 텍스트 제거 (예: '\n  "decision"')
+                    # Fix: JSON 시작 전 불필요한 텍스트 제거
                     first_brace = json_str.find('{')
                     if first_brace == -1:
                         # JSON 객체가 없으면 텍스트 파싱으로 전환
-                        logger.warning(f"JSON 객체를 찾을 수 없음: {json_str[:100]}")
+                        logger.debug(f"JSON 객체를 찾을 수 없음, 텍스트 파싱으로 전환")
                         raise json.JSONDecodeError("No JSON object found", json_str, 0)
 
                     if first_brace > 0:
-                        removed_prefix = json_str[:first_brace]
-                        logger.debug(f"JSON 시작 전 불필요한 텍스트 제거: {removed_prefix[:50]}")
                         json_str = json_str[first_brace:]
 
                     # Fix: JSON 끝 이후 불필요한 텍스트 제거
                     last_brace = json_str.rfind('}')
                     if last_brace == -1:
-                        logger.warning(f"JSON 객체 끝을 찾을 수 없음: {json_str[:100]}")
+                        logger.debug(f"JSON 객체 끝을 찾을 수 없음, 텍스트 파싱으로 전환")
                         raise json.JSONDecodeError("No JSON object end found", json_str, 0)
 
-                    if last_brace > 0 and last_brace < len(json_str) - 1:
-                        removed_suffix = json_str[last_brace+1:]
-                        logger.debug(f"JSON 끝 이후 불필요한 텍스트 제거: {removed_suffix[:50]}")
+                    if last_brace < len(json_str) - 1:
                         json_str = json_str[:last_brace + 1]
 
-                    # Fix: 줄바꿈과 탭을 공백으로 정규화
-                    json_str = re.sub(r'\s+', ' ', json_str)
+                    # Fix: 더 공격적인 JSON 정규화
+                    # 1. 줄바꿈과 탭을 공백으로 (but preserve string content)
+                    # 2. trailing commas 제거
+                    # 3. 다중 공백을 단일 공백으로
 
-                    # Fix: trailing commas 제거
+                    # 먼저 trailing commas 제거
                     json_str = re.sub(r',\s*}', '}', json_str)
                     json_str = re.sub(r',\s*]', ']', json_str)
 
-                    # Fix: 문자열 내부가 아닌 곳의 불필요한 공백 제거
+                    # 줄바꿈과 탭을 공백으로 (JSON 문자열 내부 포함)
+                    json_str = re.sub(r'[\n\r\t]+', ' ', json_str)
+
+                    # 다중 공백을 단일 공백으로
+                    json_str = re.sub(r' +', ' ', json_str)
+
+                    # 최종 trim
                     json_str = json_str.strip()
 
-                    # Fix: 최종 검증 - JSON이 { }로 시작/끝나는지 확인
+                    # Fix: 최종 검증
                     if not json_str.startswith('{') or not json_str.endswith('}'):
-                        logger.warning(f"JSON 형식 오류: 시작={json_str[:1]}, 끝={json_str[-1:]}")
+                        logger.debug(f"JSON 형식 오류, 텍스트 파싱으로 전환")
                         raise json.JSONDecodeError("Invalid JSON format", json_str, 0)
 
                     data = json.loads(json_str)
@@ -688,10 +692,18 @@ class GeminiAnalyzer(BaseAnalyzer):
         text_lower = response_text.lower()
         signal = 'hold'
 
+        # Fix: 더 안전한 신호 감지 로직
         if 'strong buy' in text_lower or 'strong_buy' in text_lower:
             signal = 'buy'
-        elif 'buy' in text_lower and 'not' not in text_lower[:text_lower.find('buy')] if 'buy' in text_lower else False:
-            signal = 'buy'
+        elif 'buy' in text_lower:
+            # 'buy' 앞에 'not'이 없는지 확인
+            buy_pos = text_lower.find('buy')
+            if buy_pos > 0:
+                prefix = text_lower[:buy_pos]
+                if 'not' not in prefix[-20:]:  # 최근 20자만 검사
+                    signal = 'buy'
+            else:
+                signal = 'buy'
         elif 'sell' in text_lower:
             signal = 'sell'
 
