@@ -29,7 +29,8 @@ def initialize_apis():
     """Market API, Chart API, OpenAPI Client 초기화 - 실제 Kiwoom OpenAPI 연동"""
     try:
         from core import KiwoomRESTClient
-        from api import MarketAPI, ChartDataAPI
+        from api import MarketAPI
+        from api.market import ChartDataAPI
         from config.constants import HOST, PORTS
 
         logger.info("🔗 API 초기화 중...")
