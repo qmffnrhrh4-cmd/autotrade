@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 REM AutoTrade with OpenAPI - Automatic Startup Script
 REM This script starts OpenAPI server in a separate console and then starts the main application
 
@@ -145,9 +146,30 @@ echo.
 REM Start main application
 python main.py
 
-REM If main.py exits, keep this window open
+REM If main.py exits, clean up background processes
 echo.
 echo ================================================================================
 echo Main application has stopped
 echo ================================================================================
+echo.
+echo Cleaning up background processes...
+
+REM Kill Strategy Optimizer (run_strategy_optimizer.py)
+for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST ^| findstr /C:"PID:"') do (
+    REM Check if this python process is running run_strategy_optimizer.py
+    wmic process where "ProcessId=%%a" get CommandLine 2>nul | findstr /C:"run_strategy_optimizer.py" >nul
+    if !ERRORLEVEL! equ 0 (
+        echo Killing Strategy Optimizer (PID: %%a^)
+        taskkill /F /PID %%a >nul 2>&1
+    )
+)
+
+REM Kill OpenAPI Server on port 5001
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001" ^| findstr "LISTENING"') do (
+    echo Killing OpenAPI Server on port 5001 (PID: %%a^)
+    taskkill /F /PID %%a >nul 2>&1
+)
+
+echo Cleanup completed.
+echo.
 pause
