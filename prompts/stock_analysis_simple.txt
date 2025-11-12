@@ -29,7 +29,7 @@
 
 **응답 형식 (JSON)**:
 ```json
-{
+{{
   "decision": "BUY/SELL/HOLD",
   "confidence": 75,
   "reasons": [
@@ -40,7 +40,7 @@
   "target_price_pct": 15.0,
   "stop_loss_pct": -5.0,
   "risk_level": "MEDIUM"
-}
+}}
 ```
 
 **주의사항**:
