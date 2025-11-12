@@ -343,24 +343,61 @@ class StrategyBacktester:
                         if minute_data and len(minute_data) > 0:
                             df = pd.DataFrame(minute_data)
 
+                            # OpenAPI는 한글 컬럼명 반환: '체결시간', '현재가', '시가', '고가', '저가', '거래량'
+                            # 영문 컬럼명으로 변환
+                            column_mapping = {
+                                '체결시간': 'time',
+                                '현재가': 'close',
+                                '시가': 'open',
+                                '고가': 'high',
+                                '저가': 'low',
+                                '거래량': 'volume',
+                                '일자': 'date'  # 일자가 있으면 매핑
+                            }
+
+                            # 존재하는 컬럼만 변환
+                            rename_dict = {k: v for k, v in column_mapping.items() if k in df.columns}
+                            if rename_dict:
+                                df = df.rename(columns=rename_dict)
+                                logger.debug(f"  {stock_code}: 컬럼 변환 완료 - {list(rename_dict.keys())} -> {list(rename_dict.values())}")
+
                             # 날짜/시간 파싱
                             if 'datetime' not in df.columns:
-                                # date와 time 컬럼 결합
-                                if 'date' in df.columns and 'time' in df.columns:
-                                    df['datetime'] = pd.to_datetime(
-                                        df['date'].astype(str) + ' ' + df['time'].astype(str),
-                                        format='%Y%m%d %H%M%S',
-                                        errors='coerce'
-                                    )
+                                # OpenAPI 분봉 데이터에는 '일자' 필드가 없을 수 있음
+                                # '체결시간'만 있는 경우, 기준 날짜를 사용
+                                if 'time' in df.columns:
+                                    # 기준 날짜 사용 (end_date 사용)
+                                    if 'date' not in df.columns:
+                                        # 날짜 컬럼이 없으면 end_date를 기준으로 사용
+                                        df['date'] = end_date
+                                        logger.debug(f"  {stock_code}: 날짜 컬럼 없음 - 기준일({end_date}) 사용")
+
+                                    # date와 time 결합하여 datetime 생성
+                                    try:
+                                        df['datetime'] = pd.to_datetime(
+                                            df['date'].astype(str) + ' ' + df['time'].astype(str),
+                                            format='%Y%m%d %H%M%S',
+                                            errors='coerce'
+                                        )
+                                    except Exception as e:
+                                        logger.error(f"  {stock_code}: datetime 파싱 실패 - {e}")
+                                        logger.debug(f"  샘플 데이터: date={df['date'].iloc[0] if len(df) > 0 else 'N/A'}, time={df['time'].iloc[0] if len(df) > 0 else 'N/A'}")
+                                        continue
                                 else:
-                                    logger.warning(f"  {stock_code}: datetime 컬럼 없음, 스킵")
+                                    logger.warning(f"  {stock_code}: time 컬럼 없음, 스킵")
                                     continue
+
+                            # NaT (Not a Time) 제거
+                            df = df.dropna(subset=['datetime'])
+                            if len(df) == 0:
+                                logger.warning(f"  {stock_code}: datetime 파싱 후 데이터 없음")
+                                continue
 
                             df = df.sort_values('datetime')
 
                             # 날짜 범위 필터링
                             start_dt = pd.to_datetime(start_date, format='%Y%m%d')
-                            end_dt = pd.to_datetime(end_date, format='%Y%m%d')
+                            end_dt = pd.to_datetime(end_date, format='%Y%m%d') + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
                             df = df[(df['datetime'] >= start_dt) & (df['datetime'] <= end_dt)]
 
                             if len(df) > 0:
@@ -376,6 +413,8 @@ class StrategyBacktester:
 
                     except Exception as e:
                         logger.error(f"  {stock_code}: OpenAPI 조회 실패 - {e}")
+                        import traceback
+                        logger.debug(traceback.format_exc())
 
                 if historical_data:
                     logger.info(f"✅ OpenAPI로 {len(historical_data)}개 종목 데이터 수집 완료")
@@ -386,6 +425,8 @@ class StrategyBacktester:
             except Exception as e:
                 logger.error(f"OpenAPI 데이터 조회 실패: {e}")
                 logger.info("REST API로 폴백합니다...")
+                import traceback
+                logger.debug(traceback.format_exc())
 
         # REST API 폴백
         try:
