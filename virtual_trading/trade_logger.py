@@ -7,6 +7,9 @@ from datetime import datetime
 from pathlib import Path
 import json
 import sqlite3
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class TradeLogger:
@@ -436,6 +439,37 @@ class TradeLogger:
 
         conn.commit()
         conn.close()
+
+    def load_historical_trades(self, days: int = 7) -> int:
+        """
+        과거 거래 기록 로드 (내부 캐시 업데이트)
+
+        Args:
+            days: 로드할 기간 (일)
+
+        Returns:
+            로드된 거래 수
+        """
+        from datetime import timedelta
+
+        try:
+            start_date = datetime.now() - timedelta(days=days)
+            end_date = datetime.now()
+
+            start_str = start_date.isoformat()
+            end_str = end_date.isoformat()
+
+            # DB에서 과거 거래 로드
+            trades = self.get_trades_by_date_range(start_str, end_str)
+
+            # 내부 캐시 업데이트
+            self.trades = trades
+
+            return len(trades)
+
+        except Exception as e:
+            logger.warning(f"과거 거래 기록 로드 실패: {e}")
+            return 0
 
 
 __all__ = ['TradeLogger']
