@@ -96,6 +96,8 @@ class StrategyOptimizationEngine:
         crossover_rate: float = 0.7,
         elite_ratio: float = 0.2,
         market_api = None,
+        chart_api = None,
+        openapi_client = None,
         virtual_trading_manager = None,
         auto_deploy: bool = False
     ):
@@ -108,6 +110,8 @@ class StrategyOptimizationEngine:
         self.current_generation = 0
         self.running = False
         self.market_api = market_api
+        self.chart_api = chart_api
+        self.openapi_client = openapi_client
         self.backtester = None
         self.auto_deploy = auto_deploy
         self.auto_deployer = None
@@ -116,13 +120,21 @@ class StrategyOptimizationEngine:
         if market_api:
             try:
                 from ai.strategy_backtester import StrategyBacktester
-                self.backtester = StrategyBacktester(market_api)
+                self.backtester = StrategyBacktester(
+                    market_api=market_api,
+                    chart_api=chart_api,
+                    openapi_client=openapi_client
+                )
                 logger.info("✅ 실제 백테스터 연결 완료")
+                if chart_api:
+                    logger.info("  - ChartAPI 연결: 차트 데이터 사용 가능")
+                if openapi_client:
+                    logger.info("  - OpenAPIClient 연결: 실시간 데이터 사용 가능")
             except Exception as e:
                 logger.warning(f"백테스터 초기화 실패: {e}. 시뮬레이션 모드로 실행됩니다.")
                 self.backtester = None
         else:
-            logger.warning("⚠️ market_api 미제공 - 시뮬레이션 모드로 실행됩니다")
+            logger.info("💡 시뮬레이션 모드로 실행 (market_api 미제공)")
 
         # 자동 배포 시스템 초기화
         if auto_deploy and virtual_trading_manager:

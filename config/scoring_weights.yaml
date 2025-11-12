@@ -1,0 +1,73 @@
+# 점수 가중치 설정
+# 시간대별 및 스캔 타입별로 다른 가중치 적용
+
+# 시간대별 가중치
+time_based_weights:
+  early:  # 장 초반 (09:00-10:30)
+    volume_surge: 1.5
+    bid_strength: 1.4
+    execution_intensity: 1.3
+    program_trading: 1.2
+    price_momentum: 0.9
+
+  mid:  # 장 중반 (10:30-14:00)
+    price_momentum: 1.2
+    institutional_buying: 1.3
+    technical_indicators: 1.1
+    volatility_pattern: 0.9
+
+  late:  # 장 후반 (14:00-15:30)
+    price_momentum: 1.4
+    technical_indicators: 1.2
+    volatility_pattern: 1.3
+    volume_surge: 0.8
+
+# 스캔 타입별 가중치
+scan_type_weights:
+  volume_based:  # 거래량 기반 스캔
+    volume_surge: 1.5
+    price_momentum: 0.8
+    institutional_buying: 1.0
+    bid_strength: 1.3
+    execution_intensity: 1.5
+    broker_activity: 1.1
+    program_trading: 1.0
+    technical_indicators: 0.7
+    theme_news: 0.9
+    volatility_pattern: 1.0
+
+  price_change:  # 가격 변동 기반 스캔
+    volume_surge: 0.9
+    price_momentum: 1.5
+    institutional_buying: 1.0
+    bid_strength: 0.8
+    execution_intensity: 0.9
+    broker_activity: 1.0
+    program_trading: 1.0
+    technical_indicators: 1.4
+    theme_news: 1.2
+    volatility_pattern: 1.3
+
+  ai_driven:  # AI 기반 스캔
+    volume_surge: 1.0
+    price_momentum: 1.0
+    institutional_buying: 1.5
+    bid_strength: 1.1
+    execution_intensity: 1.2
+    broker_activity: 1.5
+    program_trading: 1.5
+    technical_indicators: 1.1
+    theme_news: 1.3
+    volatility_pattern: 0.9
+
+  default:  # 기본 가중치
+    volume_surge: 1.0
+    price_momentum: 1.0
+    institutional_buying: 1.0
+    bid_strength: 1.0
+    execution_intensity: 1.0
+    broker_activity: 1.0
+    program_trading: 1.0
+    technical_indicators: 1.0
+    theme_news: 1.0
+    volatility_pattern: 1.0
