@@ -314,6 +314,16 @@ class StrategyBacktester:
         Returns:
             {stock_code: DataFrame}
         """
+        from utils.trading_date import get_last_trading_date
+
+        # Fix: end_date가 오늘 또는 미래 날짜인 경우 마지막 거래일로 변경
+        today = datetime.now().strftime('%Y%m%d')
+        if end_date >= today:
+            original_end_date = end_date
+            end_date = get_last_trading_date()
+            logger.warning(f"⚠️ end_date를 마지막 거래일로 조정: {original_end_date} → {end_date}")
+            logger.warning(f"   → 이유: 장이 열리지 않은 시간에는 당일 데이터가 없습니다")
+
         logger.info(f"Fetching historical data for {len(stock_codes)} stocks...")
 
         historical_data = {}
