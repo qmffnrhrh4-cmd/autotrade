@@ -122,7 +122,7 @@ class StrategyOptimizationEngine:
                 logger.warning(f"백테스터 초기화 실패: {e}. 시뮬레이션 모드로 실행됩니다.")
                 self.backtester = None
         else:
-            logger.warning("⚠️ market_api 미제공 - 시뮬레이션 모드로 실행됩니다")
+            logger.info("💡 시뮬레이션 모드로 실행 (market_api 미제공)")
 
         # 자동 배포 시스템 초기화
         if auto_deploy and virtual_trading_manager:
