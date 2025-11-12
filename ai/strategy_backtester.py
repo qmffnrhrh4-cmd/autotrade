@@ -410,7 +410,8 @@ class StrategyBacktester:
                     # Fix: 더 상세한 로깅 추가
                     logger.info(f"  {stock_code}: 데이터 요청 중 (interval={interval_int}, count={data_count})...")
 
-                    # Fix: 재시도 로직 추가 (최대 3번)
+                    # Fix: base_date 파라미터 추가 (과거 데이터 조회)
+                    # 백테스팅은 과거 데이터를 사용하므로 end_date를 base_date로 설정
                     data = None
                     max_retries = 3
                     for retry in range(max_retries):
@@ -418,7 +419,8 @@ class StrategyBacktester:
                             data = self.chart_api.get_minute_chart(
                                 stock_code=stock_code,
                                 interval=interval_int,
-                                count=data_count
+                                count=data_count,
+                                base_date=end_date  # Fix: 과거 데이터 조회를 위해 base_date 전달
                             )
                             if data:
                                 break
