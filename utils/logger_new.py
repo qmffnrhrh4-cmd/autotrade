@@ -35,6 +35,8 @@ class LoguruLogger:
 
     def _setup_logger(self):
         """로거 초기 설정"""
+        import os
+
         try:
             from config.manager import get_config
             config = get_config()
@@ -68,6 +70,10 @@ class LoguruLogger:
 
         logger.remove()
 
+        # 프로세스별로 다른 로그 파일 사용 (Windows 멀티프로세스 충돌 방지)
+        process_name = os.path.basename(sys.argv[0]).replace('.py', '') if sys.argv else 'unknown'
+        pid = os.getpid()
+
         default_format = '{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}'
 
         if get_config_value('console_output', True):
@@ -84,13 +90,26 @@ class LoguruLogger:
         log_file = get_config_value('file_path', 'logs/bot.log')
         log_path = Path(log_file)
 
+        # Windows 멀티프로세스 환경: 각 프로세스가 별도 로그 파일 사용
+        # 주요 프로세스만 구분하여 로그 파일 생성
+        if 'run_strategy_optimizer' in process_name:
+            log_path = log_path.parent / 'optimizer.log'
+        elif 'openapi_server' in process_name or 'kiwoom_server' in process_name:
+            log_path = log_path.parent / 'openapi.log'
+        elif process_name not in ['main', 'unknown']:
+            # 기타 프로세스는 프로세스명_PID.log 형식
+            log_path = log_path.parent / f'{process_name}.log'
+        # main 프로세스는 bot.log 사용
+
         log_path.parent.mkdir(parents=True, exist_ok=True)
 
+        # Windows 멀티프로세스 환경에서는 시간 기반 rotation이 파일 권한 충돌을 일으킴
+        # 크기 기반 rotation만 사용하여 문제 회피
         logger.add(
             log_path,
             format=get_config_value('format') or default_format,
             level=get_config_value('level', 'INFO'),
-            rotation=get_config_value('rotation', '00:00'),
+            rotation='50 MB',  # 시간 기반 rotation 제거, 크기 기반만 사용
             retention=get_config_value('backup_count', 30),
             compression='zip',
             encoding='utf-8',
@@ -100,7 +119,16 @@ class LoguruLogger:
             catch=True,    # 로깅 에러 무시 (파일 권한 오류 방지)
         )
 
-        error_log_path = log_path.parent / 'error.log'
+        # 에러 로그는 프로세스별로 구분
+        if 'run_strategy_optimizer' in process_name:
+            error_log_path = log_path.parent / 'optimizer_error.log'
+        elif 'openapi_server' in process_name or 'kiwoom_server' in process_name:
+            error_log_path = log_path.parent / 'openapi_error.log'
+        elif process_name not in ['main', 'unknown']:
+            error_log_path = log_path.parent / f'{process_name}_error.log'
+        else:
+            error_log_path = log_path.parent / 'error.log'
+
         logger.add(
             error_log_path,
             format=get_config_value('format') or default_format,
