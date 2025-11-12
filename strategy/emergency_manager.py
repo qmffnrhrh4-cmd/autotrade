@@ -142,6 +142,10 @@ class EmergencyManager:
         if initial_capital > 0:
             portfolio_loss_pct = (portfolio_value - initial_capital) / initial_capital
 
+            # Fix: 초기 상태(portfolio_value=0)는 무시
+            if portfolio_value == 0:
+                return None
+
             if portfolio_loss_pct <= self.portfolio_loss_threshold:
                 # 10% 이상 손실 - CRITICAL
                 level = EmergencyLevel.CRITICAL

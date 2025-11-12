@@ -222,8 +222,8 @@ class GeminiAnalyzer(BaseAnalyzer):
                 if not response_text or len(response_text.strip()) == 0:
                     raise ValueError("Gemini API returned empty response")
 
-                # DEBUG: 실제 응답 내용 로깅
-                logger.debug(f"📥 Gemini API 응답 (앞 500자): {response_text[:500]}")
+                # Fix: 실제 응답 내용 로깅 (WARNING 레벨로 출력되도록 변경)
+                logger.warning(f"📥 Gemini API 응답 (앞 500자): {response_text[:500]}")
 
                 result = self._parse_stock_analysis_response(response_text, stock_data)
 
@@ -247,11 +247,11 @@ class GeminiAnalyzer(BaseAnalyzer):
                 error_msg = str(e)
                 error_type = type(e).__name__
 
-                # DEBUG: 상세 에러 정보 로깅
+                # Fix: 상세 에러 정보 로깅 (WARNING 레벨로 출력되도록 변경)
                 import traceback
-                logger.debug(f"❌ 예외 타입: {error_type}")
-                logger.debug(f"❌ 예외 메시지: {error_msg}")
-                logger.debug(f"❌ Traceback:\n{traceback.format_exc()}")
+                logger.warning(f"❌ 예외 타입: {error_type}")
+                logger.warning(f"❌ 예외 메시지: {error_msg}")
+                logger.warning(f"❌ Traceback:\n{traceback.format_exc()}")
 
                 if attempt < max_retries - 1:
                     logger.warning(
