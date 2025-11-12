@@ -96,6 +96,8 @@ class LoguruLogger:
             encoding='utf-8',
             backtrace=True,
             diagnose=True,
+            enqueue=True,  # 멀티프로세스 안전성 (비동기 큐 사용)
+            catch=True,    # 로깅 에러 무시 (파일 권한 오류 방지)
         )
 
         error_log_path = log_path.parent / 'error.log'
@@ -109,6 +111,8 @@ class LoguruLogger:
             encoding='utf-8',
             backtrace=True,
             diagnose=True,
+            enqueue=True,  # 멀티프로세스 안전성 (비동기 큐 사용)
+            catch=True,    # 로깅 에러 무시 (파일 권한 오류 방지)
         )
 
     def get_logger(self):

@@ -201,13 +201,18 @@ class ChartDataAPI:
                         logger.info(f"✅ {nx_code} NXT {interval}분봉 {len(standardized_data)}개 조회 성공!")
                         return standardized_data[:count] if count else standardized_data
                     else:
-                        logger.warning(f"⚠️ {nx_code} NXT {interval}분봉 응답은 성공했지만 데이터 없음 (분봉 API는 _NX 미지원 추정)")
+                        logger.warning(f"⚠️ {nx_code} NXT {interval}분봉 응답은 성공했지만 데이터 없음")
+                        logger.warning(f"   → 분봉 API는 _NX 접미사를 지원하지 않을 수 있음")
+                        logger.warning(f"   → 요청 파라미터: interval={interval}, count={count}, base_date={base_date}")
                 else:
+                    return_code_nx = response_nx.get('return_code') if response_nx else None
                     error_msg = response_nx.get('return_msg', 'Unknown error') if response_nx else 'No response'
-                    logger.warning(f"⚠️ {nx_code} NXT {interval}분봉 조회 실패: {error_msg}")
+                    logger.warning(f"⚠️ {nx_code} NXT {interval}분봉 조회 실패")
+                    logger.warning(f"   → API return_code: {return_code_nx}")
+                    logger.warning(f"   → API return_msg: {error_msg}")
 
             except Exception as e:
-                logger.warning(f"⚠️ {nx_code} NXT {interval}분봉 조회 중 예외: {e}")
+                logger.warning(f"⚠️ {nx_code} NXT {interval}분봉 조회 중 예외: {e}", exc_info=True)
 
             # NXT 실패 시 fallback 여부 확인
             if not use_nxt_fallback:
@@ -238,6 +243,17 @@ class ChartDataAPI:
                 # ka10080은 'stk_tic_pole_chart_qry' 키에 데이터 반환
                 minute_data = response.get('stk_tic_pole_chart_qry', [])
 
+                # 데이터가 없는 경우 더 자세한 로깅
+                if not minute_data or len(minute_data) == 0:
+                    logger.warning(f"⚠️ {base_code} {interval}분봉 API 응답은 성공했지만 데이터가 없습니다")
+                    logger.warning(f"   → 요청 파라미터: interval={interval}, count={count}, base_date={base_date}")
+                    logger.warning(f"   → 가능한 원인:")
+                    logger.warning(f"      1. 장 마감 시간 (현재 시간에 데이터 없음)")
+                    logger.warning(f"      2. base_date가 너무 오래된 날짜 (API가 제공하지 않는 기간)")
+                    logger.warning(f"      3. 해당 종목의 분봉 데이터 미제공 (상장폐지, ETF 등)")
+                    logger.warning(f"   → 해결 방법: 최근 거래일로 base_date 변경 또는 시뮬레이션 데이터 사용")
+                    return []
+
                 # 데이터 표준화
                 standardized_data = []
                 for item in minute_data:
@@ -260,12 +276,21 @@ class ChartDataAPI:
                 logger.info(f"✅ {base_code} {source_label} {interval}분봉 {len(standardized_data)}개 조회 완료")
                 return standardized_data[:count] if count else standardized_data
             else:
+                # API 오류 응답 상세 로깅
+                return_code = response.get('return_code') if response else None
                 error_msg = response.get('return_msg', 'Unknown error') if response else 'No response'
-                logger.error(f"❌ {base_code} 분봉 차트 조회 실패: {error_msg}")
+                logger.error(f"❌ {base_code} 분봉 차트 조회 실패")
+                logger.error(f"   → API return_code: {return_code}")
+                logger.error(f"   → API return_msg: {error_msg}")
+                logger.error(f"   → 요청 파라미터: stock_code={base_code}, interval={interval}, count={count}, base_date={base_date}")
+                logger.error(f"   → 해결 방법:")
+                logger.error(f"      1. API 인증 정보 확인 (secrets.json)")
+                logger.error(f"      2. API 서비스 상태 확인 (한국투자증권)")
+                logger.error(f"      3. 네트워크 연결 상태 확인")
                 return []
 
         except Exception as e:
-            logger.error(f"❌ {base_code} 분봉 차트 조회 중 예외 발생: {e}")
+            logger.error(f"❌ {base_code} 분봉 차트 조회 중 예외 발생: {e}", exc_info=True)
             return []
 
     def get_multi_timeframe_data(
