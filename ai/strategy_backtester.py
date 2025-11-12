@@ -114,9 +114,18 @@ class BacktestResult:
 
 class StrategyBacktester:
 
-    def __init__(self, market_api, chart_api=None):
+    def __init__(self, market_api, chart_api=None, openapi_client=None):
+        """
+        백테스터 초기화
+
+        Args:
+            market_api: MarketAPI 인스턴스 (REST API)
+            chart_api: ChartDataAPI 인스턴스 (옵션)
+            openapi_client: OpenAPI 클라이언트 (옵션, 우선 사용)
+        """
         self.market_api = market_api
         self.chart_api = chart_api
+        self.openapi_client = openapi_client  # Fix: OpenAPI 클라이언트 추가
 
         # 백테스팅 전략 활성화 (자동 데이터 로드 지원)
         # 전략 클래스와 백테스터 간 인터페이스 불일치로 인해 간단한 전략만 사용
@@ -309,6 +318,66 @@ class StrategyBacktester:
 
         historical_data = {}
 
+        # Fix: OpenAPI 클라이언트 우선 사용 (장 마감 시간과 무관하게 데이터 조회 가능)
+        if self.openapi_client and hasattr(self.openapi_client, 'is_connected') and self.openapi_client.is_connected:
+            logger.info("✅ OpenAPI 클라이언트 사용 (장 마감 시간 무관)")
+            try:
+                for stock_code in stock_codes:
+                    try:
+                        logger.info(f"  {stock_code}: OpenAPI로 분봉 데이터 요청 중...")
+
+                        # OpenAPI로 분봉 데이터 가져오기
+                        interval_int = int(interval) if isinstance(interval, str) else interval
+                        minute_data = self.openapi_client.get_minute_data(stock_code, interval_int)
+
+                        if minute_data and len(minute_data) > 0:
+                            df = pd.DataFrame(minute_data)
+
+                            # 날짜/시간 파싱
+                            if 'datetime' not in df.columns:
+                                # date와 time 컬럼 결합
+                                if 'date' in df.columns and 'time' in df.columns:
+                                    df['datetime'] = pd.to_datetime(
+                                        df['date'].astype(str) + ' ' + df['time'].astype(str),
+                                        format='%Y%m%d %H%M%S',
+                                        errors='coerce'
+                                    )
+                                else:
+                                    logger.warning(f"  {stock_code}: datetime 컬럼 없음, 스킵")
+                                    continue
+
+                            df = df.sort_values('datetime')
+
+                            # 날짜 범위 필터링
+                            start_dt = pd.to_datetime(start_date, format='%Y%m%d')
+                            end_dt = pd.to_datetime(end_date, format='%Y%m%d')
+                            df = df[(df['datetime'] >= start_dt) & (df['datetime'] <= end_dt)]
+
+                            if len(df) > 0:
+                                historical_data[stock_code] = df
+                                logger.info(f"  {stock_code}: {len(df)} bars (OpenAPI)")
+                            else:
+                                logger.warning(f"  {stock_code}: No data in date range")
+
+                        else:
+                            logger.warning(f"  {stock_code}: OpenAPI에서 데이터 없음")
+
+                        time.sleep(0.2)
+
+                    except Exception as e:
+                        logger.error(f"  {stock_code}: OpenAPI 조회 실패 - {e}")
+
+                if historical_data:
+                    logger.info(f"✅ OpenAPI로 {len(historical_data)}개 종목 데이터 수집 완료")
+                    return historical_data
+                else:
+                    logger.warning("⚠️ OpenAPI로 데이터를 가져오지 못했습니다. REST API로 시도합니다.")
+
+            except Exception as e:
+                logger.error(f"OpenAPI 데이터 조회 실패: {e}")
+                logger.info("REST API로 폴백합니다...")
+
+        # REST API 폴백
         try:
             from api.market.chart_data import ChartDataAPI
 

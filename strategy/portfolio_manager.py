@@ -513,14 +513,23 @@ class PortfolioManager:
     def get_history(self, days: int = 7) -> List[Dict[str, Any]]:
         """
         포트폴리오 이력 조회
-        
+
         Args:
             days: 조회 일수
-        
+
         Returns:
             이력 리스트
         """
         return self.history[-days:] if self.history else []
+
+    def get_total_value(self) -> int:
+        """
+        총 포트폴리오 가치 조회
+
+        Returns:
+            총 자산 (현금 + 주식 평가액)
+        """
+        return int(self.total_assets)
 
 
 __all__ = ['PortfolioManager']

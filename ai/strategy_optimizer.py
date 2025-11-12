@@ -545,9 +545,11 @@ class StrategyOptimizationEngine:
             best_idx = fitness_scores.index(max(fitness_scores))
             best_strategy_id = strategy_ids[best_idx]
 
-            # Fix: UNIQUE constraint 오류 방지 - INSERT OR REPLACE 사용
+            # Fix: UNIQUE constraint 오류 방지 - 명시적 DELETE 후 INSERT
+            cursor.execute("DELETE FROM generation_stats WHERE generation = ?", (self.current_generation,))
+
             cursor.execute("""
-                INSERT OR REPLACE INTO generation_stats (
+                INSERT INTO generation_stats (
                     generation, best_fitness, avg_fitness, worst_fitness, best_strategy_id
                 ) VALUES (?, ?, ?, ?, ?)
             """, (
@@ -559,9 +561,9 @@ class StrategyOptimizationEngine:
             ))
 
             conn.commit()
-            logger.info(f"세대 {self.current_generation} DB 저장 완료")
+            logger.info(f"✅ 세대 {self.current_generation} DB 저장 완료 (best={max(fitness_scores):.2f}, avg={sum(fitness_scores)/len(fitness_scores):.2f})")
         except Exception as e:
-            logger.error(f"DB 저장 실패: {e}")
+            logger.error(f"❌ DB 저장 실패 (세대 {self.current_generation}): {e}")
             conn.rollback()
         finally:
             conn.close()

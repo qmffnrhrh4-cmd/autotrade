@@ -671,14 +671,17 @@ class GeminiAnalyzer(BaseAnalyzer):
                     return result
 
                 except json.JSONDecodeError as e:
-                    logger.warning(f"JSON 파싱 실패 (위치: {e.pos}, 줄: {e.lineno}), 텍스트 파싱으로 전환")
-                    logger.debug(f"파싱 실패한 JSON: {json_str[:200]}")  # Fix: 디버깅을 위한 JSON 일부 출력
+                    logger.debug(f"JSON 파싱 실패 (위치: {e.pos}, 줄: {e.lineno})")
+                    logger.debug(f"파싱 실패한 JSON (앞 200자): {json_str[:200] if json_str else 'None'}")
+                    # 텍스트 파싱으로 전환 (예외 재발생 안 함)
+                    pass
                 except Exception as e:
-                    logger.warning(f"JSON 처리 중 예외: {type(e).__name__}: {e}, 텍스트 파싱으로 전환")
-                    logger.debug(f"처리 실패한 원본 텍스트: {response_text[:200]}")  # Fix: 디버깅 정보 추가
+                    logger.debug(f"JSON 처리 중 예외: {type(e).__name__}: {e}")
+                    # 텍스트 파싱으로 전환 (예외 재발생 안 함)
+                    pass
 
         except Exception as e:
-            logger.warning(f"JSON 추출 중 예외 발생: {type(e).__name__}: {e}, 텍스트 파싱으로 전환")
+            logger.debug(f"JSON 추출 중 예외: {type(e).__name__}: {e}")
 
         logger.info("텍스트 파싱 모드로 전환")
 
