@@ -332,7 +332,8 @@ class EmergencyManager:
             if hasattr(bot_instance, 'portfolio_manager'):
                 positions = bot_instance.portfolio_manager.get_positions()
 
-                for position in positions:
+                # Fix: positions는 Dict[str, Dict]이므로 .values()로 iterate
+                for position in positions.values():
                     stock_code = position.get('stock_code')
                     quantity = position.get('quantity')
 
