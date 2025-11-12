@@ -341,11 +341,27 @@ class StrategyBacktester:
                     # Fix: 더 상세한 로깅 추가
                     logger.info(f"  {stock_code}: 데이터 요청 중 (interval={interval_int}, count={data_count})...")
 
-                    data = self.chart_api.get_minute_chart(
-                        stock_code=stock_code,
-                        interval=interval_int,
-                        count=data_count
-                    )
+                    # Fix: 재시도 로직 추가 (최대 3번)
+                    data = None
+                    max_retries = 3
+                    for retry in range(max_retries):
+                        try:
+                            data = self.chart_api.get_minute_chart(
+                                stock_code=stock_code,
+                                interval=interval_int,
+                                count=data_count
+                            )
+                            if data:
+                                break
+                            if retry < max_retries - 1:
+                                logger.debug(f"  {stock_code}: 데이터 없음, 재시도 {retry + 1}/{max_retries}")
+                                time.sleep(1)
+                        except Exception as e:
+                            if retry < max_retries - 1:
+                                logger.debug(f"  {stock_code}: API 오류, 재시도 {retry + 1}/{max_retries}: {e}")
+                                time.sleep(1)
+                            else:
+                                raise
 
                     # Fix: 데이터 응답 타입과 길이 로깅
                     logger.debug(f"  {stock_code}: 응답 타입={type(data)}, 길이={len(data) if data else 0}")

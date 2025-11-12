@@ -376,7 +376,11 @@ class AutoTradingBot:
                 logger.info("  ✅ Split order executor")
 
                 # Smart money manager
-                automation_config = self.config.automation_features if hasattr(self.config, 'automation_features') else {}
+                # Fix: Pydantic BaseModel을 dict로 변환
+                if hasattr(self.config, 'automation_features'):
+                    automation_config = self.config.automation_features.model_dump() if hasattr(self.config.automation_features, 'model_dump') else {}
+                else:
+                    automation_config = {}
                 self.smart_money_manager = get_smart_money_manager(automation_config)
                 logger.info("  ✅ Smart money manager")
 

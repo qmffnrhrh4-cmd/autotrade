@@ -559,14 +559,25 @@ class GeminiAnalyzer(BaseAnalyzer):
 
                     # Fix: JSON 시작 전 불필요한 텍스트 제거 (예: '\n  "decision"')
                     first_brace = json_str.find('{')
+                    if first_brace == -1:
+                        # JSON 객체가 없으면 텍스트 파싱으로 전환
+                        logger.warning(f"JSON 객체를 찾을 수 없음: {json_str[:100]}")
+                        raise json.JSONDecodeError("No JSON object found", json_str, 0)
+
                     if first_brace > 0:
-                        logger.debug(f"JSON 시작 전 불필요한 텍스트 제거: {json_str[:first_brace]}")
+                        removed_prefix = json_str[:first_brace]
+                        logger.debug(f"JSON 시작 전 불필요한 텍스트 제거: {removed_prefix[:50]}")
                         json_str = json_str[first_brace:]
 
                     # Fix: JSON 끝 이후 불필요한 텍스트 제거
                     last_brace = json_str.rfind('}')
+                    if last_brace == -1:
+                        logger.warning(f"JSON 객체 끝을 찾을 수 없음: {json_str[:100]}")
+                        raise json.JSONDecodeError("No JSON object end found", json_str, 0)
+
                     if last_brace > 0 and last_brace < len(json_str) - 1:
-                        logger.debug(f"JSON 끝 이후 불필요한 텍스트 제거: {json_str[last_brace+1:]}")
+                        removed_suffix = json_str[last_brace+1:]
+                        logger.debug(f"JSON 끝 이후 불필요한 텍스트 제거: {removed_suffix[:50]}")
                         json_str = json_str[:last_brace + 1]
 
                     # Fix: 줄바꿈과 탭을 공백으로 정규화
@@ -578,6 +589,11 @@ class GeminiAnalyzer(BaseAnalyzer):
 
                     # Fix: 문자열 내부가 아닌 곳의 불필요한 공백 제거
                     json_str = json_str.strip()
+
+                    # Fix: 최종 검증 - JSON이 { }로 시작/끝나는지 확인
+                    if not json_str.startswith('{') or not json_str.endswith('}'):
+                        logger.warning(f"JSON 형식 오류: 시작={json_str[:1]}, 끝={json_str[-1:]}")
+                        raise json.JSONDecodeError("Invalid JSON format", json_str, 0)
 
                     data = json.loads(json_str)
 
