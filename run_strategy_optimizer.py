@@ -26,11 +26,12 @@ def signal_handler(sig, frame):
 
 
 def initialize_apis():
-    """Market API, Chart API 초기화 - 실제 Kiwoom OpenAPI 연동"""
+    """Market API, Chart API, OpenAPI 초기화 - 실제 Kiwoom OpenAPI 연동"""
     try:
         from core import KiwoomRESTClient
         from api import MarketAPI
         from api.market import ChartDataAPI
+        from core.openapi_client import KiwoomOpenAPIClient
 
         logger.info("🔗 API 초기화 중...")
 
@@ -43,14 +44,30 @@ def initialize_apis():
         # ChartDataAPI 초기화 (백테스팅용 차트 데이터)
         chart_api = ChartDataAPI(client)
 
+        # OpenAPI 클라이언트 초기화 (백테스팅용 분봉 데이터 - REST API보다 안정적)
+        openapi_client = None
+        try:
+            logger.info("🔗 OpenAPI 클라이언트 초기화 중...")
+            openapi_client = KiwoomOpenAPIClient(auto_connect=True)
+            if openapi_client.is_connected:
+                logger.info("✅ OpenAPI 클라이언트 연결 완료 - 백테스팅에 OpenAPI 사용")
+            else:
+                logger.warning("⚠️ OpenAPI 클라이언트 연결 실패 - REST API로 폴백")
+                openapi_client = None
+        except Exception as e:
+            logger.warning(f"⚠️ OpenAPI 클라이언트 초기화 실패: {e}")
+            logger.warning("   → REST API로 폴백")
+            openapi_client = None
+
         logger.info("✅ API 초기화 완료 - 실제 데이터 사용")
         logger.info("  - MarketAPI: 시장 데이터 조회")
-        logger.info("  - ChartDataAPI: 차트 데이터 조회 (백테스팅)")
+        logger.info("  - ChartDataAPI: 차트 데이터 조회 (REST API)")
+        logger.info(f"  - OpenAPI Client: {'연결됨 (분봉 데이터 우선 사용)' if openapi_client and openapi_client.is_connected else '미연결 (REST API 사용)'}")
 
         return {
             'market_api': market_api,
             'chart_api': chart_api,
-            'openapi_client': None  # OpenAPIClient는 별도 초기화 필요 시 추가
+            'openapi_client': openapi_client
         }
 
     except Exception as e:
