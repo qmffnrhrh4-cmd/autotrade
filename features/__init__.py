@@ -18,7 +18,11 @@ try:
         # 없으면 None으로 설정
         PortfolioOptimizer = PortfolioOptimization = None
     from .news_feed import NewsFeedService, NewsArticle, NewsSummary, SentimentAnalyzer
-    from .risk_analyzer import RiskAnalyzer, RiskAnalysis, StockRisk, PortfolioRisk
+    # Fix: risk_analyzer 모듈이 없으면 None으로 설정
+    try:
+        from .risk_analyzer import RiskAnalyzer, RiskAnalysis, StockRisk, PortfolioRisk
+    except ImportError:
+        RiskAnalyzer = RiskAnalysis = StockRisk = PortfolioRisk = None
     from .ai_mode import AIAgent, AIDecision, AIStrategy, AIPerformance, get_ai_agent
     from .ai_learning import AILearningEngine, TradingPattern as AITradingPattern, MarketRegime, LearningInsight
     from .paper_trading import PaperTradingEngine, VirtualAccount, VirtualPosition, StrategyConfig, get_paper_trading_engine

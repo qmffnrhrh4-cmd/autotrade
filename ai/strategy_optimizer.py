@@ -545,8 +545,9 @@ class StrategyOptimizationEngine:
             best_idx = fitness_scores.index(max(fitness_scores))
             best_strategy_id = strategy_ids[best_idx]
 
+            # Fix: UNIQUE constraint 오류 방지 - INSERT OR REPLACE 사용
             cursor.execute("""
-                INSERT INTO generation_stats (
+                INSERT OR REPLACE INTO generation_stats (
                     generation, best_fitness, avg_fitness, worst_fitness, best_strategy_id
                 ) VALUES (?, ?, ?, ?, ?)
             """, (
