@@ -25,18 +25,37 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 
-def initialize_market_api():
-    """Market API 초기화"""
+def initialize_apis():
+    """Market API, Chart API, OpenAPI Client 초기화 - 실제 Kiwoom OpenAPI 연동"""
     try:
-        # Fix: RealTimeMarketAPI가 없으므로 시뮬레이션 모드로 실행
-        # 실제 API가 필요한 경우 main.py의 market_api를 사용해야 함
-        logger.info("⚠️ 전략 최적화는 시뮬레이션 모드로 실행됩니다")
-        logger.info("💡 실제 데이터가 필요한 경우 main.py에서 연동 필요")
-        return None
+        from core import KiwoomRESTClient
+        from api import MarketAPI, ChartDataAPI
+        from config.constants import HOST, PORTS
+
+        logger.info("🔗 API 초기화 중...")
+
+        # KiwoomRESTClient 초기화 (OpenAPI 서버와 연결)
+        client = KiwoomRESTClient(host=HOST, port=PORTS['openapi'])
+
+        # MarketAPI 초기화
+        market_api = MarketAPI(client)
+
+        # ChartDataAPI 초기화 (백테스팅용 차트 데이터)
+        chart_api = ChartDataAPI(client)
+
+        logger.info("✅ API 초기화 완료 - 실제 데이터 사용")
+        logger.info("  - MarketAPI: 시장 데이터 조회")
+        logger.info("  - ChartDataAPI: 차트 데이터 조회 (백테스팅)")
+
+        return {
+            'market_api': market_api,
+            'chart_api': chart_api,
+            'openapi_client': None  # OpenAPIClient는 별도 초기화 필요 시 추가
+        }
 
     except Exception as e:
-        logger.warning(f"⚠️ Market API 초기화 실패: {e}")
-        logger.warning("⚠️ 시뮬레이션 모드로 실행됩니다")
+        logger.warning(f"⚠️ API 초기화 실패: {e}")
+        logger.warning("💡 시뮬레이션 모드로 전환 - 가상 데이터 사용")
         return None
 
 
@@ -82,11 +101,16 @@ def main():
     logger.info(f"  - 자동 배포: {'활성화' if args.auto_deploy else '비활성화'}")
     logger.info("=" * 100)
 
-    # Market API 초기화 (시뮬레이션 모드가 아닌 경우)
-    market_api = None if args.simulation else initialize_market_api()
+    # API 초기화 (시뮬레이션 모드가 아닌 경우)
+    apis = None if args.simulation else initialize_apis()
 
     # Virtual Trading Manager 초기화 (자동 배포 모드인 경우)
     vt_manager = initialize_virtual_trading() if args.auto_deploy else None
+
+    # API dict에서 개별 API 추출
+    market_api = apis['market_api'] if apis else None
+    chart_api = apis['chart_api'] if apis else None
+    openapi_client = apis.get('openapi_client') if apis else None
 
     global engine
     engine = StrategyOptimizationEngine(
@@ -94,6 +118,8 @@ def main():
         mutation_rate=args.mutation_rate,
         crossover_rate=args.crossover_rate,
         market_api=market_api,
+        chart_api=chart_api,
+        openapi_client=openapi_client,
         virtual_trading_manager=vt_manager,
         auto_deploy=args.auto_deploy
     )
