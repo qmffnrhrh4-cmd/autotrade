@@ -64,10 +64,10 @@ class StrategyGene:
     timeframe: str = "5"  # 1, 5, 15, 30, 60 (분봉)
 
     # 시간 필터
-    trade_time_start: str = "09:30"
-    trade_time_end: str = "15:00"
-    avoid_first_30min: bool = True  # 시초 30분 회피
-    avoid_last_30min: bool = True   # 종가 30분 회피
+    trade_time_start: str = "08:00"  # 장전 시간외거래 포함
+    trade_time_end: str = "20:00"    # 장후 시간외거래 포함
+    avoid_first_30min: bool = False  # 시초 30분 회피 (시간외거래 포함하므로 False)
+    avoid_last_30min: bool = False   # 종가 30분 회피 (시간외거래 포함하므로 False)
 
     # 종목 필터
     min_price: float = 10000
