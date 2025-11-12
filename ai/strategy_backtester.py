@@ -341,7 +341,18 @@ class StrategyBacktester:
                         minute_data = self.openapi_client.get_minute_data(stock_code, interval_int)
 
                         if minute_data and len(minute_data) > 0:
+                            # 🔍 DEBUG: 실제 OpenAPI 데이터 구조 출력
+                            logger.info(f"  {stock_code}: OpenAPI 데이터 {len(minute_data)}개 수신")
+                            logger.info(f"  🔍 첫 번째 데이터 샘플: {minute_data[0]}")
+
                             df = pd.DataFrame(minute_data)
+                            logger.info(f"  🔍 DataFrame 컬럼: {df.columns.tolist()}")
+                            logger.info(f"  🔍 DataFrame 크기: {len(df)} rows")
+
+                            if len(df) > 0:
+                                logger.info(f"  🔍 첫 번째 행 데이터:")
+                                for col in df.columns:
+                                    logger.info(f"      {col}: {repr(df[col].iloc[0])}")
 
                             # OpenAPI는 한글 컬럼명 반환: '체결시간', '현재가', '시가', '고가', '저가', '거래량'
                             # 영문 컬럼명으로 변환
@@ -359,10 +370,13 @@ class StrategyBacktester:
                             rename_dict = {k: v for k, v in column_mapping.items() if k in df.columns}
                             if rename_dict:
                                 df = df.rename(columns=rename_dict)
-                                logger.debug(f"  {stock_code}: 컬럼 변환 완료 - {list(rename_dict.keys())} -> {list(rename_dict.values())}")
+                                logger.info(f"  {stock_code}: 컬럼 변환 완료 - {list(rename_dict.keys())} -> {list(rename_dict.values())}")
+                            else:
+                                logger.error(f"  {stock_code}: ❌ 매핑할 컬럼이 없음! 원본 컬럼: {df.columns.tolist()}")
 
                             # 날짜/시간 파싱
                             if 'datetime' not in df.columns:
+                                logger.info(f"  {stock_code}: datetime 컬럼 생성 시작...")
                                 # OpenAPI 분봉 데이터에는 '일자' 필드가 없을 수 있음
                                 # '체결시간'만 있는 경우, 기준 날짜를 사용
                                 if 'time' in df.columns:
@@ -370,27 +384,41 @@ class StrategyBacktester:
                                     if 'date' not in df.columns:
                                         # 날짜 컬럼이 없으면 end_date를 기준으로 사용
                                         df['date'] = end_date
-                                        logger.debug(f"  {stock_code}: 날짜 컬럼 없음 - 기준일({end_date}) 사용")
+                                        logger.info(f"  {stock_code}: 날짜 컬럼 없음 - 기준일({end_date}) 사용")
 
                                     # date와 time 결합하여 datetime 생성
                                     try:
+                                        logger.info(f"  {stock_code}: datetime 파싱 시도...")
+                                        logger.info(f"      date 샘플: {df['date'].iloc[0]} (type: {type(df['date'].iloc[0])})")
+                                        logger.info(f"      time 샘플: {df['time'].iloc[0]} (type: {type(df['time'].iloc[0])})")
+
+                                        # 날짜/시간 문자열 결합
+                                        datetime_str = df['date'].astype(str).str.strip() + ' ' + df['time'].astype(str).str.strip()
+                                        logger.info(f"      결합된 문자열 샘플: {datetime_str.iloc[0]}")
+
                                         df['datetime'] = pd.to_datetime(
-                                            df['date'].astype(str) + ' ' + df['time'].astype(str),
+                                            datetime_str,
                                             format='%Y%m%d %H%M%S',
                                             errors='coerce'
                                         )
+                                        logger.info(f"      파싱된 datetime 샘플: {df['datetime'].iloc[0]}")
                                     except Exception as e:
-                                        logger.error(f"  {stock_code}: datetime 파싱 실패 - {e}")
-                                        logger.debug(f"  샘플 데이터: date={df['date'].iloc[0] if len(df) > 0 else 'N/A'}, time={df['time'].iloc[0] if len(df) > 0 else 'N/A'}")
+                                        logger.error(f"  {stock_code}: ❌ datetime 파싱 실패 - {e}")
+                                        logger.error(f"      date={repr(df['date'].iloc[0])}, time={repr(df['time'].iloc[0])}")
+                                        import traceback
+                                        logger.error(traceback.format_exc())
                                         continue
                                 else:
                                     logger.warning(f"  {stock_code}: time 컬럼 없음, 스킵")
                                     continue
 
                             # NaT (Not a Time) 제거
+                            nat_count = df['datetime'].isna().sum()
+                            if nat_count > 0:
+                                logger.warning(f"  {stock_code}: NaT 값 {nat_count}개 발견, 제거")
                             df = df.dropna(subset=['datetime'])
                             if len(df) == 0:
-                                logger.warning(f"  {stock_code}: datetime 파싱 후 데이터 없음")
+                                logger.warning(f"  {stock_code}: ❌ datetime 파싱 후 데이터 없음 (모두 NaT)")
                                 continue
 
                             df = df.sort_values('datetime')
