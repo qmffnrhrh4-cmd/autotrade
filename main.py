@@ -1544,11 +1544,19 @@ def main():
 
     bot = AutoTradingBot()
 
-    # 셀프 테스트 건너뛰기 (시간 절약)
+    # Fix: 자체 테스트 실행 (시스템 검증)
     print("\n" + "="*80)
-    print("매매 봇 시작 (자체 테스트 스킵)")
+    print("매매 봇 시작 (자체 테스트 실행)")
     print("="*80)
 
+    # 자체 테스트 실행
+    test_passed = bot.run_self_test()
+    if not test_passed:
+        logger.error("❌ 자체 테스트 실패 - 봇 시작을 중단합니다")
+        print("\n자체 테스트 실패. 로그를 확인하세요.")
+        return
+
+    logger.info("✅ 자체 테스트 통과 - 봇을 시작합니다")
     bot.start()
 
 

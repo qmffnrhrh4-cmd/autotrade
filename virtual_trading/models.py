@@ -438,11 +438,21 @@ class VirtualTradingDB:
         Returns:
             활성 포지션 리스트
         """
+        # Fix: row_factory 재확인 (스레드 안전성)
+        if self.conn.row_factory != sqlite3.Row:
+            self.conn.row_factory = sqlite3.Row
+
         cursor = self.conn.cursor()
 
+        # Fix: 모든 컬럼 명시적으로 SELECT (p.* 대신)
         if strategy_id:
             cursor.execute("""
-                SELECT p.*, s.name as strategy_name
+                SELECT
+                    p.id, p.strategy_id, p.stock_code, p.stock_name,
+                    p.quantity, p.avg_price, p.current_price,
+                    p.buy_date, p.stop_loss_price, p.take_profit_price,
+                    p.is_closed, p.close_date, p.sell_price, p.profit,
+                    s.name as strategy_name
                 FROM virtual_positions p
                 JOIN virtual_strategies s ON p.strategy_id = s.id
                 WHERE p.strategy_id = ? AND p.is_closed = 0
@@ -450,7 +460,12 @@ class VirtualTradingDB:
             """, (strategy_id,))
         else:
             cursor.execute("""
-                SELECT p.*, s.name as strategy_name
+                SELECT
+                    p.id, p.strategy_id, p.stock_code, p.stock_name,
+                    p.quantity, p.avg_price, p.current_price,
+                    p.buy_date, p.stop_loss_price, p.take_profit_price,
+                    p.is_closed, p.close_date, p.sell_price, p.profit,
+                    s.name as strategy_name
                 FROM virtual_positions p
                 JOIN virtual_strategies s ON p.strategy_id = s.id
                 WHERE p.is_closed = 0
@@ -459,26 +474,35 @@ class VirtualTradingDB:
 
         positions = []
         for row in cursor.fetchall():
-            value = row['quantity'] * row['current_price']
-            profit_loss = value - (row['quantity'] * row['avg_price'])
-            profit_percent = (profit_loss / (row['quantity'] * row['avg_price'])) * 100 if row['avg_price'] > 0 else 0
+            # Fix: 안전한 dict 접근
+            try:
+                quantity = row['quantity'] if row['quantity'] else 0
+                avg_price = row['avg_price'] if row['avg_price'] else 0
+                current_price = row['current_price'] if row['current_price'] else 0
 
-            positions.append({
-                'id': row['id'],
-                'strategy_id': row['strategy_id'],
-                'strategy_name': row['strategy_name'],
-                'stock_code': row['stock_code'],
-                'stock_name': row['stock_name'],
-                'quantity': row['quantity'],
-                'avg_price': row['avg_price'],
-                'current_price': row['current_price'],
-                'value': value,
-                'profit': profit_loss,
-                'profit_percent': profit_percent,
-                'buy_date': row['buy_date'],
-                'stop_loss_price': row['stop_loss_price'],
-                'take_profit_price': row['take_profit_price']
-            })
+                value = quantity * current_price
+                profit_loss = value - (quantity * avg_price)
+                profit_percent = (profit_loss / (quantity * avg_price)) * 100 if avg_price > 0 and quantity > 0 else 0
+
+                positions.append({
+                    'id': row['id'],
+                    'strategy_id': row['strategy_id'],
+                    'strategy_name': row['strategy_name'],
+                    'stock_code': row['stock_code'],
+                    'stock_name': row['stock_name'],
+                    'quantity': quantity,
+                    'avg_price': avg_price,
+                    'current_price': current_price,
+                    'value': value,
+                    'profit': profit_loss,
+                    'profit_percent': profit_percent,
+                    'buy_date': row['buy_date'],
+                    'stop_loss_price': row['stop_loss_price'],
+                    'take_profit_price': row['take_profit_price']
+                })
+            except (KeyError, TypeError, IndexError) as e:
+                logger.warning(f"포지션 데이터 파싱 실패: {e}, row={dict(row) if row else None}")
+                continue
 
         return positions
 
