@@ -451,6 +451,9 @@ class AutoTradingBot:
                 self.virtual_trading_manager = VirtualTradingManager()
                 logger.info("가상매매 매니저 초기화 완료")
 
+                # 가상매매 슬롯 자동 생성 (10개)
+                self._auto_initialize_virtual_trading_slots()
+
                 # 가상매매 스케줄러 초기화 및 시작
                 if self.data_fetcher and self.virtual_trading_manager:
                     self.virtual_trading_scheduler = VirtualTradingScheduler(
@@ -495,6 +498,45 @@ class AutoTradingBot:
         except Exception as e:
             logger.warning(f"초기 자본금 조회 실패: {e}")
             return 10_000_000
+
+    def _auto_initialize_virtual_trading_slots(self):
+        """가상매매 슬롯 자동 초기화 (10개)"""
+        if not self.virtual_trading_manager:
+            return
+
+        try:
+            # 기존 슬롯 확인
+            existing_strategies = self.virtual_trading_manager.db.get_all_strategies()
+            existing_count = len(existing_strategies)
+
+            if existing_count >= 10:
+                logger.info(f"가상매매 슬롯 {existing_count}개 이미 존재 - 자동 생성 스킵")
+                return
+
+            # 부족한 슬롯 생성
+            slots_to_create = 10 - existing_count
+            logger.info(f"가상매매 슬롯 {slots_to_create}개 자동 생성 중...")
+
+            for i in range(existing_count, 10):
+                slot_name = f"슬롯 {i}"
+                try:
+                    strategy_id = self.virtual_trading_manager.create_strategy(
+                        name=slot_name,
+                        description=f"자동 생성된 가상매매 슬롯 #{i}",
+                        initial_capital=10_000_000  # 1천만원 초기 자본
+                    )
+                    logger.info(f"  ✅ {slot_name} 생성 완료 (ID: {strategy_id})")
+                except Exception as e:
+                    # 이미 존재하는 경우 스킵
+                    if "UNIQUE constraint failed" in str(e):
+                        logger.debug(f"  ⏭️  {slot_name} 이미 존재")
+                    else:
+                        logger.warning(f"  ⚠️  {slot_name} 생성 실패: {e}")
+
+            logger.info(f"✅ 가상매매 슬롯 자동 생성 완료 (총 10개)")
+
+        except Exception as e:
+            logger.error(f"가상매매 슬롯 자동 초기화 실패: {e}")
 
     def _initialize_control_file(self):
         if not self.control_file.exists():
