@@ -374,6 +374,20 @@ class StrategyBacktester:
                             else:
                                 logger.error(f"  {stock_code}: ❌ 매핑할 컬럼이 없음! 원본 컬럼: {df.columns.tolist()}")
 
+                            # 가격 데이터 숫자 변환 및 절댓값 처리
+                            # 키움 API는 가격에 부호를 포함해서 보냄 (예: '-102800' = 전일 대비 하락)
+                            price_columns = ['open', 'high', 'low', 'close']
+                            for col in price_columns:
+                                if col in df.columns:
+                                    # 문자열을 숫자로 변환하고 절댓값 적용
+                                    df[col] = pd.to_numeric(df[col], errors='coerce').abs()
+
+                            # 거래량도 숫자로 변환
+                            if 'volume' in df.columns:
+                                df['volume'] = pd.to_numeric(df['volume'], errors='coerce').abs()
+
+                            logger.warning(f"  🔍 {stock_code}: 가격 데이터 변환 완료 - close 샘플: {df['close'].iloc[0] if 'close' in df.columns else 'N/A'}")
+
                             # 날짜/시간 파싱
                             if 'datetime' not in df.columns:
                                 logger.warning(f"  🔍 {stock_code}: datetime 컬럼 생성 시작...")
