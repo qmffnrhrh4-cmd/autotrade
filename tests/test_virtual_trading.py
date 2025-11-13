@@ -130,13 +130,15 @@ def test_virtual_positions():
         # 활성 포지션 확인
         cursor.execute("""
             SELECT p.id, p.strategy_id, s.name as strategy_name,
-                   p.stock_code, p.stock_name, p.quantity, p.buy_price,
-                   p.current_price, p.unrealized_profit, p.unrealized_profit_pct,
-                   p.opened_at
+                   p.stock_code, p.stock_name, p.quantity, p.avg_price,
+                   p.current_price,
+                   (p.current_price - p.avg_price) * p.quantity as unrealized_profit,
+                   ((p.current_price - p.avg_price) / p.avg_price * 100) as unrealized_profit_pct,
+                   p.buy_date
             FROM virtual_positions p
             JOIN virtual_strategies s ON p.strategy_id = s.id
             WHERE p.is_closed = 0
-            ORDER BY p.opened_at DESC
+            ORDER BY p.buy_date DESC
         """)
         positions = cursor.fetchall()
 
@@ -153,10 +155,10 @@ def test_virtual_positions():
             print(f"      전략: {pos['strategy_name']}")
             print(f"      종목: {pos['stock_name']} ({pos['stock_code']})")
             print(f"      수량: {pos['quantity']}주")
-            print(f"      매수가: {pos['buy_price']:,.0f}원")
+            print(f"      평균가: {pos['avg_price']:,.0f}원")
             print(f"      현재가: {pos['current_price']:,.0f}원")
             print(f"      평가손익: {pos['unrealized_profit']:,.0f}원 ({pos['unrealized_profit_pct']:.2f}%)")
-            print(f"      매수일: {pos['opened_at']}")
+            print(f"      매수일: {pos['buy_date']}")
 
         conn.close()
         return True
@@ -180,12 +182,12 @@ def test_virtual_trades():
         # 최근 거래 확인
         cursor.execute("""
             SELECT t.id, t.strategy_id, s.name as strategy_name,
-                   t.stock_code, t.stock_name, t.action,
-                   t.quantity, t.price, t.profit, t.profit_pct,
-                   t.executed_at
+                   t.stock_code, t.stock_name, t.side,
+                   t.quantity, t.price, t.profit, t.profit_percent,
+                   t.timestamp
             FROM virtual_trades t
             JOIN virtual_strategies s ON t.strategy_id = s.id
-            ORDER BY t.executed_at DESC
+            ORDER BY t.timestamp DESC
             LIMIT 10
         """)
         trades = cursor.fetchall()
@@ -198,17 +200,17 @@ def test_virtual_trades():
         print(f"✅ 최근 거래: {min(len(trades), 10)}건 표시")
 
         for trade in trades:
-            action_emoji = "💰" if trade['action'] == 'BUY' else "💸"
+            action_emoji = "💰" if trade['side'] == 'BUY' else "💸"
             profit_text = ""
-            if trade['action'] == 'SELL' and trade['profit'] is not None:
+            if trade['side'] == 'SELL' and trade['profit'] is not None:
                 profit_emoji = "📈" if trade['profit'] > 0 else "📉"
-                profit_text = f" | {profit_emoji} 손익: {trade['profit']:,.0f}원 ({trade['profit_pct']:.2f}%)"
+                profit_text = f" | {profit_emoji} 손익: {trade['profit']:,.0f}원 ({trade['profit_percent']:.2f}%)"
 
             print(f"\n   {action_emoji} 거래 ID={trade['id']}")
             print(f"      전략: {trade['strategy_name']}")
             print(f"      종목: {trade['stock_name']} ({trade['stock_code']})")
             print(f"      수량: {trade['quantity']}주 × {trade['price']:,.0f}원{profit_text}")
-            print(f"      시간: {trade['executed_at']}")
+            print(f"      시간: {trade['timestamp']}")
 
         conn.close()
         return True
