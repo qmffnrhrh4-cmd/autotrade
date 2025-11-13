@@ -263,8 +263,8 @@
 
         <div class="controls">
             <div class="form-group">
-                <label>종목 코드 (쉼표로 구분)</label>
-                <input type="text" id="stock_codes" value="005930,000660,035720" placeholder="005930,000660,035720">
+                <label>종목 코드 (비워두면 대형주 15개 + 포트폴리오 종목 사용)</label>
+                <input type="text" id="stock_codes" value="" placeholder="비워두면 대형주 15개 + 포트폴리오 자동">
             </div>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
@@ -374,7 +374,7 @@
         }
 
         async function runBacktest() {
-            const stockCodes = document.getElementById('stock_codes').value.split(',').map(s => s.trim());
+            const stockCodesInput = document.getElementById('stock_codes').value.trim();
             const startDate = document.getElementById('start_date').value.replace(/-/g, '');
             const endDate = document.getElementById('end_date').value.replace(/-/g, '');
             const interval = document.getElementById('interval').value;
@@ -384,13 +384,20 @@
             document.getElementById('results').style.display = 'none';
 
             try {
-                const response = await axios.post('/api/backtest/run', {
-                    stock_codes: stockCodes,
+                // 요청 데이터 구성 (stock_codes가 비어있으면 서버 기본값 사용)
+                const requestData = {
                     start_date: startDate,
                     end_date: endDate,
                     interval: interval,
                     parallel: true
-                });
+                };
+
+                // stock_codes가 입력되었을 때만 추가
+                if (stockCodesInput) {
+                    requestData.stock_codes = stockCodesInput.split(',').map(s => s.trim());
+                }
+
+                const response = await axios.post('/api/backtest/run', requestData);
 
                 if (response.data.success) {
                     displayResults(response.data);
