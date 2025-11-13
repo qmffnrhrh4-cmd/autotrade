@@ -16,7 +16,6 @@ from core import KiwoomRESTClient
 from api.market import ChartDataAPI
 from core.openapi_client import KiwoomOpenAPIClient
 from ai.strategy_backtester import StrategyBacktester
-from utils.trading_date import is_any_trading_hours
 
 logger = get_logger()
 
@@ -32,16 +31,12 @@ def test_data_collection(stock_codes, openapi_client):
     print("📊 단계 1: 데이터 수집 테스트")
     print_separator()
 
-    # 장 시간 체크
-    if not is_any_trading_hours():
-        logger.warning("⚠️ 현재 장이 열려있지 않아 실시간 데이터 수집 테스트를 스킵합니다")
-        logger.info("   (정규장: 09:00-15:30, NXT: 08:00-09:00, 15:30-20:00)")
-        logger.info("   백테스트는 과거 데이터를 사용하므로 계속 진행됩니다")
-        print()
-        return
-
     end_date = datetime.now().strftime('%Y%m%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+
+    logger.info(f"기간: {start_date} ~ {end_date}")
+    logger.info("📝 참고: OpenAPI는 장 마감 후에도 과거 데이터 조회 가능")
+    print()
 
     for stock_code in stock_codes:
         logger.info(f"\n종목: {stock_code}")
