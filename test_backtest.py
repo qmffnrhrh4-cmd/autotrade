@@ -32,7 +32,7 @@ def test_data_collection(stock_codes, openapi_client):
     print_separator()
 
     end_date = datetime.now().strftime('%Y%m%d')
-    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+    start_date = (datetime.now() - timedelta(days=90)).strftime('%Y%m%d')  # 90일로 확대
 
     logger.info(f"기간: {start_date} ~ {end_date}")
     logger.info("📝 참고: OpenAPI는 장 마감 후에도 과거 데이터 조회 가능")
@@ -65,7 +65,7 @@ def test_backtest_execution(stock_codes, backtester):
     print_separator()
 
     end_date = datetime.now().strftime('%Y%m%d')
-    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
+    start_date = (datetime.now() - timedelta(days=90)).strftime('%Y%m%d')  # 90일로 확대
 
     logger.info(f"기간: {start_date} ~ {end_date}")
     logger.info(f"종목: {', '.join(stock_codes)}")
@@ -167,10 +167,27 @@ def main():
     print(f"시작 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print_separator()
 
-    # 테스트 종목
-    test_stocks = ['005930', '000660', '035720']  # 삼성전자, SK하이닉스, 카카오
+    # 테스트 종목: 코스피 대형주 15개 (시가총액 상위)
+    test_stocks = [
+        '005930',  # 삼성전자
+        '000660',  # SK하이닉스
+        '373220',  # LG에너지솔루션
+        '207940',  # 삼성바이오로직스
+        '005380',  # 현대차
+        '051910',  # LG화학
+        '006400',  # 삼성SDI
+        '035420',  # NAVER
+        '000270',  # 기아
+        '105560',  # KB금융
+        '055550',  # 신한지주
+        '035720',  # 카카오
+        '068270',  # 셀트리온
+        '012330',  # 현대모비스
+        '028260',  # 삼성물산
+    ]
 
-    logger.info(f"테스트 종목: {', '.join(test_stocks)}")
+    logger.info(f"테스트 종목: {len(test_stocks)}개")
+    logger.info(f"  {', '.join(test_stocks[:5])} 외 {len(test_stocks)-5}개")
     print()
 
     try:
