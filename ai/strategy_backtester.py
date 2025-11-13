@@ -162,6 +162,9 @@ class StrategyBacktester:
         class MomentumStrat(SimpleStrategy):
             def __init__(self):
                 super().__init__("모멘텀 전략")
+                self.description = "강한 상승 추세를 보이는 종목에 투자하는 전략"
+                self.buy_conditions = "등락률 1% 이상 상승 시 매수"
+                self.sell_conditions = "익절 +10% 또는 손절 -5%"
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 change_rate = stock_data.get('change_rate', 0)
@@ -175,6 +178,9 @@ class StrategyBacktester:
         class MeanReversionStrat(SimpleStrategy):
             def __init__(self):
                 super().__init__("평균회귀 전략")
+                self.description = "과도하게 하락한 종목이 평균으로 회귀할 것을 기대하는 전략"
+                self.buy_conditions = "등락률 -3% ~ -1% 하락 시 매수 (반등 기대)"
+                self.sell_conditions = "익절 +5% 또는 손절 -7%"
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 change_rate = stock_data.get('change_rate', 0)
@@ -188,6 +194,9 @@ class StrategyBacktester:
         class AIFollowStrat(SimpleStrategy):
             def __init__(self):
                 super().__init__("AI추종 전략")
+                self.description = "AI 분석 신호를 추종하여 매매하는 전략"
+                self.buy_conditions = "AI 매수 신호 + 점수 300 이상"
+                self.sell_conditions = "익절 +15% 또는 손절 -8%"
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 return ai_analysis.get('signal') == 'buy' and ai_analysis.get('score', 0) > 300
@@ -200,6 +209,9 @@ class StrategyBacktester:
         class ConservativeStrat(SimpleStrategy):
             def __init__(self):
                 super().__init__("보수형 전략")
+                self.description = "안정적이고 완만한 상승세를 추구하는 보수적 전략"
+                self.buy_conditions = "등락률 0% ~ 1.5% 완만한 상승 시 매수"
+                self.sell_conditions = "익절 +7% 또는 손절 -3% (위험 최소화)"
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 change_rate = stock_data.get('change_rate', 0)
@@ -213,6 +225,9 @@ class StrategyBacktester:
         class AggressiveStrat(SimpleStrategy):
             def __init__(self):
                 super().__init__("공격형 전략")
+                self.description = "높은 수익을 추구하는 공격적 매매 전략"
+                self.buy_conditions = "등락률 1.5% 이상 강한 상승 시 매수"
+                self.sell_conditions = "익절 +20% 또는 손절 -10% (고위험 고수익)"
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 change_rate = stock_data.get('change_rate', 0)

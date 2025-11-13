@@ -124,7 +124,15 @@ def run_backtest():
         # 대형주 + 포트폴리오 종목 합치기
         default_stocks_with_portfolio = default_stocks + portfolio_stocks
 
-        stock_codes = data.get('stock_codes', default_stocks_with_portfolio)
+        # stock_codes 처리: 빈 배열이면 기본값 사용
+        stock_codes_from_request = data.get('stock_codes')
+        if stock_codes_from_request is None or (isinstance(stock_codes_from_request, list) and len(stock_codes_from_request) == 0):
+            stock_codes = default_stocks_with_portfolio
+            logger.info(f"📊 종목 코드 없음 → 기본값 사용: 대형주 {len(default_stocks)}개 + 포트폴리오 {len(portfolio_stocks)}개 = 총 {len(stock_codes)}개")
+        else:
+            stock_codes = stock_codes_from_request
+            logger.info(f"📊 사용자 지정 종목: {len(stock_codes)}개")
+
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         interval = data.get('interval', '5')
@@ -135,7 +143,8 @@ def run_backtest():
         if not end_date:
             end_date = datetime.now().strftime('%Y%m%d')
 
-        logger.info(f"Running backtest: {stock_codes}, {start_date} ~ {end_date}")
+        logger.info(f"🎯 백테스트 실행: {len(stock_codes)}개 종목, {start_date} ~ {end_date}")
+        logger.info(f"   종목 목록: {stock_codes[:5]}{'...' if len(stock_codes) > 5 else ''}")
 
         results = _backtester.run_backtest(
             stock_codes=stock_codes,
