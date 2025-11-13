@@ -108,24 +108,31 @@ def test_evolution_data():
         total_strategies = cursor.fetchone()['count']
         print(f"\n   총 진화된 전략: {total_strategies}개")
 
-        # 최고 성과 전략
+        # 최고 성과 전략 (fitness_results와 JOIN)
         cursor.execute("""
-            SELECT id, generation, fitness_score, created_at
-            FROM evolved_strategies
-            ORDER BY fitness_score DESC
+            SELECT e.id, e.generation, f.fitness_score, e.created_at
+            FROM evolved_strategies e
+            LEFT JOIN fitness_results f ON e.id = f.strategy_id
+            WHERE f.fitness_score IS NOT NULL
+            ORDER BY f.fitness_score DESC
             LIMIT 3
         """)
         top_strategies = cursor.fetchall()
 
-        print(f"\n   🏆 최고 성과 전략 TOP 3:")
-        for i, strat in enumerate(top_strategies, 1):
-            print(f"      {i}. ID={strat['id']} | 세대={strat['generation']} | 적합도={strat['fitness_score']:.2f}")
+        if top_strategies:
+            print(f"\n   🏆 최고 성과 전략 TOP 3:")
+            for i, strat in enumerate(top_strategies, 1):
+                print(f"      {i}. ID={strat['id']} | 세대={strat['generation']} | 적합도={strat['fitness_score']:.2f}")
+        else:
+            print(f"\n   ⚠️  적합도 정보가 있는 전략이 없습니다")
 
         conn.close()
         return True
 
     except Exception as e:
         print(f"❌ 실패: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
