@@ -167,27 +167,17 @@ def main():
     print(f"시작 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print_separator()
 
-    # 테스트 종목: 코스피 대형주 15개 (시가총액 상위)
+    # 테스트 종목: 코스피 대형주 5개 (빠른 테스트)
     test_stocks = [
         '005930',  # 삼성전자
         '000660',  # SK하이닉스
-        '373220',  # LG에너지솔루션
-        '207940',  # 삼성바이오로직스
-        '005380',  # 현대차
+        '035420',  # NAVER
         '051910',  # LG화학
         '006400',  # 삼성SDI
-        '035420',  # NAVER
-        '000270',  # 기아
-        '105560',  # KB금융
-        '055550',  # 신한지주
-        '035720',  # 카카오
-        '068270',  # 셀트리온
-        '012330',  # 현대모비스
-        '028260',  # 삼성물산
     ]
 
     logger.info(f"테스트 종목: {len(test_stocks)}개")
-    logger.info(f"  {', '.join(test_stocks[:5])} 외 {len(test_stocks)-5}개")
+    logger.info(f"  {', '.join(test_stocks)}")
     print()
 
     try:
@@ -220,8 +210,10 @@ def main():
             openapi_client=openapi_client
         )
 
-        # 1. 데이터 수집 테스트
-        test_data_collection(test_stocks, openapi_client)
+        # 1. 데이터 수집 테스트 (스킵 - 백테스트에서 자동으로 수집)
+        # test_data_collection(test_stocks, openapi_client)
+        logger.info("📝 데이터 수집 테스트 스킵 (백테스트에서 자동 수집)")
+        print()
 
         # 2. 백테스트 실행
         results = test_backtest_execution(test_stocks, backtester)
