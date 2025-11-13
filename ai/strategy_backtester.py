@@ -430,6 +430,13 @@ class StrategyBacktester:
                                             )
 
                                         logger.warning(f"      🔍 파싱된 datetime 샘플: {df['datetime'].iloc[0]}")
+
+                                        # 데이터 범위 확인
+                                        logger.warning(f"      🔍 데이터 범위 확인:")
+                                        logger.warning(f"         첫 datetime: {df['datetime'].iloc[0]}")
+                                        logger.warning(f"         마지막 datetime: {df['datetime'].iloc[-1]}")
+                                        logger.warning(f"         시간 범위: {(df['datetime'].iloc[-1] - df['datetime'].iloc[0]).total_seconds() / 60:.0f}분")
+
                                     except Exception as e:
                                         logger.error(f"  {stock_code}: ❌ datetime 파싱 실패 - {e}")
                                         logger.error(f"      date={repr(df['date'].iloc[0])}, time={repr(df['time'].iloc[0])}")
