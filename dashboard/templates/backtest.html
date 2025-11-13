@@ -392,9 +392,17 @@
                     parallel: true
                 };
 
-                // stock_codes가 입력되었을 때만 추가
-                if (stockCodesInput) {
-                    requestData.stock_codes = stockCodesInput.split(',').map(s => s.trim());
+                // stock_codes가 입력되었을 때만 추가 (빈 문자열이면 추가하지 않음)
+                if (stockCodesInput && stockCodesInput.length > 0) {
+                    const codes = stockCodesInput.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                    if (codes.length > 0) {
+                        requestData.stock_codes = codes;
+                        console.log(`사용자 지정 종목: ${codes.length}개`, codes);
+                    } else {
+                        console.log('종목 코드 비어있음 → 서버 기본값 사용');
+                    }
+                } else {
+                    console.log('종목 코드 비어있음 → 서버 기본값 사용 (대형주 15개 + 포트폴리오)');
                 }
 
                 const response = await axios.post('/api/backtest/run', requestData);
