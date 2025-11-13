@@ -255,14 +255,18 @@ class VirtualTradingDB:
             ORDER BY created_at DESC
         """)
 
+        # 모든 결과를 먼저 가져옴 (cursor 재사용 문제 방지)
+        rows = cursor.fetchall()
+
         strategies = []
-        for row in cursor.fetchall():
-            # 활성 포지션 수 계산 (Fix: None 체크 추가)
-            cursor.execute("""
+        for row in rows:
+            # 활성 포지션 수 계산 (새로운 cursor 사용)
+            position_cursor = self.conn.cursor()
+            position_cursor.execute("""
                 SELECT COUNT(*) as cnt FROM virtual_positions
                 WHERE strategy_id = ? AND is_closed = 0
             """, (row['id'],))
-            result = cursor.fetchone()
+            result = position_cursor.fetchone()
             position_count = result['cnt'] if result else 0
 
             strategies.append({
