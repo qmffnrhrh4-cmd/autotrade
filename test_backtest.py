@@ -123,12 +123,28 @@ def print_backtest_results(results):
         if result.trades:
             print(f"\n  최근 거래 5건:")
             for i, trade in enumerate(result.trades[:5], 1):
-                action = trade.get('action', 'unknown')
-                price = trade.get('price', 0)
-                quantity = trade.get('quantity', 0)
                 stock_code = trade.get('stock_code', 'N/A')
+                buy_price = trade.get('buy_price', 0)
+                sell_price = trade.get('sell_price', 0)
+                quantity = trade.get('quantity', 0)
                 profit = trade.get('profit', 0)
-                print(f"    {i}. {stock_code} {action} @ {price:,.0f}원 x {quantity}주 (손익: {profit:+,.0f}원)")
+                profit_pct = trade.get('profit_pct', 0)
+                buy_date = trade.get('buy_date', '')
+                sell_date = trade.get('sell_date', '')
+
+                # 날짜 포맷팅
+                if hasattr(buy_date, 'strftime'):
+                    buy_date_str = buy_date.strftime('%m/%d %H:%M')
+                else:
+                    buy_date_str = str(buy_date)[:10] if buy_date else 'N/A'
+
+                if hasattr(sell_date, 'strftime'):
+                    sell_date_str = sell_date.strftime('%m/%d %H:%M')
+                else:
+                    sell_date_str = str(sell_date)[:10] if sell_date else 'N/A'
+
+                print(f"    {i}. {stock_code} 매수 {buy_price:,.0f}원 → 매도 {sell_price:,.0f}원 x {quantity}주")
+                print(f"       ({buy_date_str} ~ {sell_date_str}) 손익: {profit:+,.0f}원 ({profit_pct:+.2f}%)")
         else:
             print(f"\n  거래 내역 없음")
 
