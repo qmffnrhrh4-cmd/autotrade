@@ -1437,6 +1437,22 @@
                                 <h3>백테스팅 결과</h3>
                                 <p>전략 백테스트를 실행하면 결과가 여기에 표시됩니다</p>
                             </div>
+                            <!-- 백테스팅 진행 상황 표시 -->
+                            <div id="backtest-progress" style="display: none; padding: 20px; text-align: center;">
+                                <div style="margin-bottom: 10px;">
+                                    <i class="fas fa-spinner fa-spin" style="font-size: 24px; color: var(--color-primary);"></i>
+                                </div>
+                                <div id="backtest-progress-text" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 10px;">
+                                    백테스팅 진행 중...
+                                </div>
+                                <div style="background: #e0e0e0; height: 20px; border-radius: 10px; overflow: hidden; margin: 10px 0;">
+                                    <div id="backtest-progress-bar" style="height: 100%; background: var(--color-primary); width: 0%; transition: width 0.3s;">
+                                    </div>
+                                </div>
+                                <div id="backtest-progress-detail" style="font-size: 12px; color: var(--text-secondary);">
+                                    준비 중...
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2892,6 +2908,37 @@
         function runBacktest() {
             showToast('백테스트를 실행 중... (대형주 15개 + 포트폴리오 종목, 3개월)', 'info');
 
+            // 진행 상황 표시
+            const progressDiv = document.getElementById('backtest-progress');
+            const emptyState = document.querySelector('#backtest-results .empty-state');
+            const progressText = document.getElementById('backtest-progress-text');
+            const progressBar = document.getElementById('backtest-progress-bar');
+            const progressDetail = document.getElementById('backtest-progress-detail');
+
+            if (emptyState) emptyState.style.display = 'none';
+            if (progressDiv) progressDiv.style.display = 'block';
+
+            // 애니메이션 진행 상황 (실제 서버 응답 시간 고려)
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 90) progress = 90; // 90%까지만
+                progressBar.style.width = `${progress}%`;
+
+                // 단계별 메시지
+                if (progress < 20) {
+                    progressDetail.textContent = '종목 데이터 수집 중...';
+                } else if (progress < 40) {
+                    progressDetail.textContent = '과거 데이터 분석 중...';
+                } else if (progress < 60) {
+                    progressDetail.textContent = '전략 시뮬레이션 중...';
+                } else if (progress < 80) {
+                    progressDetail.textContent = '성과 지표 계산 중...';
+                } else {
+                    progressDetail.textContent = '최종 결과 집계 중...';
+                }
+            }, 1000);
+
             // 3개월 전 날짜 계산
             const endDate = new Date();
             const startDate = new Date();
@@ -2903,6 +2950,8 @@
                 const day = String(date.getDate()).padStart(2, '0');
                 return `${year}${month}${day}`;
             };
+
+            const startTime = Date.now();
 
             fetch('/api/backtest/run', {
                 method: 'POST',
@@ -2917,14 +2966,29 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.success) {
-                    showToast('백테스트 완료', 'success');
-                    updateBacktestDisplay(data);
-                } else {
-                    showToast(`백테스트 실패: ${data.error}`, 'error');
-                }
+                clearInterval(progressInterval);
+                progressBar.style.width = '100%';
+                progressDetail.textContent = '완료!';
+
+                const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+                setTimeout(() => {
+                    if (progressDiv) progressDiv.style.display = 'none';
+
+                    if (data.success) {
+                        showToast(`백테스트 완료 (소요시간: ${elapsed}초)`, 'success');
+                        updateBacktestDisplay(data);
+                    } else {
+                        if (emptyState) emptyState.style.display = 'block';
+                        showToast(`백테스트 실패: ${data.error}`, 'error');
+                    }
+                }, 500);
             })
             .catch(error => {
+                clearInterval(progressInterval);
+                if (progressDiv) progressDiv.style.display = 'none';
+                if (emptyState) emptyState.style.display = 'block';
+
                 console.error('Backtest error:', error);
                 showToast('백테스트 실행 중 오류 발생', 'error');
             });
