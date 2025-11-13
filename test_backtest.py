@@ -72,41 +72,24 @@ def test_backtest_execution(stock_codes, backtester):
     end_date = datetime.now().strftime('%Y%m%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y%m%d')
 
-    # 테스트 전략 정의
-    test_strategy = {
-        'name': 'RSI 모멘텀 전략',
-        'buy_conditions': {
-            'rsi_min': 30,
-            'rsi_max': 40,
-            'volume_ratio_min': 1.5,
-            'orderbook_ratio_min': 1.2
-        },
-        'sell_conditions': {
-            'take_profit_percent': 10.0,
-            'stop_loss_percent': 5.0,
-            'trailing_stop_percent': 3.0
-        },
-        'position_size_percent': 20.0,
-        'trading_hours': {'start': '09:30', 'end': '15:00'},
-        'price_range': {'min': 5000, 'max': 100000}
-    }
+    logger.info(f"기간: {start_date} ~ {end_date}")
+    logger.info(f"종목: {', '.join(stock_codes)}")
+    logger.info(f"전략 개수: {len(backtester.strategies)}개")
 
-    logger.info(f"전략: {test_strategy['name']}")
-    logger.info(f"  - RSI 범위: {test_strategy['buy_conditions']['rsi_min']} ~ {test_strategy['buy_conditions']['rsi_max']}")
-    logger.info(f"  - 익절: +{test_strategy['sell_conditions']['take_profit_percent']}%")
-    logger.info(f"  - 손절: -{test_strategy['sell_conditions']['stop_loss_percent']}%")
-    logger.info(f"  - 포지션 크기: {test_strategy['position_size_percent']}%")
+    # 사용 가능한 전략 출력
+    for strategy in backtester.strategies:
+        logger.info(f"  - {strategy.name}")
     print()
 
     try:
-        logger.info(f"백테스트 실행 중... (종목: {', '.join(stock_codes)})")
+        logger.info(f"백테스트 실행 중...")
 
-        results = backtester.backtest_strategy(
-            strategy=test_strategy,
+        results = backtester.run_backtest(
             stock_codes=stock_codes,
             start_date=start_date,
             end_date=end_date,
-            initial_capital=10_000_000
+            interval='1',
+            parallel=True
         )
 
         return results
@@ -128,41 +111,39 @@ def print_backtest_results(results):
         logger.error("결과 없음")
         return
 
-    # 전체 통계
-    print(f"\n【 전체 성과 】")
-    print(f"  총 수익률: {results.get('total_return', 0):.2f}%")
-    print(f"  Sharpe Ratio: {results.get('sharpe_ratio', 0):.2f}")
-    print(f"  최대 낙폭: {results.get('max_drawdown', 0):.2f}%")
-    print(f"  총 거래 횟수: {results.get('total_trades', 0)}회")
-    print(f"  승률: {results.get('win_rate', 0):.1f}%")
-    print(f"  손익비: {results.get('profit_loss_ratio', 0):.2f}")
+    print(f"\n총 {len(results)}개 전략 실행 완료\n")
 
-    # 거래 상세
-    trades = results.get('trades', [])
-    if trades:
-        print(f"\n【 거래 내역 】 (총 {len(trades)}건)")
-        for i, trade in enumerate(trades[:10], 1):  # 최근 10건만 출력
-            profit_str = f"{trade.get('profit_percent', 0):+.2f}%"
-            print(f"  {i}. {trade.get('stock_code')} - {trade.get('side')} "
-                  f"@ {trade.get('price'):,}원 "
-                  f"(수량: {trade.get('quantity')}주) "
-                  f"→ {profit_str}")
+    # 전략별 결과 출력
+    for strategy_name, result in results.items():
+        print(f"【 {strategy_name} 】")
+        print(f"  총 수익률: {result.total_return_pct:+.2f}%")
+        print(f"  최종 자산: {result.final_cash:,.0f}원 (초기: {result.initial_cash:,.0f}원)")
+        print(f"  총 거래: {result.total_trades}회 (승: {result.winning_trades}, 패: {result.losing_trades})")
+        print(f"  승률: {result.win_rate:.1f}%")
+        print(f"  최대 낙폭: {result.max_drawdown_pct:.2f}%")
+        print(f"  Sharpe Ratio: {result.sharpe_ratio:.2f}")
+        print(f"  Sortino Ratio: {result.sortino_ratio:.2f}")
 
-        if len(trades) > 10:
-            print(f"  ... 외 {len(trades) - 10}건")
-    else:
-        print(f"\n【 거래 내역 】")
-        print("  ⚠️  매매 신호 없음 (전략 조건 미충족)")
+        # 거래 내역
+        if result.trades:
+            print(f"\n  최근 거래 5건:")
+            for i, trade in enumerate(result.trades[:5], 1):
+                action = trade.get('action', 'unknown')
+                price = trade.get('price', 0)
+                quantity = trade.get('quantity', 0)
+                stock_code = trade.get('stock_code', 'N/A')
+                profit = trade.get('profit', 0)
+                print(f"    {i}. {stock_code} {action} @ {price:,.0f}원 x {quantity}주 (손익: {profit:+,.0f}원)")
+        else:
+            print(f"\n  거래 내역 없음")
 
-    # 종목별 성과
-    stock_results = results.get('stock_results', {})
-    if stock_results:
-        print(f"\n【 종목별 성과 】")
-        for stock_code, stock_data in stock_results.items():
-            print(f"  {stock_code}:")
-            print(f"    수익률: {stock_data.get('return', 0):.2f}%")
-            print(f"    거래: {stock_data.get('trades', 0)}회")
-            print(f"    승률: {stock_data.get('win_rate', 0):.1f}%")
+        print()
+
+    # 전략 순위
+    sorted_results = sorted(results.items(), key=lambda x: x[1].total_return_pct, reverse=True)
+    print("【 전략 순위 】")
+    for i, (strategy_name, result) in enumerate(sorted_results, 1):
+        print(f"  {i}위. {strategy_name}: {result.total_return_pct:+.2f}%")
 
     print()
 
