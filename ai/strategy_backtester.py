@@ -749,17 +749,22 @@ class StrategyBacktester:
                     'score': np.random.uniform(200, 350)
                 }
 
-                if strategy.should_buy(stock_data, market_data, ai_analysis):
-                    buy_price = price
-                    quantity = int(strategy.cash * 0.1 / buy_price)
+                # 이미 포지션이 있으면 매수하지 않음 (덮어쓰기 방지)
+                if stock_code not in strategy.positions:
+                    if strategy.should_buy(stock_data, market_data, ai_analysis):
+                        buy_price = price
+                        quantity = int(strategy.cash * 0.1 / buy_price)
 
-                    if quantity > 0 and strategy.cash >= buy_price * quantity:
-                        strategy.cash -= buy_price * quantity
-                        strategy.positions[stock_code] = {
-                            'quantity': quantity,
-                            'buy_price': buy_price,
-                            'buy_date': dt
-                        }
+                        if quantity > 0 and strategy.cash >= buy_price * quantity:
+                            cash_before = strategy.cash
+                            strategy.cash -= buy_price * quantity
+                            strategy.positions[stock_code] = {
+                                'quantity': quantity,
+                                'buy_price': buy_price,
+                                'buy_date': dt
+                            }
+                            logger.warning(f"    💰 BUY [{strategy.name}]: {stock_code} {quantity}주 @ {buy_price:,}원 (총 {buy_price * quantity:,}원)")
+                            logger.warning(f"         잔액: {cash_before:,}원 → {strategy.cash:,}원")
 
             for stock_code in list(strategy.positions.keys()):
                 if stock_code in current_prices:
@@ -773,7 +778,12 @@ class StrategyBacktester:
                         sell_price = current_price
                         quantity = position['quantity']
 
+                        cash_before = strategy.cash
                         strategy.cash += sell_price * quantity
+
+                        logger.warning(f"    💵 SELL [{strategy.name}]: {stock_code} {quantity}주 @ {sell_price:,}원 (총 {sell_price * quantity:,}원)")
+                        logger.warning(f"          손익: {profit_loss:+,}원 ({profit_loss_pct:+.2f}%)")
+                        logger.warning(f"          잔액: {cash_before:,}원 → {strategy.cash:,}원")
 
                         result.trades.append({
                             'stock_code': stock_code,
