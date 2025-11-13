@@ -167,17 +167,26 @@ def main():
     print(f"시작 시간: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print_separator()
 
-    # 테스트 종목: 코스피 대형주 5개 (빠른 테스트)
+    # 테스트 종목: 코스피 대형주 5개 + 포트폴리오 종목 6개
     test_stocks = [
+        # 대형주
         '005930',  # 삼성전자
         '000660',  # SK하이닉스
         '035420',  # NAVER
         '051910',  # LG화학
         '006400',  # 삼성SDI
+        # 포트폴리오
+        '015760',  # 한국전력
+        '034230',  # 파라다이스
+        '066980',  # 한성크린텍
+        '099440',  # 스맥
+        '249420',  # 일동제약
+        '380550',  # 뉴로핏
     ]
 
-    logger.info(f"테스트 종목: {len(test_stocks)}개")
-    logger.info(f"  {', '.join(test_stocks)}")
+    logger.info(f"테스트 종목: {len(test_stocks)}개 (대형주 5개 + 포트폴리오 6개)")
+    logger.info(f"  대형주: {', '.join(test_stocks[:5])}")
+    logger.info(f"  포트폴리오: {', '.join(test_stocks[5:])}")
     print()
 
     try:

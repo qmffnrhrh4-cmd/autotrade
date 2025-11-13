@@ -165,7 +165,7 @@ class StrategyBacktester:
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 change_rate = stock_data.get('change_rate', 0)
-                return change_rate > 2.0  # 2% 이상 상승
+                return change_rate > 1.0  # 1% 이상 상승 (완화: 2% → 1%)
 
             def should_sell(self, stock_code, position, current_price):
                 profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
@@ -216,7 +216,7 @@ class StrategyBacktester:
 
             def should_buy(self, stock_data, market_data, ai_analysis):
                 change_rate = stock_data.get('change_rate', 0)
-                return change_rate > 3.0  # 3% 이상 강한 상승
+                return change_rate > 1.5  # 1.5% 이상 강한 상승 (완화: 3% → 1.5%)
 
             def should_sell(self, stock_code, position, current_price):
                 profit_pct = ((current_price - position['buy_price']) / position['buy_price']) * 100
@@ -695,7 +695,7 @@ class StrategyBacktester:
                     'stock_name': stock_code,
                     'current_price': price,
                     'volume': 1000000,
-                    'change_rate': np.random.uniform(-2, 2),
+                    'change_rate': np.random.uniform(-3, 3),  # 변동성 확대: -2~2 → -3~3
                     'institutional_net_buy': int(np.random.normal(0, 10_000_000)),
                     'foreign_net_buy': int(np.random.normal(0, 5_000_000)),
                 }
