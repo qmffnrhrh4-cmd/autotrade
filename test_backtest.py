@@ -176,6 +176,11 @@ def main():
         # API 초기화
         logger.info("API 초기화 중...")
         client = KiwoomRESTClient()
+
+        # MarketAPI 초기화
+        from api import MarketAPI
+        market_api = MarketAPI(client)
+
         chart_api = ChartDataAPI(client)
 
         # OpenAPI 클라이언트 초기화
@@ -192,6 +197,7 @@ def main():
 
         # 백테스터 초기화
         backtester = StrategyBacktester(
+            market_api=market_api,
             chart_api=chart_api,
             openapi_client=openapi_client
         )
