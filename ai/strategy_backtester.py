@@ -391,28 +391,17 @@ class StrategyBacktester:
                             # 날짜/시간 파싱
                             if 'datetime' not in df.columns:
                                 logger.warning(f"  🔍 {stock_code}: datetime 컬럼 생성 시작...")
-                                # OpenAPI 분봉 데이터에는 '일자' 필드가 없을 수 있음
-                                # '체결시간'만 있는 경우, 기준 날짜를 사용
                                 if 'time' in df.columns:
-                                    # 기준 날짜 사용 (end_date 사용)
-                                    if 'date' not in df.columns:
-                                        # 날짜 컬럼이 없으면 end_date를 기준으로 사용
-                                        df['date'] = end_date
-                                        logger.warning(f"  🔍 {stock_code}: 날짜 컬럼 없음 - 기준일({end_date}) 사용")
-
-                                    # date와 time 결합하여 datetime 생성
                                     try:
-                                        logger.warning(f"  🔍 {stock_code}: datetime 파싱 시도...")
-                                        logger.warning(f"      🔍 date 샘플: {repr(df['date'].iloc[0])} (type: {type(df['date'].iloc[0])})")
-                                        logger.warning(f"      🔍 time 샘플: {repr(df['time'].iloc[0])} (type: {type(df['time'].iloc[0])})")
-
                                         # time 필드가 이미 전체 datetime인지 확인 (YYYYMMDDHHMMSS - 14자리)
                                         time_str = df['time'].astype(str).str.strip()
                                         sample_time = time_str.iloc[0]
+                                        logger.warning(f"  🔍 {stock_code}: time 샘플: {repr(sample_time)} (길이: {len(sample_time)})")
 
                                         if len(sample_time) == 14:
                                             # time 필드가 이미 전체 datetime을 포함 (YYYYMMDDHHMMSS)
-                                            logger.warning(f"      🔍 time 필드가 전체 datetime 포함 (14자리): {repr(sample_time)}")
+                                            # date 컬럼 필요 없음 - 직접 파싱
+                                            logger.warning(f"      🔍 time 필드가 전체 datetime 포함 (14자리) - 직접 파싱")
                                             df['datetime'] = pd.to_datetime(
                                                 time_str,
                                                 format='%Y%m%d%H%M%S',
@@ -420,7 +409,13 @@ class StrategyBacktester:
                                             )
                                         else:
                                             # time 필드가 시간만 포함 (HHMMSS) - date와 결합 필요
-                                            logger.warning(f"      🔍 time 필드가 시간만 포함 ({len(sample_time)}자리): {repr(sample_time)}")
+                                            logger.warning(f"      🔍 time 필드가 시간만 포함 ({len(sample_time)}자리)")
+
+                                            # date 컬럼이 없으면 end_date를 기준으로 사용
+                                            if 'date' not in df.columns:
+                                                df['date'] = end_date
+                                                logger.warning(f"      🔍 날짜 컬럼 없음 - 기준일({end_date}) 사용")
+
                                             datetime_str = df['date'].astype(str).str.strip() + ' ' + time_str
                                             logger.warning(f"      🔍 결합된 문자열 샘플: {repr(datetime_str.iloc[0])}")
                                             df['datetime'] = pd.to_datetime(
@@ -431,11 +426,15 @@ class StrategyBacktester:
 
                                         logger.warning(f"      🔍 파싱된 datetime 샘플: {df['datetime'].iloc[0]}")
 
-                                        # 데이터 범위 확인
-                                        logger.warning(f"      🔍 데이터 범위 확인:")
+                                        # 데이터 범위 확인 (정렬 전)
+                                        logger.warning(f"      🔍 데이터 범위 확인 (정렬 전):")
                                         logger.warning(f"         첫 datetime: {df['datetime'].iloc[0]}")
                                         logger.warning(f"         마지막 datetime: {df['datetime'].iloc[-1]}")
-                                        logger.warning(f"         시간 범위: {(df['datetime'].iloc[-1] - df['datetime'].iloc[0]).total_seconds() / 60:.0f}분")
+                                        time_diff_minutes = (df['datetime'].iloc[-1] - df['datetime'].iloc[0]).total_seconds() / 60
+                                        logger.warning(f"         시간 범위: {time_diff_minutes:.0f}분")
+
+                                        if time_diff_minutes < 0:
+                                            logger.warning(f"      ⚠️ 데이터가 역순으로 정렬되어 있음 - 정렬 필요")
 
                                     except Exception as e:
                                         logger.error(f"  {stock_code}: ❌ datetime 파싱 실패 - {e}")
@@ -457,15 +456,23 @@ class StrategyBacktester:
                                 continue
 
                             df = df.sort_values('datetime')
+                            logger.warning(f"      🔍 정렬 후:")
+                            logger.warning(f"         첫 datetime: {df['datetime'].iloc[0]}")
+                            logger.warning(f"         마지막 datetime: {df['datetime'].iloc[-1]}")
 
                             # 날짜 범위 필터링
                             start_dt = pd.to_datetime(start_date, format='%Y%m%d')
                             end_dt = pd.to_datetime(end_date, format='%Y%m%d') + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+                            logger.warning(f"      🔍 날짜 필터링: {start_dt} ~ {end_dt}")
+
+                            df_before_filter = len(df)
                             df = df[(df['datetime'] >= start_dt) & (df['datetime'] <= end_dt)]
+                            logger.warning(f"      🔍 필터링: {df_before_filter}개 → {len(df)}개")
 
                             if len(df) > 0:
                                 historical_data[stock_code] = df
                                 logger.info(f"  {stock_code}: {len(df)} bars (OpenAPI)")
+                                logger.warning(f"      ✅ 최종 데이터 범위: {df['datetime'].iloc[0]} ~ {df['datetime'].iloc[-1]}")
                             else:
                                 logger.warning(f"  {stock_code}: No data in date range")
 
