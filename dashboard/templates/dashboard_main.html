@@ -2890,7 +2890,7 @@
         }
 
         function runBacktest() {
-            showToast('백테스트를 실행 중... (삼성전자, LG전자 3개월)', 'info');
+            showToast('백테스트를 실행 중... (대형주 15개 + 포트폴리오 종목, 3개월)', 'info');
 
             // 3개월 전 날짜 계산
             const endDate = new Date();
@@ -2908,7 +2908,7 @@
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    stock_codes: ['005930', '066570'],  // 삼성전자, LG전자
+                    // stock_codes 제거 → 서버 기본값 사용 (대형주 15개 + 포트폴리오)
                     start_date: formatDate(startDate),
                     end_date: formatDate(endDate),
                     interval: '5',  // 5분봉
