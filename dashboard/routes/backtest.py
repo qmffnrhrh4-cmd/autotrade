@@ -86,14 +86,33 @@ def run_backtest():
 
         data = request.get_json()
 
-        stock_codes = data.get('stock_codes', ['005930'])
+        # 기본 백테스트 종목: 코스피 대형주 15개 (시가총액 상위)
+        default_stocks = [
+            '005930',  # 삼성전자
+            '000660',  # SK하이닉스
+            '373220',  # LG에너지솔루션
+            '207940',  # 삼성바이오로직스
+            '005380',  # 현대차
+            '051910',  # LG화학
+            '006400',  # 삼성SDI
+            '035420',  # NAVER
+            '000270',  # 기아
+            '105560',  # KB금융
+            '055550',  # 신한지주
+            '035720',  # 카카오
+            '068270',  # 셀트리온
+            '012330',  # 현대모비스
+            '028260',  # 삼성물산
+        ]
+
+        stock_codes = data.get('stock_codes', default_stocks)
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         interval = data.get('interval', '5')
         parallel = data.get('parallel', True)
 
         if not start_date:
-            start_date = (datetime.now() - timedelta(days=7)).strftime('%Y%m%d')
+            start_date = (datetime.now() - timedelta(days=90)).strftime('%Y%m%d')  # 90일로 확대
         if not end_date:
             end_date = datetime.now().strftime('%Y%m%d')
 
