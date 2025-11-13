@@ -86,7 +86,7 @@ def run_backtest():
 
         data = request.get_json()
 
-        # 기본 백테스트 종목: 코스피 대형주 15개 (시가총액 상위)
+        # 기본 백테스트 종목: 코스피 대형주 15개
         default_stocks = [
             '005930',  # 삼성전자
             '000660',  # SK하이닉스
@@ -105,7 +105,26 @@ def run_backtest():
             '028260',  # 삼성물산
         ]
 
-        stock_codes = data.get('stock_codes', default_stocks)
+        # 포트폴리오 종목 동적으로 가져오기
+        portfolio_stocks = []
+        if _bot_instance and hasattr(_bot_instance, 'account_manager'):
+            try:
+                # 계좌 보유 종목 조회
+                positions = _bot_instance.account_manager.get_positions()
+                if positions:
+                    for stock_code, position in positions.items():
+                        # 종목 코드에서 'A' 제거 (A005930 → 005930)
+                        clean_code = stock_code.replace('A', '')
+                        if clean_code not in default_stocks:  # 중복 방지
+                            portfolio_stocks.append(clean_code)
+                    logger.info(f"포트폴리오 종목 추가: {len(portfolio_stocks)}개")
+            except Exception as e:
+                logger.warning(f"포트폴리오 종목 조회 실패: {e}")
+
+        # 대형주 + 포트폴리오 종목 합치기
+        default_stocks_with_portfolio = default_stocks + portfolio_stocks
+
+        stock_codes = data.get('stock_codes', default_stocks_with_portfolio)
         start_date = data.get('start_date')
         end_date = data.get('end_date')
         interval = data.get('interval', '5')
