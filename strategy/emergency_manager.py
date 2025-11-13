@@ -139,12 +139,12 @@ class EmergencyManager:
             비상 이벤트 (없으면 None)
         """
         # 1. 포트폴리오 손실 체크
+        # Fix: 초기 상태(portfolio_value=0 또는 매우 작은 값)는 무시
+        if portfolio_value == 0 or portfolio_value < 1000:
+            return None
+
         if initial_capital > 0:
             portfolio_loss_pct = (portfolio_value - initial_capital) / initial_capital
-
-            # Fix: 초기 상태(portfolio_value=0)는 무시
-            if portfolio_value == 0:
-                return None
 
             if portfolio_loss_pct <= self.portfolio_loss_threshold:
                 # 10% 이상 손실 - CRITICAL
