@@ -143,7 +143,7 @@ class MarketDataAPI:
                 }
 
             # Fallback 2: NXT 시간대에 _NX 호가도 실패하면 기본 코드로 재시도
-            if is_nxt_hours() and nxt_stock_code != stock_code:
+            if is_nxt_hours() and stock_code.endswith("_NX"):
                 logger.info(f"{stock_code} NXT 호가 실패 - 기본 코드로 재시도...")
                 # get_orderbook 내부에서 _NX를 추가하므로, 강제로 기본 코드 사용
                 body_fallback = {"stk_cd": stock_code}
