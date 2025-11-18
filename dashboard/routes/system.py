@@ -802,3 +802,79 @@ def get_websocket_subscriptions():
     except Exception as e:
         logger.error(f"웹소켓 구독 리스트 조회 실패: {e}", exc_info=True)
         return error_response(str(e), status=500)
+
+
+# ============================================================================
+# Strategy Evolution Status API (v6.1.3)
+# ============================================================================
+
+@system_bp.route('/api/strategy/status')
+def get_strategy_status():
+    """
+    Get evolved strategy status and current parameters
+
+    Returns strategy information if evolution system is active,
+    otherwise returns indication that default strategy is being used.
+    """
+    try:
+        if not _bot_instance:
+            return error_response('Bot not initialized')
+
+        # Check if strategy loader is available
+        if not hasattr(_bot_instance, 'strategy_loader') or not _bot_instance.strategy_loader:
+            return jsonify({
+                'success': True,
+                'enabled': False,
+                'message': '진화된 전략 시스템 미사용 - 기본 전략 사용 중',
+                'note': '전략 진화를 시작하려면: python run_strategy_optimizer.py'
+            })
+
+        # Get strategy summary from loader
+        summary = _bot_instance.strategy_loader.get_strategy_summary()
+
+        if not summary.get('enabled'):
+            return jsonify({
+                'success': True,
+                'enabled': False,
+                'message': summary.get('message', '진화된 전략 없음'),
+                'note': '전략 진화를 시작하려면: python run_strategy_optimizer.py'
+            })
+
+        # Get current strategy details
+        current_strategy = _bot_instance.strategy_loader.current_strategy
+
+        return jsonify({
+            'success': True,
+            'enabled': True,
+            'strategy': {
+                'id': current_strategy.strategy_id,
+                'generation': current_strategy.generation,
+                'fitness_score': round(current_strategy.fitness_score, 2),
+                'backtest': {
+                    'return_pct': round(current_strategy.backtest_return_pct, 2),
+                    'win_rate': round(current_strategy.backtest_win_rate, 2),
+                    'sharpe_ratio': round(current_strategy.backtest_sharpe_ratio, 2)
+                },
+                'buy_conditions': {
+                    'rsi_min': round(current_strategy.buy_rsi_min, 1),
+                    'rsi_max': round(current_strategy.buy_rsi_max, 1),
+                    'volume_ratio_min': round(current_strategy.buy_volume_ratio_min, 2),
+                    'bid_ask_ratio_min': round(current_strategy.buy_bid_ask_ratio_min, 2),
+                    'price_range': f"{current_strategy.min_price:,.0f}원 ~ {current_strategy.max_price:,.0f}원"
+                },
+                'sell_conditions': {
+                    'take_profit': f"+{current_strategy.sell_take_profit * 100:.1f}%",
+                    'stop_loss': f"{current_strategy.sell_stop_loss * 100:.1f}%",
+                    'trailing_stop': f"-{current_strategy.sell_trailing_stop * 100:.1f}%"
+                },
+                'position_management': {
+                    'position_size': f"{current_strategy.position_size_pct * 100:.1f}%",
+                    'max_positions': current_strategy.max_positions
+                },
+                'loaded_at': current_strategy.loaded_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"전략 현황 조회 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)
