@@ -436,13 +436,15 @@ def get_performance_metrics():
             return error_response('Database not available')
 
         # Get completed trades (sell transactions) from last 30 days
+        # v6.1.1: Filter out virtual trades - only show real trading performance
         from datetime import timedelta
         thirty_days_ago = datetime.now() - timedelta(days=30)
 
         trades = session.query(Trade).filter(
             Trade.action == 'sell',
             Trade.profit_loss.isnot(None),
-            Trade.timestamp >= thirty_days_ago
+            Trade.timestamp >= thirty_days_ago,
+            Trade.is_virtual == False  # Only real trades
         ).all()
 
         if not trades:

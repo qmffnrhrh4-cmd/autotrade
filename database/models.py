@@ -148,6 +148,9 @@ class Trade(Base):
     scoring_total = Column(Float, nullable=True)
     scoring_percentage = Column(Float, nullable=True)
 
+    # 거래 유형 구분 (v6.1.1: 실제/가상 거래 분리)
+    is_virtual = Column(Boolean, default=False, nullable=False, index=True)
+
     # 기타
     notes = Column(Text, nullable=True)
 
