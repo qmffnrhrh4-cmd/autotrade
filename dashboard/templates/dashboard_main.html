@@ -1114,9 +1114,9 @@
                                 포트폴리오 집중도 분석
                             </h3>
                             <div style="display: flex; gap: 0.5rem;">
-                                <button class="btn btn-primary btn-sm" onclick="checkRebalance()">
-                                    <i class="fas fa-balance-scale"></i>
-                                    리밸런싱 분석
+                                <button class="btn btn-primary btn-sm" onclick="checkSmartRebalance()">
+                                    <i class="fas fa-brain"></i>
+                                    AI 스마트 리밸런싱
                                 </button>
                                 <button class="btn btn-outline btn-sm" onclick="refreshConcentration()">
                                     <i class="fas fa-sync"></i>
@@ -2193,15 +2193,177 @@
             }
         }
 
-        function checkRebalance() {
-            fetch('/api/portfolio/rebalance/recommendations')
+        function checkSmartRebalance() {
+            fetch('/api/portfolio/rebalance/smart')
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        displayRebalanceRecommendations(data);
+                        displaySmartRebalanceRecommendations(data);
+                    } else {
+                        console.error('Smart rebalance failed:', data.error);
+                        alert('스마트 리밸런싱 분석 실패: ' + (data.error || '알 수 없는 오류'));
                     }
                 })
-                .catch(error => console.error('Error fetching rebalance:', error));
+                .catch(error => {
+                    console.error('Error fetching smart rebalance:', error);
+                    alert('스마트 리밸런싱 분석 중 오류가 발생했습니다.');
+                });
+        }
+
+        function displaySmartRebalanceRecommendations(data) {
+            const rebalanceDiv = document.getElementById('rebalance-recommendations');
+            if (!rebalanceDiv) return;
+
+            rebalanceDiv.style.display = 'block';
+
+            if (!data.needs_rebalance || !data.recommendations || data.recommendations.length === 0) {
+                rebalanceDiv.innerHTML = `
+                    <div style="padding: 1.5rem; background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--color-success); border-radius: var(--radius-md);">
+                        <h4 style="margin-bottom: 0.5rem; color: var(--color-success);">
+                            <i class="fas fa-check-circle"></i>
+                            리밸런싱 불필요
+                        </h4>
+                        <p style="margin: 0; color: var(--text-secondary);">
+                            현재 포트폴리오가 AI 분석 결과 최적 상태입니다.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div style="padding: 1.5rem; background: rgba(99, 102, 241, 0.1); border-left: 3px solid var(--color-primary); border-radius: var(--radius-md);">
+                    <h4 style="margin-bottom: 1rem; color: var(--color-primary);">
+                        <i class="fas fa-brain"></i>
+                        AI 스마트 리밸런싱 권장
+                    </h4>
+            `;
+
+            // Cash recommendation
+            if (data.cash_recommendation) {
+                const cashRec = data.cash_recommendation;
+                html += `
+                    <div style="padding: 1rem; margin-bottom: 1rem; background: rgba(255, 255, 255, 0.05); border-radius: var(--radius-sm);">
+                        <div style="font-weight: 600; margin-bottom: 0.5rem;">현금 보유 비율</div>
+                        <div style="color: var(--text-secondary); font-size: 0.9rem;">
+                            현재: ${cashRec.current_ratio}% → 권장: ${cashRec.target_ratio}%
+                        </div>
+                        <div style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem;">
+                            ${cashRec.reason}
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += `<div style="margin-top: 1rem;">`;
+
+            // Group recommendations by action
+            const sells = data.recommendations.filter(r => r.action === 'SELL');
+            const buys = data.recommendations.filter(r => r.action === 'BUY');
+            const holds = data.recommendations.filter(r => r.action === 'HOLD');
+
+            // Display sells first
+            sells.forEach(rec => {
+                html += createSmartRebalanceCard(rec);
+            });
+
+            // Then buys
+            buys.forEach(rec => {
+                html += createSmartRebalanceCard(rec);
+            });
+
+            // Finally holds
+            holds.forEach(rec => {
+                html += createSmartRebalanceCard(rec);
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            rebalanceDiv.innerHTML = html;
+        }
+
+        function createSmartRebalanceCard(rec) {
+            let actionIcon, actionColor, actionText;
+
+            if (rec.action === 'SELL') {
+                actionIcon = 'fa-arrow-down';
+                actionColor = 'var(--color-danger)';
+                actionText = '매도';
+            } else if (rec.action === 'BUY') {
+                actionIcon = 'fa-arrow-up';
+                actionColor = 'var(--color-success)';
+                actionText = '추가 매수';
+            } else {
+                actionIcon = 'fa-hand-paper';
+                actionColor = 'var(--text-muted)';
+                actionText = '유지';
+            }
+
+            let html = `
+                <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); border-left: 3px solid ${actionColor};">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 1.05rem;">
+                                ${rec.stock_name} (${rec.stock_code})
+                            </div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                현재 ${rec.current_quantity}주 보유 | 비중: ${rec.current_weight}%
+            `;
+
+            if (rec.ai_score) {
+                html += ` | AI 점수: ${rec.ai_score.toFixed(0)}점`;
+            }
+
+            html += `
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 700; font-size: 1.1rem; color: ${actionColor};">
+                                <i class="fas ${actionIcon}"></i>
+                                ${actionText}
+                            </div>
+                        </div>
+                    </div>
+            `;
+
+            // Action details
+            if (rec.action === 'SELL' && rec.sell_quantity) {
+                html += `
+                    <div style="padding: 0.75rem; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                            💰 매도: ${rec.sell_quantity}주 @ ${rec.recommended_price.toLocaleString()}원
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            예상 매도금액: ${rec.expected_amount.toLocaleString()}원
+                        </div>
+                    </div>
+                `;
+            } else if (rec.action === 'BUY' && rec.buy_quantity) {
+                html += `
+                    <div style="padding: 0.75rem; background: rgba(239, 68, 68, 0.1); border-radius: var(--radius-sm); margin-bottom: 0.5rem;">
+                        <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                            💵 매수: ${rec.buy_quantity}주 @ ${rec.recommended_price.toLocaleString()}원
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                            필요 금액: ${rec.expected_amount.toLocaleString()}원
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Reason
+            html += `
+                    <div style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                        <i class="fas fa-lightbulb" style="color: var(--color-warning); margin-right: 0.25rem;"></i>
+                        ${rec.reason}
+                    </div>
+                </div>
+            `;
+
+            return html;
         }
 
         function displayRebalanceRecommendations(data) {

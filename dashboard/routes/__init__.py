@@ -9,6 +9,7 @@ from .trading import trading_bp
 from .ai import ai_bp
 from .market import market_bp
 from .portfolio import portfolio_bp
+from .smart_rebalance import smart_rebalance_bp  # v6.1.2: AI-powered smart rebalancing
 from .system import system_bp
 from .pages import pages_bp
 from .alerts import alerts_bp
@@ -24,6 +25,7 @@ __all__ = [
     'ai_bp',
     'market_bp',
     'portfolio_bp',
+    'smart_rebalance_bp',  # v6.1.2: AI-powered smart rebalancing
     'system_bp',
     'pages_bp',
     'alerts_bp',
