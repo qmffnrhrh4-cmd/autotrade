@@ -44,8 +44,12 @@ def register_routes(app):
     app.register_blueprint(ai_bp)
     app.register_blueprint(market_bp)
     app.register_blueprint(portfolio_bp)
+    app.register_blueprint(smart_rebalance_bp)  # v6.1.2: AI-powered smart rebalancing
     app.register_blueprint(system_bp)
     app.register_blueprint(pages_bp)
     app.register_blueprint(alerts_bp)
     app.register_blueprint(backtest_bp)
     app.register_blueprint(virtual_trading_bp)
+    app.register_blueprint(automation_bp)
+    app.register_blueprint(program_manager_bp)
+    app.register_blueprint(evolution_bp)  # v6.1.3: 전략 진화 API

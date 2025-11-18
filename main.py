@@ -92,6 +92,7 @@ class AutoTradingBot:
         self.split_order_ai = None
         self.parameter_optimizer = None
         self.self_learning_system = None
+        self.strategy_loader = None  # v6.1.3: 진화된 전략 로더
 
         self.virtual_trader = None
         self.trade_logger = None
@@ -432,6 +433,30 @@ class AutoTradingBot:
             except Exception as e:
                 logger.warning(f"AI 학습 시스템 초기화 실패: {e}")
                 logger.warning("AI 학습 기능은 제한적으로 작동합니다")
+
+            logger.info("진화된 전략 로더 초기화 중...")
+            try:
+                from ai.strategy_loader import get_strategy_loader
+
+                # 전략 로더 초기화
+                self.strategy_loader = get_strategy_loader()
+
+                # 최우수 전략 로드
+                evolved_strategy = self.strategy_loader.load_best_strategy()
+
+                if evolved_strategy:
+                    logger.info("  ✅ 진화된 전략 로드 완료")
+                    logger.info(f"  📊 세대: {evolved_strategy.generation}, 적합도: {evolved_strategy.fitness_score:.2f}")
+                    logger.info(f"  🎯 백테스팅 수익률: {evolved_strategy.backtest_return_pct:+.2f}%")
+                    logger.info(f"  💰 익절: +{evolved_strategy.sell_take_profit * 100:.1f}%, 손절: {evolved_strategy.sell_stop_loss * 100:.1f}%")
+                else:
+                    logger.info("  ℹ️  진화된 전략 없음 - 기본 전략 사용")
+                    logger.info("  💡 전략 진화를 시작하려면: python run_strategy_optimizer.py")
+
+            except Exception as e:
+                logger.warning(f"진화된 전략 로더 초기화 실패: {e}")
+                logger.warning("기본 전략으로 계속 진행합니다")
+                self.strategy_loader = None
 
             logger.info("가상매매 시스템 초기화 중...")
             try:
@@ -897,17 +922,32 @@ class AutoTradingBot:
                     profit_loss_amount=profit_loss
                 )
 
-                thresholds = self.dynamic_risk_manager.get_exit_thresholds(buy_price)
+                # v6.1.3: 진화된 전략의 손익 비율 사용 (없으면 기본값)
+                if self.strategy_loader and self.strategy_loader.current_strategy:
+                    evolved_strategy = self.strategy_loader.current_strategy
+                    take_profit_pct = evolved_strategy.sell_take_profit  # 예: 0.10 = 10%
+                    stop_loss_pct = evolved_strategy.sell_stop_loss      # 예: -0.05 = -5%
+
+                    take_profit_price = int(buy_price * (1 + take_profit_pct))
+                    stop_loss_price = int(buy_price * (1 + stop_loss_pct))
+
+                    logger.debug(f"진화된 전략 사용: 익절 {take_profit_pct*100:+.1f}% ({take_profit_price:,}원), "
+                               f"손절 {stop_loss_pct*100:.1f}% ({stop_loss_price:,}원)")
+                else:
+                    # 기본 전략 사용 (DynamicRiskManager)
+                    thresholds = self.dynamic_risk_manager.get_exit_thresholds(buy_price)
+                    take_profit_price = thresholds['take_profit']
+                    stop_loss_price = thresholds['stop_loss']
 
                 should_sell = False
                 sell_reason = ""
 
-                if current_price >= thresholds['take_profit']:
+                if current_price >= take_profit_price:
                     should_sell = True
-                    sell_reason = f"익절 ({thresholds['take_profit']:,}원)"
-                elif current_price <= thresholds['stop_loss']:
+                    sell_reason = f"익절 ({take_profit_price:,}원)"
+                elif current_price <= stop_loss_price:
                     should_sell = True
-                    sell_reason = f"손절 ({thresholds['stop_loss']:,}원)"
+                    sell_reason = f"손절 ({stop_loss_price:,}원)"
 
                 if should_sell:
                     logger.info(f"매도 신호: {stock_name} - {sell_reason}")
@@ -1235,10 +1275,20 @@ class AutoTradingBot:
 
             logger.debug(f"사용 가능 현금: {available_cash:,}원")
 
-            quantity = self.dynamic_risk_manager.calculate_position_size(
-                stock_price=optimal_price,
-                available_cash=available_cash
-            )
+            # v6.1.3: 진화된 전략의 포지션 크기 사용 (없으면 기본값)
+            if self.strategy_loader and self.strategy_loader.current_strategy:
+                evolved_strategy = self.strategy_loader.current_strategy
+                position_size_pct = evolved_strategy.position_size_pct  # 예: 0.10 = 10%
+                target_amount = int(available_cash * position_size_pct)
+                quantity = target_amount // optimal_price
+
+                logger.debug(f"진화된 전략 사용: 포지션 크기 {position_size_pct*100:.1f}% = {target_amount:,}원")
+            else:
+                # 기본 전략 사용 (DynamicRiskManager)
+                quantity = self.dynamic_risk_manager.calculate_position_size(
+                    stock_price=optimal_price,
+                    available_cash=available_cash
+                )
 
             if quantity == 0:
                 logger.warning("매수 수량 0")
@@ -1246,9 +1296,10 @@ class AutoTradingBot:
 
             total_amount = optimal_price * quantity
 
+            strategy_note = "진화된 전략" if (self.strategy_loader and self.strategy_loader.current_strategy) else "기본 전략"
             logger.info(
                 f"{stock_name} 매수 주문: {quantity}주 @ {optimal_price:,}원 "
-                f"(합계 {total_amount:,}원, 호가 분석 최적화)"
+                f"(합계 {total_amount:,}원, {strategy_note})"
             )
 
             from utils.trading_date import is_nxt_hours
