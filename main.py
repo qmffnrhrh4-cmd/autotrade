@@ -1074,6 +1074,18 @@ class AutoTradingBot:
                 )
 
                 if buy_approved:
+                    # 중복 매수 방지: 이미 보유한 종목인지 확인
+                    if self.portfolio_manager.has_position(candidate.code):
+                        logger.info(f"⚠️  {candidate.name}({candidate.code}) 이미 보유 중 - 중복 매수 방지")
+                        print(f"⚠️  이미 보유 중인 종목 - 매수 건너뜀")
+                        continue
+
+                    # 최대 포지션 수 확인
+                    if not self.portfolio_manager.can_add_position():
+                        logger.warning(f"최대 포지션 수({self.portfolio_manager.max_positions}) 도달 - 매수 불가")
+                        print(f"최대 포지션 수 도달 - 매수 건너뜀")
+                        break
+
                     print(f"매수 조건 충족 - 주문 실행 중")
 
                     self._execute_buy(candidate, scoring_result)
