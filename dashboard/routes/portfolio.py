@@ -195,6 +195,234 @@ def get_risk_analysis():
         return error_response(str(e))
 
 
+@portfolio_bp.route('/api/portfolio/concentration')
+def get_portfolio_concentration():
+    """Get portfolio concentration analysis (diversification risk)"""
+    try:
+        if _bot_instance and hasattr(_bot_instance, 'account_api'):
+            holdings = _bot_instance.account_api.get_holdings(market_type="KRX+NXT")
+
+            if not holdings:
+                return jsonify({
+                    'success': True,
+                    'concentration_risk': 'low',
+                    'hhi': 0,
+                    'positions': [],
+                    'max_position': None,
+                    'recommendations': []
+                })
+
+            # Convert holdings to position format
+            positions = []
+            total_value = 0
+
+            for h in holdings:
+                code = str(h.get('stk_cd', '')).replace('A', '').replace('_NX', '')
+                name = h.get('stk_nm', '')
+                quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
+                current_price = int(str(h.get('cur_prc', 0)).replace(',', ''))
+                eval_amt = int(str(h.get('eval_amt', 0)).replace(',', ''))
+
+                if eval_amt == 0:
+                    eval_amt = quantity * current_price
+
+                if quantity > 0:
+                    positions.append({
+                        'code': code,
+                        'name': name,
+                        'quantity': quantity,
+                        'value': eval_amt
+                    })
+                    total_value += eval_amt
+
+            # Calculate weights and HHI (Herfindahl-Hirschman Index)
+            hhi = 0
+            max_position = None
+            max_weight = 0
+
+            for pos in positions:
+                weight = (pos['value'] / total_value * 100) if total_value > 0 else 0
+                pos['weight'] = round(weight, 2)
+
+                # HHI calculation (sum of squared weights)
+                hhi += (weight / 100) ** 2
+
+                if weight > max_weight:
+                    max_weight = weight
+                    max_position = {
+                        'code': pos['code'],
+                        'name': pos['name'],
+                        'weight': weight,
+                        'value': pos['value']
+                    }
+
+            # Determine concentration risk level
+            # HHI ranges: 0-0.15 (low), 0.15-0.25 (medium), >0.25 (high)
+            if hhi < 0.15:
+                risk_level = 'low'
+                risk_text = '낮음 (분산 양호)'
+            elif hhi < 0.25:
+                risk_level = 'medium'
+                risk_text = '보통 (주의 필요)'
+            else:
+                risk_level = 'high'
+                risk_text = '높음 (위험)'
+
+            # Generate recommendations
+            recommendations = []
+            if max_weight > 30:
+                recommendations.append(f"{max_position['name']} 비중이 {max_weight:.1f}%로 과도합니다. 30% 이하로 조정을 권장합니다.")
+
+            if len(positions) < 5:
+                recommendations.append(f"현재 {len(positions)}개 종목 보유 중입니다. 5개 이상으로 분산투자를 권장합니다.")
+
+            if hhi > 0.25:
+                recommendations.append("포트폴리오 집중도가 높습니다. 추가 분산투자를 고려하세요.")
+
+            # Sort positions by weight
+            positions.sort(key=lambda x: x['weight'], reverse=True)
+
+            return jsonify({
+                'success': True,
+                'concentration_risk': risk_level,
+                'concentration_text': risk_text,
+                'hhi': round(hhi, 4),
+                'hhi_percent': round(hhi * 100, 2),
+                'position_count': len(positions),
+                'max_position': max_position,
+                'positions': positions,
+                'recommendations': recommendations
+            })
+        else:
+            return error_response('Bot not initialized')
+    except Exception as e:
+        print(f"Portfolio concentration API error: {e}")
+        import traceback
+        traceback.print_exc()
+        return error_response(str(e))
+
+
+@portfolio_bp.route('/api/portfolio/rebalance/recommendations')
+def get_rebalance_recommendations():
+    """Get portfolio rebalancing recommendations"""
+    try:
+        if _bot_instance and hasattr(_bot_instance, 'account_api'):
+            holdings = _bot_instance.account_api.get_holdings(market_type="KRX+NXT")
+            deposit = _bot_instance.account_api.get_deposit()
+
+            if not holdings:
+                return jsonify({
+                    'success': True,
+                    'needs_rebalance': False,
+                    'recommendations': [],
+                    'message': '보유 종목이 없습니다.'
+                })
+
+            # Get total cash
+            cash = int(str(deposit.get('ord_alow_amt', 0)).replace(',', '')) if deposit else 0
+
+            # Convert holdings to position format
+            positions = []
+            total_value = 0
+
+            for h in holdings:
+                code = str(h.get('stk_cd', '')).replace('A', '').replace('_NX', '')
+                name = h.get('stk_nm', '')
+                quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
+                current_price = int(str(h.get('cur_prc', 0)).replace(',', ''))
+                eval_amt = int(str(h.get('eval_amt', 0)).replace(',', ''))
+
+                if eval_amt == 0:
+                    eval_amt = quantity * current_price
+
+                if quantity > 0:
+                    positions.append({
+                        'code': code,
+                        'name': name,
+                        'quantity': quantity,
+                        'current_price': current_price,
+                        'value': eval_amt
+                    })
+                    total_value += eval_amt
+
+            total_assets = total_value + cash
+
+            # Calculate current weights
+            for pos in positions:
+                pos['weight'] = (pos['value'] / total_assets * 100) if total_assets > 0 else 0
+
+            # Rebalancing logic
+            recommendations = []
+            needs_rebalance = False
+
+            # Target: Equal weight distribution
+            target_count = max(5, len(positions))  # At least 5 positions recommended
+            target_weight = 100.0 / target_count
+            threshold = 5.0  # 5% threshold
+
+            for pos in positions:
+                current_weight = pos['weight']
+                weight_diff = current_weight - target_weight
+
+                if abs(weight_diff) > threshold:
+                    needs_rebalance = True
+
+                    if weight_diff > 0:
+                        # Overweight - suggest selling
+                        sell_percent = weight_diff
+                        sell_amount = int(total_assets * (sell_percent / 100))
+                        sell_quantity = int(sell_amount / pos['current_price'])
+
+                        recommendations.append({
+                            'action': 'sell',
+                            'code': pos['code'],
+                            'name': pos['name'],
+                            'current_weight': round(current_weight, 2),
+                            'target_weight': round(target_weight, 2),
+                            'quantity': sell_quantity,
+                            'reason': f"{pos['name']} 비중이 {current_weight:.1f}%로 과도합니다. {sell_quantity}주 매도를 권장합니다."
+                        })
+                    else:
+                        # Underweight - suggest buying
+                        buy_percent = abs(weight_diff)
+                        buy_amount = int(total_assets * (buy_percent / 100))
+                        buy_quantity = int(buy_amount / pos['current_price'])
+
+                        recommendations.append({
+                            'action': 'buy',
+                            'code': pos['code'],
+                            'name': pos['name'],
+                            'current_weight': round(current_weight, 2),
+                            'target_weight': round(target_weight, 2),
+                            'quantity': buy_quantity,
+                            'reason': f"{pos['name']} 비중이 {current_weight:.1f}%로 낮습니다. {buy_quantity}주 추가 매수를 권장합니다."
+                        })
+
+            # Check if we need more positions
+            if len(positions) < 5:
+                needs_rebalance = True
+                recommendations.append({
+                    'action': 'diversify',
+                    'reason': f"현재 {len(positions)}개 종목만 보유 중입니다. 5개 이상으로 분산투자를 권장합니다."
+                })
+
+            return jsonify({
+                'success': True,
+                'needs_rebalance': needs_rebalance,
+                'target_weight': round(target_weight, 2),
+                'position_count': len(positions),
+                'recommendations': recommendations,
+                'total_assets': total_assets
+            })
+        else:
+            return error_response('Bot not initialized')
+    except Exception as e:
+        print(f"Rebalance recommendations API error: {e}")
+        import traceback
+        traceback.print_exc()
+        return error_response(str(e))
+
+
 @portfolio_bp.route('/api/performance/metrics')
 def get_performance_metrics():
     """Get comprehensive performance metrics"""

@@ -1105,6 +1105,58 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Portfolio Concentration Analysis -->
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-chart-pie"></i>
+                                포트폴리오 집중도 분석
+                            </h3>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn btn-primary btn-sm" onclick="checkRebalance()">
+                                    <i class="fas fa-balance-scale"></i>
+                                    리밸런싱 분석
+                                </button>
+                                <button class="btn btn-outline btn-sm" onclick="refreshConcentration()">
+                                    <i class="fas fa-sync"></i>
+                                    새로고침
+                                </button>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <!-- Concentration Risk Indicator -->
+                            <div style="display: flex; gap: 2rem; margin-bottom: 2rem;">
+                                <div class="stat-card" style="flex: 1;">
+                                    <div class="stat-value" id="concentration-risk-text">-</div>
+                                    <div class="stat-label">집중도 위험</div>
+                                </div>
+                                <div class="stat-card" style="flex: 1;">
+                                    <div class="stat-value" id="hhi-value">0</div>
+                                    <div class="stat-label">HHI 지수</div>
+                                </div>
+                                <div class="stat-card" style="flex: 1;">
+                                    <div class="stat-value" id="max-position-weight">0%</div>
+                                    <div class="stat-label">최대 포지션 비중</div>
+                                </div>
+                            </div>
+
+                            <!-- Recommendations -->
+                            <div id="concentration-recommendations" style="margin-top: 1rem;">
+                                <!-- Recommendations will be populated by API -->
+                            </div>
+
+                            <!-- Position Distribution Chart -->
+                            <div style="margin-top: 2rem; height: 300px;">
+                                <canvas id="concentration-chart"></canvas>
+                            </div>
+
+                            <!-- Rebalancing Recommendations -->
+                            <div id="rebalance-recommendations" style="margin-top: 2rem; display: none;">
+                                <!-- Rebalancing recommendations will be populated by API -->
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Virtual Trading Tab -->
@@ -1998,9 +2050,244 @@
                     if (data.success) {
                         updatePortfolioDisplay(data.holdings);
                         updatePortfolioChart(data.holdings);
+                        // Also refresh concentration analysis
+                        refreshConcentration();
                     }
                 })
                 .catch(error => console.error('Error:', error));
+        }
+
+        function refreshConcentration() {
+            fetch('/api/portfolio/concentration')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        updateConcentrationDisplay(data);
+                    }
+                })
+                .catch(error => console.error('Error fetching concentration:', error));
+        }
+
+        function updateConcentrationDisplay(data) {
+            // Update risk indicator
+            const riskText = document.getElementById('concentration-risk-text');
+            const hhi = document.getElementById('hhi-value');
+            const maxWeight = document.getElementById('max-position-weight');
+
+            if (riskText) {
+                riskText.textContent = data.concentration_text || '-';
+                // Color based on risk level
+                if (data.concentration_risk === 'high') {
+                    riskText.style.color = 'var(--color-warning)';
+                } else if (data.concentration_risk === 'medium') {
+                    riskText.style.color = 'var(--color-info)';
+                } else {
+                    riskText.style.color = 'var(--color-success)';
+                }
+            }
+
+            if (hhi) {
+                hhi.textContent = (data.hhi_percent || 0).toFixed(2) + '%';
+            }
+
+            if (maxWeight && data.max_position) {
+                maxWeight.textContent = (data.max_position.weight || 0).toFixed(1) + '%';
+            }
+
+            // Update recommendations
+            const recoDiv = document.getElementById('concentration-recommendations');
+            if (recoDiv) {
+                if (data.recommendations && data.recommendations.length > 0) {
+                    recoDiv.innerHTML = data.recommendations.map(r => `
+                        <div style="padding: 1rem; margin-bottom: 0.5rem; background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--color-warning); border-radius: var(--radius-sm);">
+                            <i class="fas fa-exclamation-triangle" style="color: var(--color-warning); margin-right: 0.5rem;"></i>
+                            ${r}
+                        </div>
+                    `).join('');
+                } else {
+                    recoDiv.innerHTML = `
+                        <div style="padding: 1rem; background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--color-success); border-radius: var(--radius-sm);">
+                            <i class="fas fa-check-circle" style="color: var(--color-success); margin-right: 0.5rem;"></i>
+                            포트폴리오가 적절하게 분산되어 있습니다.
+                        </div>
+                    `;
+                }
+            }
+
+            // Update concentration chart
+            updateConcentrationChart(data.positions || []);
+        }
+
+        let concentrationChart = null;
+
+        function updateConcentrationChart(positions) {
+            const ctx = document.getElementById('concentration-chart');
+            if (!ctx) return;
+
+            if (!positions || positions.length === 0) {
+                if (concentrationChart) {
+                    concentrationChart.destroy();
+                    concentrationChart = null;
+                }
+                return;
+            }
+
+            const labels = positions.map(p => p.name);
+            const data = positions.map(p => p.weight);
+
+            if (concentrationChart) {
+                concentrationChart.data.labels = labels;
+                concentrationChart.data.datasets[0].data = data;
+                concentrationChart.update();
+            } else {
+                concentrationChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '포지션 비중 (%)',
+                            data: data,
+                            backgroundColor: 'rgba(102, 126, 234, 0.6)',
+                            borderColor: 'rgba(102, 126, 234, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            annotation: {
+                                annotations: {
+                                    line1: {
+                                        type: 'line',
+                                        yMin: 30,
+                                        yMax: 30,
+                                        borderColor: 'rgba(245, 158, 11, 0.8)',
+                                        borderWidth: 2,
+                                        borderDash: [5, 5],
+                                        label: {
+                                            content: '권장 최대 비중 (30%)',
+                                            enabled: true,
+                                            position: 'end'
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function checkRebalance() {
+            fetch('/api/portfolio/rebalance/recommendations')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayRebalanceRecommendations(data);
+                    }
+                })
+                .catch(error => console.error('Error fetching rebalance:', error));
+        }
+
+        function displayRebalanceRecommendations(data) {
+            const rebalanceDiv = document.getElementById('rebalance-recommendations');
+            if (!rebalanceDiv) return;
+
+            rebalanceDiv.style.display = 'block';
+
+            if (!data.needs_rebalance) {
+                rebalanceDiv.innerHTML = `
+                    <div style="padding: 1.5rem; background: rgba(16, 185, 129, 0.1); border-left: 3px solid var(--color-success); border-radius: var(--radius-md);">
+                        <h4 style="margin-bottom: 0.5rem; color: var(--color-success);">
+                            <i class="fas fa-check-circle"></i>
+                            리밸런싱 불필요
+                        </h4>
+                        <p style="margin: 0; color: var(--text-secondary);">
+                            현재 포트폴리오가 적절하게 균형잡혀 있습니다.
+                        </p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = `
+                <div style="padding: 1.5rem; background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--color-warning); border-radius: var(--radius-md);">
+                    <h4 style="margin-bottom: 1rem; color: var(--color-warning);">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        리밸런싱 권장
+                    </h4>
+                    <p style="margin-bottom: 1rem; color: var(--text-secondary);">
+                        목표 비중: ${data.target_weight}% (균등 배분 기준)
+                    </p>
+                    <div style="margin-top: 1rem;">
+            `;
+
+            data.recommendations.forEach(rec => {
+                let actionIcon = '';
+                let actionColor = '';
+                let actionText = '';
+
+                if (rec.action === 'sell') {
+                    actionIcon = 'fa-arrow-down';
+                    actionColor = 'var(--color-danger)';
+                    actionText = '매도';
+                } else if (rec.action === 'buy') {
+                    actionIcon = 'fa-arrow-up';
+                    actionColor = 'var(--color-success)';
+                    actionText = '매수';
+                } else {
+                    actionIcon = 'fa-chart-line';
+                    actionColor = 'var(--color-info)';
+                    actionText = '분산';
+                }
+
+                html += `
+                    <div style="padding: 1rem; margin-bottom: 0.75rem; background: var(--bg-glass); border-radius: var(--radius-sm); border-left: 3px solid ${actionColor};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <div style="font-weight: 600; color: ${actionColor};">
+                                <i class="fas ${actionIcon}"></i>
+                                ${actionText}
+                            </div>
+                `;
+
+                if (rec.action !== 'diversify') {
+                    html += `
+                        <div style="font-size: 0.875rem; color: var(--text-muted);">
+                            ${rec.current_weight}% → ${rec.target_weight}%
+                        </div>
+                    `;
+                }
+
+                html += `
+                        </div>
+                        <div style="color: var(--text-secondary);">
+                            ${rec.reason}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+
+            rebalanceDiv.innerHTML = html;
         }
 
         function refreshRealTrading() {
