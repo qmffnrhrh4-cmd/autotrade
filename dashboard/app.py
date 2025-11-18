@@ -66,7 +66,7 @@ realtime_chart_manager = None
 # Import all route blueprints
 from .routes import (
     account_bp, trading_bp, market_bp,
-    portfolio_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp, program_manager_bp,
+    portfolio_bp, smart_rebalance_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp, program_manager_bp,
     evolution_bp  # Fix: 전략 진화 API 추가
 )
 
@@ -81,6 +81,7 @@ from .routes.account import set_bot_instance as account_set_bot
 from .routes.trading import set_bot_instance as trading_set_bot, set_socketio as trading_set_socketio
 from .routes.market import set_bot_instance as market_set_bot, set_realtime_chart_manager as market_set_chart_manager
 from .routes.portfolio import set_bot_instance as portfolio_set_bot
+from .routes.smart_rebalance import set_bot_instance as smart_rebalance_set_bot  # v6.1.2
 from .routes.system import (
     set_bot_instance as system_set_bot,
     set_config_manager as system_set_config_manager,
@@ -96,6 +97,7 @@ app.register_blueprint(trading_bp)
 register_ai_routes(app)  # v5.7.5: Register modularized AI routes (6 sub-blueprints, 34 endpoints)
 app.register_blueprint(market_bp)
 app.register_blueprint(portfolio_bp)
+app.register_blueprint(smart_rebalance_bp)  # v6.1.2: AI-powered smart rebalancing
 app.register_blueprint(system_bp)
 app.register_blueprint(pages_bp)
 app.register_blueprint(alerts_bp)  # v5.7.5: 알림 시스템
@@ -178,6 +180,7 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
         ai_set_bot(bot_instance)
         market_set_bot(bot_instance)
         portfolio_set_bot(bot_instance)
+        smart_rebalance_set_bot(bot_instance)  # v6.1.2
         system_set_bot(bot_instance)
         backtest_set_bot(bot_instance)
         program_manager_set_bot(bot_instance)
