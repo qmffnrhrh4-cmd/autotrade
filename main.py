@@ -1292,7 +1292,8 @@ class AutoTradingBot:
                     ai_signal=candidate.ai_signal,
                     ai_confidence=candidate.ai_confidence,
                     scoring_total=scoring_result.total_score,
-                    scoring_percentage=scoring_result.percentage
+                    scoring_percentage=scoring_result.percentage,
+                    is_virtual=False  # v6.1.1: Mark as real trade
                 )
                 self.db_session.add(trade)
                 self.db_session.commit()
@@ -1378,7 +1379,8 @@ class AutoTradingBot:
                     profit_loss=profit_loss,
                     profit_loss_ratio=profit_loss_rate / 100,
                     risk_mode=self.dynamic_risk_manager.current_mode.value,
-                    notes=reason
+                    notes=reason,
+                    is_virtual=False  # v6.1.1: Mark as real trade
                 )
                 self.db_session.add(trade)
                 self.db_session.commit()
