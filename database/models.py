@@ -409,6 +409,10 @@ class Database:
             Base.metadata.create_all(self._engine)
             logger.info("✅ 데이터베이스 테이블 및 인덱스 생성 완료")
 
+            # Fix v6.1.3: 자동 마이그레이션 - is_virtual 컬럼 추가
+            if db_type == 'sqlite':
+                self._auto_migrate_is_virtual()
+
             # 생성된 인덱스 로깅
             for table in Base.metadata.tables.values():
                 for index in table.indexes:
@@ -422,6 +426,33 @@ class Database:
         except Exception as e:
             logger.error(f"데이터베이스 초기화 실패: {e}", exc_info=True)
             raise
+
+    def _auto_migrate_is_virtual(self):
+        """자동 마이그레이션: is_virtual 컬럼 추가"""
+        try:
+            import sqlite3
+            from sqlalchemy import inspect
+
+            # 테이블 스키마 확인
+            inspector = inspect(self._engine)
+            columns = [col['name'] for col in inspector.get_columns('trades')]
+
+            if 'is_virtual' not in columns:
+                logger.info("🔄 자동 마이그레이션: is_virtual 컬럼 추가 중...")
+
+                # Raw SQL로 컬럼 추가
+                with self._engine.connect() as conn:
+                    conn.execute("ALTER TABLE trades ADD COLUMN is_virtual INTEGER DEFAULT 0 NOT NULL")
+                    conn.execute("CREATE INDEX IF NOT EXISTS idx_trades_is_virtual ON trades(is_virtual)")
+                    conn.commit()
+
+                logger.info("✅ is_virtual 컬럼 추가 완료")
+            else:
+                logger.debug("  is_virtual 컬럼이 이미 존재합니다")
+
+        except Exception as e:
+            # 마이그레이션 실패는 치명적이지 않으므로 경고만 출력
+            logger.warning(f"⚠️ is_virtual 자동 마이그레이션 실패 (무시됨): {e}")
 
     def get_session(self):
         """세션 가져오기"""

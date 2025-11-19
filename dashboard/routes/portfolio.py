@@ -5,6 +5,9 @@ Handles portfolio optimization, risk analysis, and performance tracking
 from datetime import datetime
 from flask import Blueprint, jsonify, request
 from utils.response_helper import error_response
+from utils.logger_new import get_logger
+
+logger = get_logger()
 
 # Create Blueprint
 portfolio_bp = Blueprint('portfolio', __name__)
