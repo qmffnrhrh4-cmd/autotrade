@@ -499,10 +499,11 @@ class AutoTradingBot:
                 if self.data_fetcher and self.virtual_trading_manager:
                     self.virtual_trading_scheduler = VirtualTradingScheduler(
                         virtual_manager=self.virtual_trading_manager,
-                        data_fetcher=self.data_fetcher
+                        data_fetcher=self.data_fetcher,
+                        bot_instance=self  # Fix v6.1.4: bot_instance 전달하여 독립적인 매매 가능
                     )
                     self.virtual_trading_scheduler.start()
-                    logger.info("가상매매 스케줄러 시작 완료 (실시간 업데이트, 자동 손절/익절)")
+                    logger.info("가상매매 스케줄러 시작 완료 (실시간 업데이트, 자동 손절/익절, 독립 매매)")
 
                 logger.info("가상매매 시스템 초기화 완료")
             except Exception as e:
@@ -1287,9 +1288,10 @@ class AutoTradingBot:
             deposit = self.account_api.get_deposit()
             holdings = self.account_api.get_holdings()
 
-            available_cash = int(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', '')) if deposit else 0
+            # Fix v6.1.4: 올바른 키 사용
+            available_cash = int(str(deposit.get('ord_alow_amt', '0')).replace(',', '')) if deposit else 0
 
-            logger.debug(f"사용 가능 현금: {available_cash:,}원")
+            logger.info(f"💰 사용 가능 현금: {available_cash:,}원, 현재가: {optimal_price:,}원")
 
             # v6.1.3: 진화된 전략의 포지션 크기 사용 (없으면 기본값)
             if self.strategy_loader and self.strategy_loader.current_strategy:
@@ -1298,16 +1300,17 @@ class AutoTradingBot:
                 target_amount = int(available_cash * position_size_pct)
                 quantity = target_amount // optimal_price
 
-                logger.debug(f"진화된 전략 사용: 포지션 크기 {position_size_pct*100:.1f}% = {target_amount:,}원")
+                logger.info(f"📊 진화된 전략 사용: 포지션 크기 {position_size_pct*100:.1f}% = {target_amount:,}원 → {quantity}주")
             else:
                 # 기본 전략 사용 (DynamicRiskManager)
                 quantity = self.dynamic_risk_manager.calculate_position_size(
                     stock_price=optimal_price,
                     available_cash=available_cash
                 )
+                logger.info(f"📊 기본 전략 사용: {quantity}주")
 
             if quantity == 0:
-                logger.warning("매수 수량 0")
+                logger.warning(f"⚠️ 매수 수량 0 (현금: {available_cash:,}원, 가격: {optimal_price:,}원)")
                 return
 
             total_amount = optimal_price * quantity
