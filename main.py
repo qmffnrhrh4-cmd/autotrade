@@ -60,6 +60,22 @@ class AutoTradingBot:
         logger.info("오토트레이드 프로 - 고급 AI 트레이딩 시스템")
         logger.info("="*80)
 
+        # Fix v6.1.3: 시스템 자가 진단 실행
+        try:
+            from utils.system_diagnostics import run_diagnostics
+            diagnostics_summary = run_diagnostics(save_to_file=True)
+
+            # 치명적 오류가 있으면 경고
+            if diagnostics_summary['failed'] > 0:
+                logger.warning("")
+                logger.warning("⚠️" * 40)
+                logger.warning(f"⚠️  시스템 진단에서 {diagnostics_summary['failed']}개의 문제가 발견되었습니다!")
+                logger.warning("⚠️  logs/diagnostics_report.txt 파일을 확인하세요")
+                logger.warning("⚠️" * 40)
+                logger.warning("")
+        except Exception as e:
+            logger.warning(f"시스템 진단 실패 (무시하고 계속): {e}")
+
         self.config = get_config()
         self.is_running = False
         self.is_initialized = False
