@@ -1337,12 +1337,45 @@ class AutoTradingBot:
                 logger.info(f"테스트 모드: AI 검토 완료 -> 실제 매수 API 호출")
                 logger.info(f"   Stock: {stock_name}, AI score: {candidate.ai_score}, Total score: {scoring_result.total_score}")
 
-            order_result = self.order_api.buy(
-                stock_code=stock_code,
-                quantity=quantity,
-                price=optimal_price,
-                order_type=order_type
-            )
+            # Fix v6.1.3: 분할 매수 사용
+            if self.split_order_executor:
+                logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주")
+                order_result = self.split_order_executor.execute_split_buy(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    total_quantity=quantity,
+                    target_price=optimal_price,
+                    order_type=order_type
+                )
+            else:
+                # Fallback: 일반 매수
+                order_result = self.order_api.buy(
+                    stock_code=stock_code,
+                    quantity=quantity,
+                    price=optimal_price,
+                    order_type=order_type
+                )
+
+            # Fix v6.1.3: 가상매매도 동시 실행
+            if self.virtual_trading_manager and order_result:
+                try:
+                    # 활성 전략 중 첫 번째에 가상매매 실행
+                    strategies = self.virtual_trading_manager.db.get_all_strategies()
+                    if strategies:
+                        first_strategy = strategies[0]
+                        self.virtual_trading_manager.execute_buy(
+                            strategy_id=first_strategy['id'],
+                            stock_code=stock_code,
+                            stock_name=stock_name,
+                            quantity=quantity,
+                            price=float(optimal_price),
+                            stop_loss_percent=5.0,  # 5% 손절
+                            take_profit_percent=10.0,  # 10% 익절
+                            use_split=True  # 가상매매도 분할 매수
+                        )
+                        logger.info(f"✅ 가상매매 동시 실행: {stock_name} ({first_strategy['name']})")
+                except Exception as e:
+                    logger.warning(f"가상매매 실행 실패 (무시하고 계속): {e}")
 
             if order_result:
                 order_no = order_result.get('order_no', '')
@@ -1426,12 +1459,42 @@ class AutoTradingBot:
                 logger.info(f"테스트 모드: 매도 조건 충족 -> 실제 매도 API 호출")
                 logger.info(f"   Stock: {stock_name}, Reason: {reason}, P/L: {profit_loss:+,} ({profit_loss_rate:+.2f}%)")
 
-            order_result = self.order_api.sell(
-                stock_code=stock_code,
-                quantity=quantity,
-                price=optimal_price,
-                order_type=order_type
-            )
+            # Fix v6.1.3: 분할 매도 사용
+            if self.split_order_executor:
+                logger.info(f"🔀 분할 매도 실행: {stock_name} {quantity}주")
+                order_result = self.split_order_executor.execute_split_sell(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    total_quantity=quantity,
+                    target_price=optimal_price,
+                    order_type=order_type
+                )
+            else:
+                # Fallback: 일반 매도
+                order_result = self.order_api.sell(
+                    stock_code=stock_code,
+                    quantity=quantity,
+                    price=optimal_price,
+                    order_type=order_type
+                )
+
+            # Fix v6.1.3: 가상매매 포지션 찾아서 동시 매도
+            if self.virtual_trading_manager and order_result:
+                try:
+                    positions = self.virtual_trading_manager.get_positions()
+                    # 같은 종목 포지션 찾기
+                    for pos in positions:
+                        if pos['stock_code'] == stock_code:
+                            self.virtual_trading_manager.execute_sell(
+                                position_id=pos['id'],
+                                sell_price=float(optimal_price),
+                                reason=reason,
+                                use_split=True  # 가상매매도 분할 매도
+                            )
+                            logger.info(f"✅ 가상매매 동시 매도: {stock_name} (포지션 ID: {pos['id']})")
+                            break
+                except Exception as e:
+                    logger.warning(f"가상매매 매도 실패 (무시하고 계속): {e}")
 
             if order_result:
                 order_no = order_result.get('order_no', '')
