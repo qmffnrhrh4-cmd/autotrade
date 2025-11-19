@@ -189,10 +189,10 @@ class SystemDiagnostics:
 
         modules_to_check = [
             ("database", "데이터베이스 모델"),
-            ("api.openapi", "OpenAPI 클라이언트"),
             ("api.account", "계좌 API"),
             ("api.order", "주문 API"),
-            ("api.data_fetcher", "시세 조회 API"),
+            ("api.market", "마켓 API"),
+            ("research.data_fetcher", "시세 조회 API"),
             ("virtual_trading", "가상매매 시스템"),
             ("ai.strategy_loader", "전략 로더"),
             ("ai.program_manager", "프로그램 매니저"),

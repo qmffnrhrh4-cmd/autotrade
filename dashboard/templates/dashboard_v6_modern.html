@@ -773,6 +773,107 @@
 
         // 5초마다 데이터 갱신
         setInterval(fetchDashboardData, 5000);
+
+        // 포지션 데이터 페칭 및 렌더링
+        async function fetchPositions() {
+            try {
+                const response = await fetch('/api/positions');
+                const positions = await response.json();
+
+                updatePositionsTable(positions);
+            } catch (error) {
+                console.error('포지션 가져오기 실패:', error);
+            }
+        }
+
+        function updatePositionsTable(positions) {
+            const tbody = document.getElementById('positionsTableBody');
+
+            if (!positions || positions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 50px; color: var(--text-muted);">
+                            보유 포지션이 없습니다
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = positions.map(pos => {
+                const isProfit = pos.profit_loss >= 0;
+                const profitClass = isProfit ? 'positive' : 'negative';
+                const profitIcon = isProfit ? 'fa-arrow-up' : 'fa-arrow-down';
+                const profitSign = isProfit ? '+' : '';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong>${pos.stock_name}</strong>
+                            <br>
+                            <small style="color: var(--text-muted);">${pos.stock_code}</small>
+                        </td>
+                        <td>₩${pos.avg_price.toLocaleString()}</td>
+                        <td>₩${pos.current_price.toLocaleString()}</td>
+                        <td>${pos.quantity.toLocaleString()}주</td>
+                        <td class="${profitClass}">
+                            <i class="fas ${profitIcon}"></i>
+                            ₩${profitSign}${pos.profit_loss.toLocaleString()}
+                        </td>
+                        <td class="${profitClass}">
+                            <strong>${profitSign}${pos.profit_loss_percent.toFixed(2)}%</strong>
+                        </td>
+                        <td>
+                            <button class="btn btn-danger" onclick="sellPosition('${pos.stock_code}', '${pos.stock_name}', ${pos.quantity}, ${pos.current_price})" style="background: var(--color-danger); color: white; padding: 8px 16px; font-size: 13px;">
+                                <i class="fas fa-arrow-down"></i>
+                                매도
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // 포지션 매도 함수
+        async function sellPosition(stockCode, stockName, quantity, price) {
+            if (!confirm(`${stockName} (${stockCode}) ${quantity}주를 매도하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/portfolio/sell', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        stock_code: stockCode,
+                        stock_name: stockName,
+                        quantity: quantity,
+                        price: price
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert(`매도 성공: ${stockName} ${quantity}주`);
+                    // 포지션 목록 새로고침
+                    fetchPositions();
+                } else {
+                    alert(`매도 실패: ${result.message || '알 수 없는 오류'}`);
+                }
+            } catch (error) {
+                console.error('매도 요청 실패:', error);
+                alert('매도 요청 중 오류가 발생했습니다');
+            }
+        }
+
+        // 초기 포지션 로드
+        fetchPositions();
+
+        // 10초마다 포지션 갱신
+        setInterval(fetchPositions, 10000);
     </script>
 </body>
 </html>
