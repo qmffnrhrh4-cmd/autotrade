@@ -592,71 +592,81 @@ class StrategyOptimizationEngine:
         generation_count = 0
 
         while self.running and (not max_generations or generation_count < max_generations):
-            logger.info("=" * 80)
-            logger.info(f"📊 세대 {self.current_generation} 평가 중...")
-            logger.info("=" * 80)
-            start_time = time.time()
+            try:
+                logger.info("=" * 80)
+                logger.info(f"📊 세대 {self.current_generation} 평가 중...")
+                logger.info("=" * 80)
+                start_time = time.time()
 
-            # 병렬 평가
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                futures = {executor.submit(self.evaluate_fitness, gene, stock_codes): i for i, gene in enumerate(population)}
-                fitness_scores = [0.0] * len(population)
-                metrics_list = [{}] * len(population)
+                # 병렬 평가
+                with ThreadPoolExecutor(max_workers=4) as executor:
+                    futures = {executor.submit(self.evaluate_fitness, gene, stock_codes): i for i, gene in enumerate(population)}
+                    fitness_scores = [0.0] * len(population)
+                    metrics_list = [{}] * len(population)
 
-                for future in as_completed(futures):
-                    idx = futures[future]
+                    for future in as_completed(futures):
+                        idx = futures[future]
+                        try:
+                            fitness, metrics = future.result()
+                            fitness_scores[idx] = fitness
+                            metrics_list[idx] = metrics
+                        except Exception as e:
+                            logger.error(f"전략 {idx} 평가 실패: {e}")
+                            # 기본값 설정
+                            fitness_scores[idx] = 0.0
+                            metrics_list[idx] = {
+                                'total_return_pct': 0, 'sharpe_ratio': 0, 'win_rate': 0,
+                                'max_drawdown_pct': 0, 'profit_factor': 0, 'total_trades': 0
+                            }
+
+                elapsed = time.time() - start_time
+                logger.info(f"✅ 세대 {self.current_generation} 평가 완료 ({elapsed:.1f}초)")
+                logger.info(f"  🏆 최고 점수: {max(fitness_scores):.2f}")
+                logger.info(f"  📊 평균 점수: {sum(fitness_scores)/len(fitness_scores):.2f}")
+                logger.info(f"  📉 최저 점수: {min(fitness_scores):.2f}")
+
+                # DB 저장
+                self.save_generation(population, fitness_scores, metrics_list)
+
+                # 자동 배포: 최우수 전략을 가상매매에 배포
+                if self.auto_deployer and self.current_generation % 5 == 0:  # 5세대마다 배포
+                    logger.info("🚀 최우수 전략 자동 배포 시작...")
                     try:
-                        fitness, metrics = future.result()
-                        fitness_scores[idx] = fitness
-                        metrics_list[idx] = metrics
+                        best_strategies = self.auto_deployer.get_best_strategy(top_n=1)
+                        if best_strategies:
+                            best_strategy = best_strategies[0]
+                            # 이미 배포된 전략이 아닌 경우만 배포
+                            if best_strategy['id'] not in [d.strategy_id for d in self.auto_deployer.deployed_strategies.values() if d.status == "active"]:
+                                vt_id = self.auto_deployer.deploy_strategy(best_strategy)
+                                if vt_id:
+                                    logger.info(f"✅ 가상매매 배포 완료: VT ID {vt_id}")
+                            else:
+                                logger.info("ℹ️  최우수 전략이 이미 배포되어 있습니다")
                     except Exception as e:
-                        logger.error(f"전략 {idx} 평가 실패: {e}")
-                        # 기본값 설정
-                        fitness_scores[idx] = 0.0
-                        metrics_list[idx] = {
-                            'total_return_pct': 0, 'sharpe_ratio': 0, 'win_rate': 0,
-                            'max_drawdown_pct': 0, 'profit_factor': 0, 'total_trades': 0
-                        }
+                        logger.error(f"자동 배포 실패: {e}")
 
-            elapsed = time.time() - start_time
-            logger.info(f"✅ 세대 {self.current_generation} 평가 완료 ({elapsed:.1f}초)")
-            logger.info(f"  🏆 최고 점수: {max(fitness_scores):.2f}")
-            logger.info(f"  📊 평균 점수: {sum(fitness_scores)/len(fitness_scores):.2f}")
-            logger.info(f"  📉 최저 점수: {min(fitness_scores):.2f}")
+                # 다음 세대 진화
+                logger.info(f"세대 진화 중... (현재 세대: {self.current_generation})")
+                elite_indices = sorted(range(len(fitness_scores)), key=lambda i: fitness_scores[i], reverse=True)[:self.elite_count]
+                logger.info(f"  엘리트 보존: {self.elite_count}개 (최고 점수: {fitness_scores[elite_indices[0]]:.2f})")
 
-            # DB 저장
-            self.save_generation(population, fitness_scores, metrics_list)
+                population = self.evolve_generation(population, fitness_scores)
+                self.current_generation += 1
+                generation_count += 1
 
-            # 자동 배포: 최우수 전략을 가상매매에 배포
-            if self.auto_deployer and self.current_generation % 5 == 0:  # 5세대마다 배포
-                logger.info("🚀 최우수 전략 자동 배포 시작...")
-                try:
-                    best_strategies = self.auto_deployer.get_best_strategy(top_n=1)
-                    if best_strategies:
-                        best_strategy = best_strategies[0]
-                        # 이미 배포된 전략이 아닌 경우만 배포
-                        if best_strategy['id'] not in [d.strategy_id for d in self.auto_deployer.deployed_strategies.values() if d.status == "active"]:
-                            vt_id = self.auto_deployer.deploy_strategy(best_strategy)
-                            if vt_id:
-                                logger.info(f"✅ 가상매매 배포 완료: VT ID {vt_id}")
-                        else:
-                            logger.info("ℹ️  최우수 전략이 이미 배포되어 있습니다")
-                except Exception as e:
-                    logger.error(f"자동 배포 실패: {e}")
+                # 대기
+                if self.running and (not max_generations or generation_count < max_generations):
+                    logger.info(f"⏰ {interval_seconds}초 후 다음 세대 시작...")
+                    time.sleep(interval_seconds)
 
-            # 다음 세대 진화
-            logger.info(f"세대 진화 중... (현재 세대: {self.current_generation})")
-            elite_indices = sorted(range(len(fitness_scores)), key=lambda i: fitness_scores[i], reverse=True)[:self.elite_count]
-            logger.info(f"  엘리트 보존: {self.elite_count}개 (최고 점수: {fitness_scores[elite_indices[0]]:.2f})")
-
-            population = self.evolve_generation(population, fitness_scores)
-            self.current_generation += 1
-            generation_count += 1
-
-            # 대기
-            if self.running and (not max_generations or generation_count < max_generations):
-                logger.info(f"⏰ {interval_seconds}초 후 다음 세대 시작...")
-                time.sleep(interval_seconds)
+            except Exception as e:
+                logger.error(f"❌ 세대 {self.current_generation} 처리 중 오류 발생: {e}", exc_info=True)
+                logger.warning(f"⚠️  오류를 무시하고 다음 세대로 계속 진행합니다...")
+                # 오류가 발생해도 세대를 진행
+                self.current_generation += 1
+                generation_count += 1
+                # 잠시 대기 후 재시도
+                time.sleep(30)
 
         logger.info("=" * 80)
         logger.info(f"🏁 전략 최적화 종료 (총 {generation_count}세대)")

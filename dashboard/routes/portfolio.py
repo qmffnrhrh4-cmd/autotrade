@@ -574,37 +574,52 @@ def sell_position():
     }
     """
     try:
+        logger.info("="*60)
+        logger.info("📤 포트폴리오 매도 API 호출됨")
+        logger.info("="*60)
+
         if not _bot_instance:
+            logger.error("❌ Bot instance not available")
             return error_response('Bot instance not available')
 
         data = request.get_json()
+        logger.info(f"요청 데이터: {data}")
+
         stock_code = data.get('stock_code')
         quantity = data.get('quantity')
         price = data.get('price')
 
         if not stock_code:
+            logger.error("❌ stock_code 누락")
             return error_response('stock_code is required')
+
+        logger.info(f"매도 요청: {stock_code}, 수량={quantity}, 가격={price}")
 
         # Fix v6.1.3: 분할 매도 사용
         if hasattr(_bot_instance, 'split_order_executor') and _bot_instance.split_order_executor:
-            logger.info(f"🔀 포트폴리오 분할 매도: {stock_code} {quantity}주")
+            logger.info(f"🔀 포트폴리오 분할 매도 시작: {stock_code} {quantity}주")
 
             # 종목명 조회
             stock_name = stock_code
             if hasattr(_bot_instance, 'account_api'):
+                logger.info("보유 종목 조회 중...")
                 holdings = _bot_instance.account_api.get_holdings()
+                logger.info(f"보유 종목 수: {len(holdings) if holdings else 0}")
                 for h in holdings:
                     if h.get('stk_cd', '').replace('A', '') == stock_code:
                         stock_name = h.get('stk_nm', stock_code)
                         # quantity가 없으면 전량 매도
                         if not quantity:
                             quantity = int(h.get('rmnd_qty', 0))
+                        logger.info(f"매도 대상: {stock_name} (보유: {h.get('rmnd_qty', 0)}주)")
                         break
 
             if not quantity or quantity == 0:
+                logger.error(f"❌ 보유 수량 없음 (stock_code={stock_code})")
                 return error_response('보유 수량 없음')
 
             # 분할 매도 실행
+            logger.info(f"🚀 분할 매도 실행: {stock_name} {quantity}주 @ {price if price else '시장가'}원")
             result = _bot_instance.split_order_executor.execute_split_sell(
                 stock_code=stock_code,
                 stock_name=stock_name,
@@ -614,6 +629,7 @@ def sell_position():
             )
 
             if result and result.get('success'):
+                logger.info(f"✅ 분할 매도 성공: {stock_name} {quantity}주")
                 return jsonify({
                     'success': True,
                     'message': f'{stock_name} {quantity}주 분할 매도 주문 완료',
@@ -622,11 +638,12 @@ def sell_position():
                     'split_orders': result.get('split_orders', [])
                 })
             else:
+                logger.error(f"❌ 분할 매도 실패: {stock_name} {quantity}주")
                 return error_response('매도 주문 실패')
 
         elif hasattr(_bot_instance, 'order_api') and _bot_instance.order_api:
             # Fallback: 일반 매도
-            logger.info(f"일반 매도: {stock_code} {quantity}주")
+            logger.info(f"일반 매도 시작: {stock_code} {quantity}주")
 
             result = _bot_instance.order_api.sell(
                 stock_code=stock_code,
@@ -635,17 +652,22 @@ def sell_position():
                 order_type='0'
             )
 
+            logger.info(f"매도 API 응답: {result}")
+
             if result:
+                logger.info(f"✅ 일반 매도 성공: {stock_code} {quantity}주")
                 return jsonify({
                     'success': True,
                     'message': f'{stock_code} {quantity}주 매도 주문 완료',
                     'order_no': result.get('order_no')
                 })
             else:
+                logger.error(f"❌ 일반 매도 실패: {stock_code} {quantity}주")
                 return error_response('매도 주문 실패')
         else:
+            logger.error("❌ Trading API not available")
             return error_response('Trading API not available')
 
     except Exception as e:
-        logger.error(f"Portfolio sell error: {e}", exc_info=True)
+        logger.error(f"❌ Portfolio sell error: {e}", exc_info=True)
         return error_response(str(e))

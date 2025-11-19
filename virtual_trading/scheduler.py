@@ -179,41 +179,69 @@ class VirtualTradingScheduler:
         시장 스캔하여 매수 후보 종목 찾기
         """
         try:
-            # Screener를 사용하여 후보 종목 찾기
-            screener = self.bot_instance.screener
+            # ScannerPipeline을 사용하여 후보 종목 찾기
+            scanner = self.bot_instance.scanner
             scoring_system = self.bot_instance.scoring_system
 
-            # 시장 스캔 (상위 20개)
-            candidates = screener.scan_market(limit=20)
+            if not scanner:
+                logger.warning("Scanner 없음")
+                return []
+
+            # 시장 스캔 실행
+            candidates = scanner.scan_market()
 
             if not candidates:
+                logger.debug("가상매매: 스캔 결과 없음")
                 return []
+
+            logger.debug(f"가상매매: 스캔 결과 {len(candidates)}개")
 
             # 스코어링
             scored_candidates = []
-            for candidate in candidates:
+            for candidate in candidates[:20]:  # 상위 20개만 스코어링
                 try:
-                    score = scoring_system.calculate_score(
-                        stock_code=candidate['stock_code'],
-                        stock_name=candidate.get('stock_name', ''),
-                        data=candidate
-                    )
+                    # StockCandidate 객체를 딕셔너리로 변환
+                    stock_data = {
+                        'stock_code': candidate.code,
+                        'stock_name': candidate.name,
+                        'current_price': candidate.price,
+                        'volume': candidate.volume,
+                        'change_rate': candidate.rate,
+                        'institutional_net_buy': getattr(candidate, 'institutional_net_buy', 0),
+                        'foreign_net_buy': getattr(candidate, 'foreign_net_buy', 0),
+                        'bid_ask_ratio': getattr(candidate, 'bid_ask_ratio', 1.0),
+                        'institutional_trend': getattr(candidate, 'institutional_trend', None),
+                        'avg_volume': getattr(candidate, 'avg_volume', None),
+                        'volatility': getattr(candidate, 'volatility', None),
+                        'execution_intensity': getattr(candidate, 'execution_intensity', None),
+                        'program_net_buy': getattr(candidate, 'program_net_buy', None),
+                    }
 
-                    if score > 60:  # 60점 이상만
+                    # 스코어 계산 (올바른 시그니처)
+                    scoring_result = scoring_system.calculate_score(stock_data, scan_type='default')
+                    score = scoring_result.total_score
+
+                    if score >= 150:  # 150점 이상만 (가상매매는 좀 더 보수적)
                         scored_candidates.append({
-                            **candidate,
+                            'stock_code': candidate.code,
+                            'stock_name': candidate.name,
+                            'current_price': candidate.price,
+                            'volume': candidate.volume,
+                            'change_rate': candidate.rate,
                             'score': score
                         })
                 except Exception as e:
-                    logger.debug(f"스코어링 실패 ({candidate.get('stock_code')}): {e}")
+                    logger.debug(f"스코어링 실패 ({getattr(candidate, 'code', 'Unknown')}): {e}")
 
             # 점수 높은 순으로 정렬
             scored_candidates.sort(key=lambda x: x['score'], reverse=True)
 
+            logger.debug(f"가상매매: 스코어링 결과 {len(scored_candidates)}개 (150점 이상)")
+
             return scored_candidates[:5]  # 상위 5개만
 
         except Exception as e:
-            logger.error(f"시장 스캔 실패: {e}")
+            logger.error(f"시장 스캔 실패: {e}", exc_info=True)
             return []
 
     def _try_buy_for_strategy(self, strategy: Dict[str, Any], candidates: List[Dict[str, Any]]):
