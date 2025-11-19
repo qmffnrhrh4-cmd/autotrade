@@ -139,8 +139,14 @@ class EmergencyManager:
             비상 이벤트 (없으면 None)
         """
         # 1. 포트폴리오 손실 체크
-        # Fix: 초기 상태(portfolio_value=0 또는 매우 작은 값)는 무시
-        if portfolio_value == 0 or portfolio_value < 1000:
+        # Fix v6.1.3: 초기 상태(portfolio_value=0 또는 매우 작은 값) 또는 initial_capital이 0인 경우 무시
+        if portfolio_value == 0 or portfolio_value < 100000 or initial_capital == 0:
+            logger.debug(f"포트폴리오 체크 건너뜀: value={portfolio_value:,}, capital={initial_capital:,}")
+            return None
+
+        # Fix v6.1.3: portfolio_value가 initial_capital보다 매우 작으면 데이터 오류로 간주
+        if portfolio_value < initial_capital * 0.05:  # 초기 자본의 5% 미만이면 데이터 오류
+            logger.warning(f"⚠️ 포트폴리오 데이터 오류 의심: value={portfolio_value:,}, capital={initial_capital:,} (체크 건너뜀)")
             return None
 
         if initial_capital > 0:
@@ -305,8 +311,18 @@ class EmergencyManager:
                 # 포트폴리오 상태 조회
                 if hasattr(bot_instance, 'portfolio_manager'):
                     portfolio_value = bot_instance.portfolio_manager.get_total_value()
-                    initial_capital = bot_instance.config.get('initial_capital', 10000000)
+
+                    # Fix v6.1.3: dynamic_risk_manager에서 initial_capital 가져오기
+                    if hasattr(bot_instance, 'dynamic_risk_manager'):
+                        initial_capital = bot_instance.dynamic_risk_manager.initial_capital
+                    else:
+                        initial_capital = 10000000  # 폴백
+
                     positions = bot_instance.portfolio_manager.get_positions()
+
+                    # positions가 Dict인 경우 List로 변환
+                    if isinstance(positions, dict):
+                        positions = list(positions.values())
 
                     # 비상 상황 체크
                     event = self.check_emergency_conditions(
@@ -332,14 +348,29 @@ class EmergencyManager:
             return "OrderAPI not available"
 
         try:
-            # 모든 포지션 조회
-            if hasattr(bot_instance, 'portfolio_manager'):
-                positions = bot_instance.portfolio_manager.get_positions()
+            # Fix v6.1.3: account_api에서 직접 holdings 조회
+            if hasattr(bot_instance, 'account_api'):
+                holdings = bot_instance.account_api.get_holdings()
 
-                # Fix: positions는 Dict[str, Dict]이므로 .values()로 iterate
-                for position in positions.values():
-                    stock_code = position.get('stock_code')
-                    quantity = position.get('quantity')
+                if not holdings:
+                    logger.warning("보유 종목 없음 - 청산 불필요")
+                    return "No positions to liquidate"
+
+                logger.info(f"청산 대상: {len(holdings)}개 종목")
+
+                for holding in holdings:
+                    stock_code = holding.get('stk_cd', '')
+                    if stock_code.startswith('A'):
+                        stock_code = stock_code[1:]
+
+                    stock_name = holding.get('stk_nm', '')
+                    quantity = int(holding.get('rmnd_qty', 0))
+
+                    if not stock_code or quantity == 0:
+                        logger.warning(f"잘못된 포지션 데이터: code={stock_code}, qty={quantity}")
+                        continue
+
+                    logger.info(f"  청산 시도: {stock_name}({stock_code}) {quantity}주")
 
                     # 시장가 매도
                     result = self.order_api.sell(
@@ -350,11 +381,11 @@ class EmergencyManager:
                     )
 
                     if result and result.get('success'):
-                        logger.info(f"  ✅ {stock_code} {quantity}주 긴급 청산 완료")
+                        logger.info(f"  ✅ {stock_name} {quantity}주 긴급 청산 완료")
                     else:
-                        logger.error(f"  ❌ {stock_code} 청산 실패")
+                        logger.error(f"  ❌ {stock_name} 청산 실패: {result}")
 
-            return "Emergency liquidation executed"
+            return f"Emergency liquidation executed for {len(holdings)} positions"
 
         except Exception as e:
             logger.error(f"Emergency liquidation error: {e}", exc_info=True)

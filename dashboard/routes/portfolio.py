@@ -440,12 +440,22 @@ def get_performance_metrics():
         from datetime import timedelta
         thirty_days_ago = datetime.now() - timedelta(days=30)
 
-        trades = session.query(Trade).filter(
-            Trade.action == 'sell',
-            Trade.profit_loss.isnot(None),
-            Trade.timestamp >= thirty_days_ago,
-            Trade.is_virtual == False  # Only real trades
-        ).all()
+        # Fix v6.1.3: Try to filter by is_virtual, fallback if column doesn't exist
+        try:
+            trades = session.query(Trade).filter(
+                Trade.action == 'sell',
+                Trade.profit_loss.isnot(None),
+                Trade.timestamp >= thirty_days_ago,
+                Trade.is_virtual == False  # Only real trades
+            ).all()
+        except Exception as e:
+            # Fallback: is_virtual column doesn't exist yet
+            logger.warning(f"is_virtual 컬럼 없음 - 모든 거래 포함: {e}")
+            trades = session.query(Trade).filter(
+                Trade.action == 'sell',
+                Trade.profit_loss.isnot(None),
+                Trade.timestamp >= thirty_days_ago
+            ).all()
 
         if not trades:
             # Return default metrics
