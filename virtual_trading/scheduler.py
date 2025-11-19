@@ -217,18 +217,26 @@ class VirtualTradingScheduler:
                         'program_net_buy': getattr(candidate, 'program_net_buy', None),
                     }
 
+                    # 기본 데이터 보강 (전략에서 사용)
+                    stock_data['volume_ratio'] = stock_data.get('volume', 0) / max(stock_data.get('avg_volume', 1), 1) if stock_data.get('avg_volume') else 1.0
+                    stock_data['price_change_percent'] = stock_data.get('change_rate', 0)
+                    stock_data['rsi'] = 50  # 기본값 (실제로는 계산 필요)
+
                     # 스코어 계산 (올바른 시그니처)
                     scoring_result = scoring_system.calculate_score(stock_data, scan_type='default')
                     score = scoring_result.total_score
 
-                    if score >= 150:  # 150점 이상만 (가상매매는 좀 더 보수적)
+                    if score >= 100:  # 100점 이상 (가상매매는 더 적극적으로 매수)
                         scored_candidates.append({
                             'stock_code': candidate.code,
                             'stock_name': candidate.name,
                             'current_price': candidate.price,
                             'volume': candidate.volume,
                             'change_rate': candidate.rate,
-                            'score': score
+                            'score': score,
+                            'volume_ratio': stock_data['volume_ratio'],
+                            'price_change_percent': stock_data['price_change_percent'],
+                            'rsi': stock_data['rsi']
                         })
                 except Exception as e:
                     logger.debug(f"스코어링 실패 ({getattr(candidate, 'code', 'Unknown')}): {e}")
@@ -262,7 +270,7 @@ class VirtualTradingScheduler:
                 return
 
             # 전략의 잔고 확인
-            strategy_info = self.virtual_manager.get_strategy_performance(strategy_id)
+            strategy_info = self.virtual_manager.get_performance_metrics(strategy_id)
             available_cash = strategy_info.get('current_capital', 0) - strategy_info.get('total_investment', 0)
 
             if available_cash < 100000:  # 10만원 미만

@@ -23,13 +23,22 @@ class VirtualPosition:
     current_price: int = 0
     unrealized_pnl: int = 0
     unrealized_pnl_rate: float = 0.0
+    highest_price: int = 0  # 보유 중 최고가
 
     def update_price(self, current_price: int):
         """현재가 업데이트 및 평가손익 계산"""
         self.current_price = current_price
+        # 최고가 업데이트
+        if current_price > self.highest_price:
+            self.highest_price = current_price
         self.unrealized_pnl = (current_price - self.entry_price) * self.quantity
         if self.entry_price > 0:
             self.unrealized_pnl_rate = ((current_price - self.entry_price) / self.entry_price) * 100
+
+    @property
+    def average_price(self) -> int:
+        """평균 매수가 (entry_price의 별칭)"""
+        return self.entry_price
 
     @property
     def days_held(self) -> int:
@@ -46,6 +55,7 @@ class VirtualPosition:
             'entry_time': self.entry_time.isoformat(),
             'strategy_name': self.strategy_name,
             'current_price': self.current_price,
+            'highest_price': self.highest_price,
             'unrealized_pnl': self.unrealized_pnl,
             'unrealized_pnl_rate': self.unrealized_pnl_rate,
             'days_held': self.days_held,
@@ -137,6 +147,9 @@ class VirtualAccount:
 
             existing.quantity = total_quantity
             existing.entry_price = avg_price
+            # 최고가 업데이트
+            if price > existing.highest_price:
+                existing.highest_price = price
         else:
             # 신규 포지션
             self.positions[stock_code] = VirtualPosition(
@@ -146,6 +159,7 @@ class VirtualAccount:
                 entry_price=price,
                 entry_time=datetime.now(),
                 strategy_name=strategy_name,
+                highest_price=price,  # 매수가를 최고가로 초기화
             )
 
         # 거래 기록
