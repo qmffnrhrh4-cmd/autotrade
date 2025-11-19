@@ -559,3 +559,93 @@ def get_performance_metrics():
         import traceback
         traceback.print_exc()
         return error_response(str(e))
+
+
+@portfolio_bp.route('/api/portfolio/sell', methods=['POST'])
+def sell_position():
+    """
+    포트폴리오에서 종목 매도
+
+    POST Body:
+    {
+        "stock_code": "005930",
+        "quantity": 10,
+        "price": 70000
+    }
+    """
+    try:
+        if not _bot_instance:
+            return error_response('Bot instance not available')
+
+        data = request.get_json()
+        stock_code = data.get('stock_code')
+        quantity = data.get('quantity')
+        price = data.get('price')
+
+        if not stock_code:
+            return error_response('stock_code is required')
+
+        # Fix v6.1.3: 분할 매도 사용
+        if hasattr(_bot_instance, 'split_order_executor') and _bot_instance.split_order_executor:
+            logger.info(f"🔀 포트폴리오 분할 매도: {stock_code} {quantity}주")
+
+            # 종목명 조회
+            stock_name = stock_code
+            if hasattr(_bot_instance, 'account_api'):
+                holdings = _bot_instance.account_api.get_holdings()
+                for h in holdings:
+                    if h.get('stk_cd', '').replace('A', '') == stock_code:
+                        stock_name = h.get('stk_nm', stock_code)
+                        # quantity가 없으면 전량 매도
+                        if not quantity:
+                            quantity = int(h.get('rmnd_qty', 0))
+                        break
+
+            if not quantity or quantity == 0:
+                return error_response('보유 수량 없음')
+
+            # 분할 매도 실행
+            result = _bot_instance.split_order_executor.execute_split_sell(
+                stock_code=stock_code,
+                stock_name=stock_name,
+                total_quantity=quantity,
+                target_price=price if price else 0,
+                order_type='0'  # 지정가
+            )
+
+            if result and result.get('success'):
+                return jsonify({
+                    'success': True,
+                    'message': f'{stock_name} {quantity}주 분할 매도 주문 완료',
+                    'stock_code': stock_code,
+                    'quantity': quantity,
+                    'split_orders': result.get('split_orders', [])
+                })
+            else:
+                return error_response('매도 주문 실패')
+
+        elif hasattr(_bot_instance, 'order_api') and _bot_instance.order_api:
+            # Fallback: 일반 매도
+            logger.info(f"일반 매도: {stock_code} {quantity}주")
+
+            result = _bot_instance.order_api.sell(
+                stock_code=stock_code,
+                quantity=quantity,
+                price=price if price else 0,
+                order_type='0'
+            )
+
+            if result:
+                return jsonify({
+                    'success': True,
+                    'message': f'{stock_code} {quantity}주 매도 주문 완료',
+                    'order_no': result.get('order_no')
+                })
+            else:
+                return error_response('매도 주문 실패')
+        else:
+            return error_response('Trading API not available')
+
+    except Exception as e:
+        logger.error(f"Portfolio sell error: {e}", exc_info=True)
+        return error_response(str(e))

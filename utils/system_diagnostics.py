@@ -460,6 +460,11 @@ class SystemDiagnostics:
         logger.info(f"⏱️  소요시간: {duration:.2f}초")
         logger.info(f"🎯 전체 상태: {summary['overall_status'].upper()}")
         logger.info("=" * 80)
+        logger.info("")
+        logger.info("📝 진단 리포트가 저장됩니다:")
+        logger.info(f"   → logs/diagnostics_report.json (JSON)")
+        logger.info(f"   → logs/diagnostics_report.txt (텍스트)")
+        logger.info("")
 
         if failed > 0:
             logger.warning("")
