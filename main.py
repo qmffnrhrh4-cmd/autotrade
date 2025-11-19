@@ -470,7 +470,7 @@ class AutoTradingBot:
                     logger.info("  💡 전략 진화를 시작하려면: python run_strategy_optimizer.py")
 
             except Exception as e:
-                logger.warning(f"진화된 전략 로더 초기화 실패: {e}")
+                logger.error(f"❌ 진화된 전략 로더 초기화 실패: {e}", exc_info=True)
                 logger.warning("기본 전략으로 계속 진행합니다")
                 self.strategy_loader = None
 
@@ -1361,9 +1361,13 @@ class AutoTradingBot:
                 try:
                     # 활성 전략 중 첫 번째에 가상매매 실행
                     strategies = self.virtual_trading_manager.db.get_all_strategies()
-                    if strategies:
+                    if not strategies:
+                        logger.warning("⚠️ 가상매매 전략이 없습니다 - 슬롯을 생성해주세요")
+                    else:
                         first_strategy = strategies[0]
-                        self.virtual_trading_manager.execute_buy(
+                        logger.info(f"🎯 가상매매 실행 시도: {stock_name} (전략: {first_strategy['name']})")
+
+                        result = self.virtual_trading_manager.execute_buy(
                             strategy_id=first_strategy['id'],
                             stock_code=stock_code,
                             stock_name=stock_name,
@@ -1373,9 +1377,13 @@ class AutoTradingBot:
                             take_profit_percent=10.0,  # 10% 익절
                             use_split=True  # 가상매매도 분할 매수
                         )
-                        logger.info(f"✅ 가상매매 동시 실행: {stock_name} ({first_strategy['name']})")
+
+                        if result:
+                            logger.info(f"✅ 가상매매 동시 실행 성공: {stock_name} ({first_strategy['name']})")
+                        else:
+                            logger.warning(f"⚠️ 가상매매 실행 실패 (결과 None): {stock_name}")
                 except Exception as e:
-                    logger.warning(f"가상매매 실행 실패 (무시하고 계속): {e}")
+                    logger.error(f"❌ 가상매매 실행 실패: {e}", exc_info=True)
 
             if order_result:
                 order_no = order_result.get('order_no', '')
@@ -1483,18 +1491,29 @@ class AutoTradingBot:
                 try:
                     positions = self.virtual_trading_manager.get_positions()
                     # 같은 종목 포지션 찾기
+                    found_position = False
                     for pos in positions:
                         if pos['stock_code'] == stock_code:
-                            self.virtual_trading_manager.execute_sell(
+                            found_position = True
+                            logger.info(f"🎯 가상매매 매도 시도: {stock_name} (포지션 ID: {pos['id']})")
+
+                            result = self.virtual_trading_manager.execute_sell(
                                 position_id=pos['id'],
                                 sell_price=float(optimal_price),
                                 reason=reason,
                                 use_split=True  # 가상매매도 분할 매도
                             )
-                            logger.info(f"✅ 가상매매 동시 매도: {stock_name} (포지션 ID: {pos['id']})")
+
+                            if result:
+                                logger.info(f"✅ 가상매매 동시 매도 성공: {stock_name} (포지션 ID: {pos['id']})")
+                            else:
+                                logger.warning(f"⚠️ 가상매매 매도 실패 (결과 None): {stock_name}")
                             break
+
+                    if not found_position:
+                        logger.debug(f"가상매매 포지션 없음: {stock_name} - 실제 매도만 실행")
                 except Exception as e:
-                    logger.warning(f"가상매매 매도 실패 (무시하고 계속): {e}")
+                    logger.error(f"❌ 가상매매 매도 실패: {e}", exc_info=True)
 
             if order_result:
                 order_no = order_result.get('order_no', '')
