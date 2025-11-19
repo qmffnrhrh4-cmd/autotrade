@@ -149,6 +149,16 @@ class VirtualTradingManager:
                     take_profit_price=take_profit_price
                 )
 
+                # Fix v6.1.3: 메인 데이터베이스에도 가상매매 기록
+                self._log_to_main_db(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    action='buy',
+                    quantity=quantity,
+                    price=int(price),
+                    notes=f"가상매매 전략 ID: {strategy_id}"
+                )
+
                 logger.info(
                     f"가상매매 매수 실행: {stock_name}({stock_code}) "
                     f"{quantity}주 @ {price:,}원 "
@@ -247,6 +257,22 @@ class VirtualTradingManager:
                     position_id=position_id,
                     sell_price=sell_price
                 )
+
+                # Fix v6.1.3: 메인 데이터베이스에도 가상매매 기록
+                if profit is not None:
+                    avg_price = position['avg_price']
+                    profit_loss_ratio = (profit / (position['quantity'] * avg_price) * 100) if avg_price > 0 else 0.0
+
+                    self._log_to_main_db(
+                        stock_code=position['stock_code'],
+                        stock_name=position['stock_name'],
+                        action='sell',
+                        quantity=position['quantity'],
+                        price=int(sell_price),
+                        profit_loss=int(profit),
+                        profit_loss_ratio=profit_loss_ratio,
+                        notes=f"가상매매 전략 ID: {strategy_id}, 사유: {reason}"
+                    )
 
                 logger.info(
                     f"가상매매 매도 실행: Position #{position_id} "
@@ -496,6 +522,54 @@ class VirtualTradingManager:
         except Exception as e:
             logger.error(f"전략 삭제 실패: {e}")
             return False
+
+    def _log_to_main_db(
+        self,
+        stock_code: str,
+        stock_name: str,
+        action: str,
+        quantity: int,
+        price: int,
+        profit_loss: int = 0,
+        profit_loss_ratio: float = 0.0,
+        notes: str = ""
+    ):
+        """
+        메인 데이터베이스에 가상매매 거래 기록
+
+        Fix v6.1.3: 가상매매도 메인 DB에 is_virtual=True로 기록하여
+        성과 분석 시 구분할 수 있도록 함
+        """
+        try:
+            from database import get_db_session, Trade
+            from datetime import datetime
+
+            session = get_db_session()
+            if not session:
+                return
+
+            trade = Trade(
+                timestamp=datetime.now(),
+                stock_code=stock_code,
+                stock_name=stock_name,
+                action=action,
+                quantity=quantity,
+                price=price,
+                total_amount=quantity * price,
+                profit_loss=profit_loss,
+                profit_loss_ratio=profit_loss_ratio,
+                is_virtual=True,  # 가상매매 플래그
+                notes=notes
+            )
+
+            session.add(trade)
+            session.commit()
+            session.close()
+
+            logger.debug(f"메인 DB에 가상매매 기록: {action} {stock_name} {quantity}주")
+
+        except Exception as e:
+            logger.warning(f"메인 DB 기록 실패 (무시됨): {e}")
 
     def close(self):
         """데이터베이스 연결 종료"""

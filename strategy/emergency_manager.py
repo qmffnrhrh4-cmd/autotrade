@@ -393,6 +393,11 @@ class EmergencyManager:
 
     def _liquidate_position(self, stock_code: str, bot_instance) -> str:
         """특정 포지션 청산"""
+        # Fix v6.1.3: stock_code 유효성 검사
+        if not stock_code or stock_code == '':
+            logger.warning("⚠️ 긴급 청산: stock_code가 비어있음 - 청산 불가")
+            return "Invalid stock_code"
+
         logger.warning(f"🔴 긴급 청산: {stock_code}")
 
         if not self.order_api:
