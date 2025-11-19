@@ -499,10 +499,11 @@ class AutoTradingBot:
                 if self.data_fetcher and self.virtual_trading_manager:
                     self.virtual_trading_scheduler = VirtualTradingScheduler(
                         virtual_manager=self.virtual_trading_manager,
-                        data_fetcher=self.data_fetcher
+                        data_fetcher=self.data_fetcher,
+                        bot_instance=self  # Fix v6.1.4: bot_instance 전달하여 독립적인 매매 가능
                     )
                     self.virtual_trading_scheduler.start()
-                    logger.info("가상매매 스케줄러 시작 완료 (실시간 업데이트, 자동 손절/익절)")
+                    logger.info("가상매매 스케줄러 시작 완료 (실시간 업데이트, 자동 손절/익절, 독립 매매)")
 
                 logger.info("가상매매 시스템 초기화 완료")
             except Exception as e:
