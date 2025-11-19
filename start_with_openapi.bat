@@ -130,16 +130,36 @@ echo ===========================================================================
 echo Step 2: Starting Strategy Optimizer (Background)
 echo ================================================================================
 echo.
+echo 🧬 전략 진화 시스템 시작 중...
+echo    - 24/7 자동 백테스팅 및 전략 최적화
+echo    - 최우수 전략 자동 가상매매 배포
+echo    - 로그: logs/strategy_optimizer.log
+echo.
 
-REM Start strategy optimizer in background
-start /B python run_strategy_optimizer.py --auto-deploy
-echo Strategy optimizer started in background
+REM Create logs directory if it doesn't exist
+if not exist "logs" mkdir logs
+
+REM Start strategy optimizer in background (redirecting output to log file)
+start /B python run_strategy_optimizer.py --auto-deploy > logs\strategy_optimizer.log 2>&1
+echo ✅ Strategy optimizer started in background
 echo.
 timeout /t 2 /nobreak >nul
 
 echo.
 echo ================================================================================
 echo Step 3: Starting Main Application (64-bit)
+echo ================================================================================
+echo.
+echo 📊 모든 시스템이 자동으로 실행됩니다:
+echo    ✅ OpenAPI 서버 (32비트) - Kiwoom 연결
+echo    ✅ 전략 최적화 엔진 - 백그라운드 실행 중
+echo    ✅ 가상매매 시스템 - 60초마다 독립 매매
+echo    ✅ 메인 애플리케이션 - 실시간 매매
+echo.
+echo 💡 팁: 로그 확인 방법
+echo    - 전략 최적화: logs\strategy_optimizer.log
+echo    - 메인 로그: logs\autotrade.log
+echo.
 echo ================================================================================
 echo.
 
