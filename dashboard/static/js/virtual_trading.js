@@ -33,9 +33,9 @@ class VirtualTradingManager {
      * Fetch with timeout (타임아웃 기능이 있는 fetch)
      * @param {string} url - 요청 URL
      * @param {object} options - fetch 옵션
-     * @param {number} timeout - 타임아웃 시간 (ms, 기본값: 10000ms)
+     * @param {number} timeout - 타임아웃 시간 (ms, 기본값: 30000ms)
      */
-    async fetchWithTimeout(url, options = {}, timeout = 10000) {
+    async fetchWithTimeout(url, options = {}, timeout = 30000) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
 
