@@ -1342,13 +1342,14 @@ class AutoTradingBot:
 
             # Fix v6.1.3: 분할 매수 사용
             if self.split_order_executor:
-                logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주")
+                logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원")
+                # Fix v6.1.5: 올바른 인자 사용 (target_price, order_type 제거)
                 order_result = self.split_order_executor.execute_split_buy(
                     stock_code=stock_code,
                     stock_name=stock_name,
                     total_quantity=quantity,
-                    target_price=optimal_price,
-                    order_type=order_type
+                    entry_strategy="gradual_down",  # 점진적 하락 시 분할 매수
+                    num_splits=3                     # 3회 분할
                 )
             else:
                 # Fallback: 일반 매수
