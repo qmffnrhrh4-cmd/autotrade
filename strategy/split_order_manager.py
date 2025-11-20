@@ -152,11 +152,17 @@ class SplitOrderManager:
         )
 
         # 수량을 균등하게 분할 (마지막에 나머지 배정)
-        base_qty = total_quantity // num_splits
-        remainder = total_quantity % num_splits
+        # Fix: total_quantity가 num_splits보다 작으면 num_splits를 조정
+        actual_splits = min(num_splits, total_quantity)
+        base_qty = total_quantity // actual_splits
+        remainder = total_quantity % actual_splits
 
-        for i in range(num_splits):
+        for i in range(actual_splits):
             qty = base_qty + (1 if i < remainder else 0)
+            # Fix: 수량이 0이면 스킵 (안전장치)
+            if qty <= 0:
+                continue
+
             price = current_price * (1 + price_gaps[i])
 
             entry = SplitOrderEntry(
@@ -211,11 +217,17 @@ class SplitOrderManager:
         )
 
         # 수량을 균등하게 분할 (마지막에 나머지 배정)
-        base_qty = total_quantity // num_splits
-        remainder = total_quantity % num_splits
+        # Fix: total_quantity가 num_splits보다 작으면 num_splits를 조정
+        actual_splits = min(num_splits, total_quantity)
+        base_qty = total_quantity // actual_splits
+        remainder = total_quantity % actual_splits
 
-        for i in range(num_splits):
+        for i in range(actual_splits):
             qty = base_qty + (1 if i < remainder else 0)
+            # Fix: 수량이 0이면 스킵 (안전장치)
+            if qty <= 0:
+                continue
+
             price = entry_price * (1 + profit_targets[i])
 
             entry = SplitOrderEntry(
