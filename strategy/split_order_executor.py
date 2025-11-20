@@ -46,7 +46,8 @@ class SplitOrderExecutor:
         entry_strategy: str = "gradual_down",
         num_splits: int = 3,
         price_gaps: List[float] = None,
-        account_number: str = None
+        account_number: str = None,
+        order_type: str = '02'  # Fix v6.1.5: 주문 유형 (02: 지정가, 61: 장전 시간외, 81: 장후 시간외)
     ) -> Optional[SplitOrderGroup]:
         """
         분할 매수 실행
@@ -102,11 +103,12 @@ class SplitOrderExecutor:
                 logger.info(f"  [{idx+1}/{num_splits}] {entry.quantity}주 @ {entry.price:,.0f}원 주문 중...")
 
                 # 실제 매수 주문 실행
+                # Fix v6.1.5: 전달받은 order_type 사용 (장 종료 후 시간외 주문 지원)
                 result = self.order_api.buy(
                     stock_code=stock_code,
                     quantity=entry.quantity,
                     price=int(entry.price),
-                    order_type='02',  # 지정가
+                    order_type=order_type,
                     account_number=account_number
                 )
 
