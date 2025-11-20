@@ -577,6 +577,92 @@ def get_performance_metrics():
         return error_response(str(e))
 
 
+@portfolio_bp.route('/api/portfolio/summary')
+def get_portfolio_summary():
+    """
+    포트폴리오 요약 정보 조회
+
+    Returns:
+    {
+        "success": true,
+        "holdings": [
+            {
+                "stock_code": "005930",
+                "stock_name": "삼성전자",
+                "quantity": 10,
+                "avg_price": 70000,
+                "current_price": 71000,
+                "profit_loss": 10000,
+                "profit_loss_rate": 1.43
+            }
+        ],
+        "total_assets": 10000000,
+        "cash": 5000000,
+        "stock_value": 5000000
+    }
+    """
+    try:
+        logger.info("="*60)
+        logger.info("📊 포트폴리오 요약 API 호출됨")
+        logger.info("="*60)
+
+        if not _bot_instance:
+            logger.error("❌ Bot instance not available")
+            return error_response('Bot instance not available')
+
+        if not hasattr(_bot_instance, 'account_api'):
+            logger.error("❌ account_api not available")
+            return error_response('account_api not available')
+
+        # 보유 종목 및 예수금 조회
+        holdings = _bot_instance.account_api.get_holdings(market_type="KRX+NXT")
+        deposit = _bot_instance.account_api.get_deposit()
+
+        # 보유 종목 포맷팅
+        formatted_holdings = []
+        stock_value = 0
+
+        for h in holdings:
+            stock_code = h.get('stk_cd', '').replace('A', '').replace('_NX', '')
+            quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
+            avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+            current_price = int(float(str(h.get('prsnt_prc', 0)).replace(',', '')))
+            eval_amt = int(float(str(h.get('eval_amt', 0)).replace(',', '')))
+
+            profit_loss = eval_amt - (avg_price * quantity)
+            profit_loss_rate = ((current_price - avg_price) / avg_price * 100) if avg_price > 0 else 0
+
+            stock_value += eval_amt
+
+            formatted_holdings.append({
+                'stock_code': stock_code,
+                'stock_name': h.get('stk_nm', ''),
+                'quantity': quantity,
+                'avg_price': avg_price,
+                'current_price': current_price,
+                'profit_loss': profit_loss,
+                'profit_loss_rate': round(profit_loss_rate, 2)
+            })
+
+        # 예수금
+        cash = int(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', '')) if deposit else 0
+        total_assets = cash + stock_value
+
+        logger.info(f"✅ 보유 종목: {len(formatted_holdings)}개, 총 자산: {total_assets:,}원")
+
+        return jsonify({
+            'success': True,
+            'holdings': formatted_holdings,
+            'total_assets': total_assets,
+            'cash': cash,
+            'stock_value': stock_value
+        })
+
+    except Exception as e:
+        logger.error(f"❌ 포트폴리오 요약 조회 실패: {e}", exc_info=True)
+        return error_response(f'Failed to get portfolio summary: {str(e)}')
+
+
 @portfolio_bp.route('/api/portfolio/sell', methods=['POST'])
 def sell_position():
     """
