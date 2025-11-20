@@ -709,17 +709,19 @@ def sell_position():
                 holdings = _bot_instance.account_api.get_holdings()
                 logger.info(f"보유 종목 수: {len(holdings) if holdings else 0}")
                 for h in holdings:
-                    if h.get('stk_cd', '').replace('A', '') == stock_code:
+                    # Fix v6.1.5: 종목 코드 매칭 개선 (_NX 접미사 제거)
+                    holding_code = h.get('stk_cd', '').replace('A', '').replace('_NX', '')
+                    if holding_code == stock_code:
                         stock_name = h.get('stk_nm', stock_code)
                         # quantity가 없으면 전량 매도
                         if not quantity:
-                            quantity = int(h.get('rmnd_qty', 0))
-                        # 평균 매수가 조회
-                        entry_price = float(h.get('avg_buy_price', 0))
+                            quantity = int(str(h.get('rmnd_qty', 0)).replace(',', ''))
+                        # Fix v6.1.5: 평균 매수가 필드명 수정 (avg_buy_price → avg_prc)
+                        entry_price = float(str(h.get('avg_prc', 0)).replace(',', ''))
                         if entry_price == 0:
                             # 다른 필드도 확인
-                            entry_price = float(h.get('pchs_avg_pric', 0))
-                        logger.info(f"매도 대상: {stock_name} (보유: {h.get('rmnd_qty', 0)}주, 평균단가: {entry_price}원)")
+                            entry_price = float(str(h.get('pchs_avg_pric', 0)).replace(',', ''))
+                        logger.info(f"매도 대상: {stock_name} (보유: {h.get('rmnd_qty', 0)}주, 평균단가: {entry_price:,}원)")
                         break
 
             if not quantity or quantity == 0:
