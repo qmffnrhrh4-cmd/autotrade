@@ -450,24 +450,25 @@ class VirtualTradingManager:
         trades = self.get_trade_history(strategy_id)
 
         # 포지션 평가금액 계산
+        # Fix v6.1.5: KeyError 방지 - .get() 사용
         position_value = sum(
-            p['quantity'] * p['current_price']
+            p.get('quantity', 0) * p.get('current_price', 0)
             for p in positions
         )
 
         # 총 자산 = 현금 + 포지션 평가금액
-        total_assets = strategy['current_capital'] + position_value
+        total_assets = strategy.get('current_capital', 0) + position_value
 
         # 미실현 손익
-        unrealized_profit = sum(p['profit'] for p in positions)
+        unrealized_profit = sum(p.get('profit', 0) for p in positions)
 
         # 최대 손실 (MDD) 계산
         max_drawdown = 0
-        peak = strategy['initial_capital']
+        peak = strategy.get('initial_capital', 0)
 
         for trade in reversed(trades):  # 과거부터 계산
-            if trade['side'] == 'sell':
-                current = strategy['initial_capital'] + trade['profit']
+            if trade.get('side') == 'sell':
+                current = strategy.get('initial_capital', 0) + trade.get('profit', 0)
                 if current > peak:
                     peak = current
                 drawdown = (peak - current) / peak * 100 if peak > 0 else 0
@@ -475,19 +476,19 @@ class VirtualTradingManager:
 
         return {
             'strategy_id': strategy_id,
-            'strategy_name': strategy['name'],
-            'initial_capital': strategy['initial_capital'],
-            'current_capital': strategy['current_capital'],
+            'strategy_name': strategy.get('name', f'전략{strategy_id}'),
+            'initial_capital': strategy.get('initial_capital', 0),
+            'current_capital': strategy.get('current_capital', 0),
             'position_value': position_value,
             'total_assets': total_assets,
-            'total_profit': strategy['total_profit'],
+            'total_profit': strategy.get('total_profit', 0),
             'unrealized_profit': unrealized_profit,
-            'realized_profit': strategy['total_profit'],
-            'return_rate': strategy['return_rate'],
-            'win_rate': strategy['win_rate'],
-            'trade_count': strategy['trade_count'],
-            'win_count': strategy['win_count'],
-            'loss_count': strategy['loss_count'],
+            'realized_profit': strategy.get('total_profit', 0),
+            'return_rate': strategy.get('return_rate', 0),
+            'win_rate': strategy.get('win_rate', 0),
+            'trade_count': strategy.get('trade_count', 0),
+            'win_count': strategy.get('win_count', 0),
+            'loss_count': strategy.get('loss_count', 0),
             'max_drawdown': max_drawdown,
             'position_count': len(positions)
         }
