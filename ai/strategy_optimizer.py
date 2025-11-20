@@ -661,10 +661,8 @@ class StrategyOptimizationEngine:
 
             except Exception as e:
                 logger.error(f"❌ 세대 {self.current_generation} 처리 중 오류 발생: {e}", exc_info=True)
-                logger.warning(f"⚠️  오류를 무시하고 다음 세대로 계속 진행합니다...")
-                # 오류가 발생해도 세대를 진행
-                self.current_generation += 1
-                generation_count += 1
+                logger.warning(f"⚠️  30초 후 같은 세대를 재시도합니다...")
+                # 오류가 발생하면 세대를 증가시키지 않고 재시도
                 # 잠시 대기 후 재시도
                 time.sleep(30)
 

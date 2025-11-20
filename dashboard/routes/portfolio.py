@@ -433,32 +433,42 @@ def get_performance_metrics():
         from database import get_db_session, Trade
         from sqlalchemy import func
         import statistics
+        from flask import request
 
         session = get_db_session()
         if not session:
             return error_response('Database not available')
 
-        # Get completed trades (sell transactions) from last 30 days
-        # v6.1.1: Filter out virtual trades - only show real trading performance
+        # Get period from query parameter (default: 30 days)
+        period_days = int(request.args.get('period', 30))
         from datetime import timedelta
-        thirty_days_ago = datetime.now() - timedelta(days=30)
+
+        # Fix v6.1.5: Support different time periods
+        if period_days > 0:
+            period_start = datetime.now() - timedelta(days=period_days)
+            period_label = f'최근 {period_days}일'
+        else:
+            period_start = datetime(2000, 1, 1)  # 전체 기간
+            period_label = '전체 기간'
 
         # Fix v6.1.3: Try to filter by is_virtual, fallback if column doesn't exist
         try:
             trades = session.query(Trade).filter(
                 Trade.action == 'sell',
                 Trade.profit_loss.isnot(None),
-                Trade.timestamp >= thirty_days_ago,
+                Trade.timestamp >= period_start,
                 Trade.is_virtual == False  # Only real trades
             ).all()
+            logger.info(f"성과지표 계산: {len(trades)}개 실제 거래 (is_virtual=False)")
         except Exception as e:
             # Fallback: is_virtual column doesn't exist yet
             logger.warning(f"is_virtual 컬럼 없음 - 모든 거래 포함: {e}")
             trades = session.query(Trade).filter(
                 Trade.action == 'sell',
                 Trade.profit_loss.isnot(None),
-                Trade.timestamp >= thirty_days_ago
+                Trade.timestamp >= period_start
             ).all()
+            logger.info(f"성과지표 계산: {len(trades)}개 거래 (전체)")
 
         if not trades:
             # Return default metrics
@@ -479,7 +489,7 @@ def get_performance_metrics():
                     'avg_loss': 0.0,
                     'profit_factor': 0.0
                 },
-                'period': '최근 30일',
+                'period': period_label,
                 'has_data': False
             })
 
@@ -550,8 +560,14 @@ def get_performance_metrics():
                 'avg_loss': int(avg_loss),
                 'profit_factor': round(profit_factor, 2)
             },
-            'period': '최근 30일',
-            'has_data': True
+            'period': period_label,
+            'has_data': True,
+            'debug_info': {
+                'total_sell_trades': total_trades,
+                'date_range': f"{period_start.strftime('%Y-%m-%d')} ~ {datetime.now().strftime('%Y-%m-%d')}",
+                'profit_loss_ratio_available': len(returns),
+                'profit_loss_ratio_missing': total_trades - len(returns)
+            }
         })
 
     except Exception as e:
@@ -599,8 +615,9 @@ def sell_position():
         if hasattr(_bot_instance, 'split_order_executor') and _bot_instance.split_order_executor:
             logger.info(f"🔀 포트폴리오 분할 매도 시작: {stock_code} {quantity}주")
 
-            # 종목명 조회
+            # 종목명 및 평균 매수가 조회
             stock_name = stock_code
+            entry_price = 0
             if hasattr(_bot_instance, 'account_api'):
                 logger.info("보유 종목 조회 중...")
                 holdings = _bot_instance.account_api.get_holdings()
@@ -611,21 +628,29 @@ def sell_position():
                         # quantity가 없으면 전량 매도
                         if not quantity:
                             quantity = int(h.get('rmnd_qty', 0))
-                        logger.info(f"매도 대상: {stock_name} (보유: {h.get('rmnd_qty', 0)}주)")
+                        # 평균 매수가 조회
+                        entry_price = float(h.get('avg_buy_price', 0))
+                        if entry_price == 0:
+                            # 다른 필드도 확인
+                            entry_price = float(h.get('pchs_avg_pric', 0))
+                        logger.info(f"매도 대상: {stock_name} (보유: {h.get('rmnd_qty', 0)}주, 평균단가: {entry_price}원)")
                         break
 
             if not quantity or quantity == 0:
                 logger.error(f"❌ 보유 수량 없음 (stock_code={stock_code})")
                 return error_response('보유 수량 없음')
 
+            if entry_price == 0:
+                logger.error(f"❌ 평균 매수가를 찾을 수 없음 (stock_code={stock_code})")
+                return error_response('평균 매수가를 찾을 수 없음')
+
             # 분할 매도 실행
-            logger.info(f"🚀 분할 매도 실행: {stock_name} {quantity}주 @ {price if price else '시장가'}원")
+            logger.info(f"🚀 분할 매도 실행: {stock_name} {quantity}주 @ 평균단가 {entry_price}원")
             result = _bot_instance.split_order_executor.execute_split_sell(
                 stock_code=stock_code,
                 stock_name=stock_name,
                 total_quantity=quantity,
-                target_price=price if price else 0,
-                order_type='0'  # 지정가
+                entry_price=entry_price
             )
 
             if result and result.get('success'):
