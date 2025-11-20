@@ -467,16 +467,24 @@ class StrategyBacktester:
                     logger.info(f"✅ OpenAPI로 {len(historical_data)}개 종목 데이터 수집 완료")
                     return historical_data
                 else:
-                    logger.warning("⚠️ OpenAPI로 데이터를 가져오지 못했습니다. REST API로 시도합니다.")
+                    # Fix v6.1.5: REST API fallback 제거 (OpenAPI만 사용)
+                    logger.warning("⚠️ OpenAPI로 데이터를 가져오지 못했습니다. (백테스팅 스킵)")
+                    return {}
 
             except Exception as e:
                 logger.error(f"OpenAPI 데이터 조회 실패: {e}")
-                logger.info("REST API로 폴백합니다...")
                 import traceback
                 logger.debug(traceback.format_exc())
+                # Fix v6.1.5: REST API fallback 제거 (OpenAPI만 사용)
+                logger.warning("⚠️ OpenAPI 실패 - 백테스팅 스킵")
+                return {}
 
-        # REST API 폴백
-        try:
+        # Fix v6.1.5: REST API fallback 제거 (아래 코드는 더 이상 실행되지 않음)
+        logger.warning("⚠️ OpenAPI가 연결되지 않음 - 백테스팅 불가")
+        return {}
+
+        # 아래는 레거시 REST API 코드 (사용하지 않음)
+        if False:
             from api.market.chart_data import ChartDataAPI
 
             # Fix: API 연결 상태 확인
