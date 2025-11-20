@@ -741,14 +741,27 @@ def sell_position():
                 entry_price=entry_price
             )
 
-            if result and result.get('success'):
-                logger.info(f"✅ 분할 매도 성공: {stock_name} {quantity}주")
+            # Fix: result is a SplitOrderGroup object, not a dict
+            if result:
+                logger.info(f"✅ 분할 매도 성공: {stock_name} {quantity}주 (그룹 ID: {result.group_id})")
+                # Convert entries to dict format for JSON response
+                split_orders = [
+                    {
+                        'entry_id': entry.entry_id,
+                        'quantity': entry.quantity,
+                        'price': entry.price,
+                        'status': entry.status.value if hasattr(entry.status, 'value') else str(entry.status),
+                        'order_number': entry.order_number
+                    }
+                    for entry in result.entries
+                ]
                 return jsonify({
                     'success': True,
                     'message': f'{stock_name} {quantity}주 분할 매도 주문 완료',
                     'stock_code': stock_code,
                     'quantity': quantity,
-                    'split_orders': result.get('split_orders', [])
+                    'group_id': result.group_id,
+                    'split_orders': split_orders
                 })
             else:
                 logger.error(f"❌ 분할 매도 실패: {stock_name} {quantity}주")
