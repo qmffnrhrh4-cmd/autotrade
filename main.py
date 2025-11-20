@@ -1342,14 +1342,15 @@ class AutoTradingBot:
 
             # Fix v6.1.3: 분할 매수 사용
             if self.split_order_executor:
-                logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원")
-                # Fix v6.1.5: 올바른 인자 사용 (target_price, order_type 제거)
+                logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원 (주문유형: {order_type})")
+                # Fix v6.1.5: order_type 전달 (장 종료 후 시간외 주문 지원)
                 order_result = self.split_order_executor.execute_split_buy(
                     stock_code=stock_code,
                     stock_name=stock_name,
                     total_quantity=quantity,
                     entry_strategy="gradual_down",  # 점진적 하락 시 분할 매수
-                    num_splits=3                     # 3회 분할
+                    num_splits=3,                    # 3회 분할
+                    order_type=order_type            # 계산된 주문 유형 전달
                 )
             else:
                 # Fallback: 일반 매수
@@ -1390,7 +1391,13 @@ class AutoTradingBot:
                     logger.error(f"❌ 가상매매 실행 실패: {e}", exc_info=True)
 
             if order_result:
-                order_no = order_result.get('order_no', '')
+                # Fix v6.1.5: SplitOrderGroup vs dict 처리
+                if isinstance(order_result, dict):
+                    # 일반 주문 (dict)
+                    order_no = order_result.get('order_no', '')
+                else:
+                    # 분할 주문 (SplitOrderGroup)
+                    order_no = order_result.group_id if hasattr(order_result, 'group_id') else ''
 
                 trade = Trade(
                     stock_code=stock_code,
