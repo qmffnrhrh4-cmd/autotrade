@@ -1288,8 +1288,8 @@ class AutoTradingBot:
             deposit = self.account_api.get_deposit()
             holdings = self.account_api.get_holdings()
 
-            # Fix v6.1.4: 올바른 키 사용
-            available_cash = int(str(deposit.get('ord_alow_amt', '0')).replace(',', '')) if deposit else 0
+            # Fix v6.1.5: 100% 주문가능금액 사용 (ord_alow_amt → 100stk_ord_alow_amt)
+            available_cash = int(str(deposit.get('100stk_ord_alow_amt', '0')).replace(',', '')) if deposit else 0
 
             logger.info(f"💰 사용 가능 현금: {available_cash:,}원, 현재가: {optimal_price:,}원")
 

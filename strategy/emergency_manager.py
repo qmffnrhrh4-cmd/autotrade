@@ -174,6 +174,12 @@ class EmergencyManager:
 
         # 2. 개별 포지션 체크
         for position in positions:
+            # Fix v6.1.5: 빈 stock_code 필터링
+            stock_code = position.get('stock_code', '')
+            if not stock_code or stock_code.strip() == '':
+                logger.debug("Empty stock_code in position, skipping emergency check")
+                continue
+
             profit_loss_rate = position.get('profit_loss_rate', 0)
 
             if profit_loss_rate <= -self.position_emergency_threshold:
@@ -184,7 +190,7 @@ class EmergencyManager:
                     timestamp=datetime.now(),
                     description=f"{position.get('stock_name')} 포지션 손실 {profit_loss_rate:.1f}% 발생",
                     data={
-                        'stock_code': position.get('stock_code'),
+                        'stock_code': stock_code,
                         'stock_name': position.get('stock_name'),
                         'loss_rate': profit_loss_rate,
                         'quantity': position.get('quantity')

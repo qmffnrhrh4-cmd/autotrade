@@ -64,14 +64,20 @@ class PortfolioManager:
             cash: 보유 현금
         """
         self.positions.clear()
-        
+
         # 총 자산 계산
         stocks_value = 0
         for holding in holdings:
             stock_code = holding.get('stock_code', '')
+
+            # Fix v6.1.5: 빈 stock_code 필터링
+            if not stock_code or stock_code.strip() == '':
+                logger.warning(f"Holding with empty stock_code detected, skipping: {holding}")
+                continue
+
             evaluation = holding.get('evaluation_amount', 0)
             stocks_value += evaluation
-            
+
             self.positions[stock_code] = {
                 'stock_code': stock_code,
                 'stock_name': holding.get('stock_name', ''),
