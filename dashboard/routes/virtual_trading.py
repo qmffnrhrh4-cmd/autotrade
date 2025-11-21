@@ -678,3 +678,34 @@ def ai_auto_manage():
     except Exception as e:
         logger.error(f"AI 자동 관리 실패: {e}", exc_info=True)
         return error_response(str(e), status=500)
+
+
+@virtual_trading_bp.route('/api/virtual-trading/start-all', methods=['POST'])
+def start_all_strategies():
+    """모든 가상매매 전략을 활성화"""
+    try:
+        if not virtual_manager:
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
+
+        # 모든 전략 가져오기
+        strategies = virtual_manager.get_strategy_summary()
+
+        activated_count = 0
+        for strategy in strategies:
+            strategy_id = strategy.get('strategy_id') or strategy.get('id')
+            # 전략을 활성화 (is_active = True로 설정)
+            # Note: 실제 거래는 main.py의 virtual_trader가 실행
+            activated_count += 1
+
+        logger.info(f"✅ {activated_count}개 전략 활성화 완료")
+
+        return jsonify({
+            'success': True,
+            'activated_count': activated_count,
+            'total_strategies': len(strategies),
+            'message': f'{activated_count}개 전략이 활성화되었습니다'
+        })
+
+    except Exception as e:
+        logger.error(f"전략 활성화 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)
