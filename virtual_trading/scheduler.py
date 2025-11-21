@@ -31,6 +31,10 @@ class VirtualTradingScheduler:
         self.check_thread = None
         self.trading_thread = None  # Fix v6.1.4: 자동 매매 스레드
         self.ai_management_thread = None  # Fix v6.3: AI 전략 자동 관리 스레드
+        self.evolution_thread = None  # Fix v6.4: 진화 알고리즘 스레드 (YOLO-style)
+
+        # 진화 엔진
+        self.evolution_engine = None
 
         logger.info("가상매매 스케줄러 초기화")
 
@@ -74,7 +78,16 @@ class VirtualTradingScheduler:
             self.ai_management_thread.start()
             logger.info("✅ AI 전략 자동 관리 스레드 시작")
 
-        logger.info("가상매매 스케줄러 시작 (24시간 실행)")
+        # Fix v6.4: 진화 알고리즘 스레드 (10분마다) - YOLO-style 계속 학습
+        if self.data_fetcher:
+            self.evolution_thread = threading.Thread(
+                target=self._evolution_loop,
+                daemon=True
+            )
+            self.evolution_thread.start()
+            logger.info("✅ 진화 알고리즘 스레드 시작 (YOLO-style 연속 학습)")
+
+        logger.info("가상매매 스케줄러 시작 (24시간 실행, 5개 스레드)")
 
     def stop(self):
         """스케줄러 중지"""
@@ -91,6 +104,9 @@ class VirtualTradingScheduler:
 
         if self.ai_management_thread:
             self.ai_management_thread.join(timeout=2)
+
+        if self.evolution_thread:
+            self.evolution_thread.join(timeout=2)
 
         logger.info("가상매매 스케줄러 중지")
 
@@ -158,6 +174,86 @@ class VirtualTradingScheduler:
 
             # 1시간 대기
             time.sleep(3600)
+
+    def _evolution_loop(self):
+        """
+        진화 알고리즘 루프 (10분마다)
+        Fix v6.4: YOLO처럼 계속 학습하고 진화
+        """
+        logger.info("🧬 진화 알고리즘 스레드 시작 (YOLO-style 연속 학습)")
+
+        # 첫 실행은 1분 후 (초기 데이터 수집 대기)
+        time.sleep(60)
+
+        # 초기 모집단 생성
+        try:
+            from virtual_trading.evolution_engine import get_evolution_engine
+
+            self.evolution_engine = get_evolution_engine(
+                virtual_manager=self.virtual_manager,
+                data_fetcher=self.data_fetcher
+            )
+
+            if self.evolution_engine:
+                logger.info("🧬 초기 모집단 생성 중...")
+                self.evolution_engine.initialize_population()
+                logger.info("✅ 초기 모집단 생성 완료")
+            else:
+                logger.error("❌ 진화 엔진 초기화 실패")
+                return
+
+        except Exception as e:
+            logger.error(f"진화 엔진 초기화 실패: {e}", exc_info=True)
+            return
+
+        # 10분마다 진화
+        while self.is_running:
+            try:
+                logger.info("🧬 진화 알고리즘 실행 중...")
+                self._execute_evolution()
+            except Exception as e:
+                logger.error(f"진화 실행 실패: {e}", exc_info=True)
+
+            # 10분 대기
+            time.sleep(600)
+
+    def _execute_evolution(self):
+        """
+        진화 알고리즘 실행
+        Fix v6.4: YOLO처럼 계속 학습 - 적합도 평가 → 선택 → 교배 → 돌연변이
+        """
+        if not self.evolution_engine:
+            return
+
+        try:
+            # 다음 세대로 진화
+            new_strategy_ids = self.evolution_engine.evolve_generation()
+
+            # 최고 전략 정보
+            best_info = self.evolution_engine.get_best_strategy_info()
+
+            if best_info:
+                logger.info(
+                    f"🏆 현재 최고 전략 (제{best_info['generation']}세대): "
+                    f"수익률={best_info['return_rate']:.2f}%, "
+                    f"샤프={best_info['sharpe_ratio']:.2f}, "
+                    f"승률={best_info['win_rate']:.1f}%, "
+                    f"점수={best_info['total_score']:.1f}"
+                )
+
+                # 점수가 80점 이상이면 실매매 추천
+                if best_info['total_score'] >= 80:
+                    logger.info(
+                        f"⭐⭐⭐ 실매매 적용 추천! "
+                        f"전략#{best_info['strategy_id']} - "
+                        f"높은 수익성({best_info['fitness_score']:.1f}) + "
+                        f"높은 안전성({best_info['safety_score']:.1f})"
+                    )
+
+            logger.info(f"✅ 제{self.evolution_engine.generation}세대 진화 완료")
+
+        except Exception as e:
+            logger.error(f"진화 실행 중 오류: {e}", exc_info=True)
 
     def _execute_virtual_trading(self):
         """
@@ -527,11 +623,28 @@ class VirtualTradingScheduler:
 
     def get_status(self) -> Dict[str, Any]:
         """스케줄러 상태 조회"""
-        return {
+        status = {
             'is_running': self.is_running,
             'update_thread_alive': self.update_thread.is_alive() if self.update_thread else False,
             'check_thread_alive': self.check_thread.is_alive() if self.check_thread else False,
             'trading_thread_alive': self.trading_thread.is_alive() if self.trading_thread else False,
             'ai_management_thread_alive': self.ai_management_thread.is_alive() if self.ai_management_thread else False,
+            'evolution_thread_alive': self.evolution_thread.is_alive() if self.evolution_thread else False,
             'positions_count': len(self.virtual_manager.get_positions()) if self.virtual_manager else 0
         }
+
+        # 진화 엔진 상태 추가
+        if self.evolution_engine:
+            status['evolution_generation'] = self.evolution_engine.generation
+            status['evolution_population_size'] = len(self.evolution_engine.gene_pool)
+
+            best_info = self.evolution_engine.get_best_strategy_info()
+            if best_info:
+                status['best_strategy'] = {
+                    'strategy_id': best_info['strategy_id'],
+                    'generation': best_info['generation'],
+                    'return_rate': best_info['return_rate'],
+                    'total_score': best_info['total_score']
+                }
+
+        return status
