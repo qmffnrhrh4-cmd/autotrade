@@ -33,8 +33,16 @@ class VirtualTradingDB:
 
     def _initialize_db(self):
         """데이터베이스 초기화 및 테이블 생성"""
-        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        # Fix: database locked 방지 - timeout 늘리기 (5초 → 30초)
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
         self.conn.row_factory = sqlite3.Row
+
+        # Fix: WAL 모드 활성화로 동시 읽기/쓰기 성능 향상
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        # Fix: 캐시 크기 증가
+        self.conn.execute("PRAGMA cache_size=10000")
+        # Fix: 동시성 향상
+        self.conn.execute("PRAGMA synchronous=NORMAL")
 
         cursor = self.conn.cursor()
 

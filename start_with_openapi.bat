@@ -148,17 +148,37 @@ timeout /t 2 /nobreak >nul
 
 echo.
 echo ================================================================================
+echo Step 2.5: Starting Web Dashboard (Background)
+echo ================================================================================
+echo.
+echo 📊 웹 대시보드 시작 중...
+echo    - 주소: http://localhost:5000
+echo    - 실시간 차트, 포트폴리오, 가상매매 등
+echo    - 로그: logs\dashboard.log
+echo.
+
+REM Start dashboard in background
+start /B python -m dashboard.app > logs\dashboard.log 2>&1
+echo ✅ Dashboard started in background
+echo    브라우저에서 http://localhost:5000 으로 접속하세요
+echo.
+timeout /t 3 /nobreak >nul
+
+echo.
+echo ================================================================================
 echo Step 3: Starting Main Application (64-bit)
 echo ================================================================================
 echo.
 echo 📊 모든 시스템이 자동으로 실행됩니다:
 echo    ✅ OpenAPI 서버 (32비트) - Kiwoom 연결
 echo    ✅ 전략 최적화 엔진 - 백그라운드 실행 중
+echo    ✅ 웹 대시보드 - http://localhost:5000
 echo    ✅ 가상매매 시스템 - 60초마다 독립 매매
 echo    ✅ 메인 애플리케이션 - 실시간 매매
 echo.
 echo 💡 팁: 로그 확인 방법
 echo    - 전략 최적화: logs\strategy_optimizer.log
+echo    - 대시보드: logs\dashboard.log
 echo    - 메인 로그: logs\autotrade.log
 echo.
 echo ================================================================================
@@ -183,6 +203,12 @@ for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST ^| fi
         echo Killing Strategy Optimizer (PID: %%a^)
         taskkill /F /PID %%a >nul 2>&1
     )
+)
+
+REM Kill Dashboard on port 5000
+for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5000" ^| findstr "LISTENING"') do (
+    echo Killing Dashboard on port 5000 (PID: %%a^)
+    taskkill /F /PID %%a >nul 2>&1
 )
 
 REM Kill OpenAPI Server on port 5001

@@ -156,6 +156,9 @@ class VirtualTradingManager {
         const container = document.getElementById('virtual-strategies-list');
         if (!container) return;
 
+        // Fix: 스크롤 위치 저장
+        const scrollTop = container.scrollTop;
+
         if (strategies.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
@@ -212,6 +215,11 @@ class VirtualTradingManager {
                 </div>
             </div>
         `).join('');
+
+        // Fix: 스크롤 위치 복원 (다음 프레임에서 실행)
+        requestAnimationFrame(() => {
+            container.scrollTop = scrollTop;
+        });
     }
 
     /**
