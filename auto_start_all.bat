@@ -39,7 +39,7 @@ timeout /t 5 /nobreak >nul
 echo.
 
 echo [브라우저] 대시보드 열기...
-start http://localhost:5000/live-monitor
+start http://localhost:5000
 echo    ✓ 브라우저 열림
 echo.
 
@@ -51,7 +51,7 @@ echo 📊 열린 창 (2개):
 echo    [1] OpenAPI Server - Port 5001 (32-bit)
 echo    [2] AutoTrade Bot - Port 5000
 echo.
-echo 🌐 대시보드: http://localhost:5000/live-monitor
+echo 🌐 대시보드: http://localhost:5000
 echo.
 echo 이 창은 3초 후 자동으로 닫힙니다...
 timeout /t 3 /nobreak >nul
