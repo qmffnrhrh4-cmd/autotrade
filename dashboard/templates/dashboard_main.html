@@ -228,6 +228,103 @@
             50% { opacity: 0.5; }
         }
 
+        /* ==================== Monitor Bar ==================== */
+        .monitor-bar {
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 0.75rem 2rem;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 1rem;
+            font-size: 0.8rem;
+            z-index: 99;
+        }
+
+        .monitor-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .monitor-section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .monitor-content {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+        }
+
+        .monitor-status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .monitor-status-dot.idle {
+            background: #f59e0b;
+        }
+
+        .monitor-status-dot.error {
+            background: #ef4444;
+        }
+
+        /* 실시간 로그 섹션 */
+        .monitor-logs {
+            max-height: 40px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .monitor-log-item {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.3;
+        }
+
+        /* 진화 알고리즘 섹션 */
+        .monitor-evolution {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .monitor-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .monitor-stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .monitor-stat-value {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 1024px) {
+            .monitor-bar {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
+
         /* Main Content */
         .main-content {
             display: flex;
@@ -796,6 +893,45 @@
                 </button>
             </div>
         </header>
+
+        <!-- Monitor Bar -->
+        <div class="monitor-bar">
+            <!-- 현재 작업 중 -->
+            <div class="monitor-section">
+                <div class="monitor-section-title">🔄 현재 작업</div>
+                <div class="monitor-content">
+                    <span class="monitor-status-dot" id="monitor-status-dot"></span>
+                    <span id="monitor-current-task">시스템 대기 중</span>
+                </div>
+            </div>
+
+            <!-- 실시간 로그 -->
+            <div class="monitor-section">
+                <div class="monitor-section-title">📋 실시간 로그</div>
+                <div class="monitor-logs" id="monitor-logs">
+                    <div class="monitor-log-item">시스템 초기화 완료</div>
+                </div>
+            </div>
+
+            <!-- 진화 알고리즘 -->
+            <div class="monitor-section">
+                <div class="monitor-section-title">🧬 진화 알고리즘</div>
+                <div class="monitor-evolution">
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">세대</span>
+                        <span class="monitor-stat-value" id="monitor-generation">-</span>
+                    </div>
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">최고점수</span>
+                        <span class="monitor-stat-value" id="monitor-best-fitness">-</span>
+                    </div>
+                    <div class="monitor-stat">
+                        <span class="monitor-stat-label">상태</span>
+                        <span class="monitor-stat-value" id="monitor-evo-status">대기</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Main Content -->
         <div class="main-content">
@@ -4388,11 +4524,73 @@
             loadDeploymentStatus();
         }
 
+        // ==================== Monitor Bar Functions ====================
+        let monitorLogs = [];
+        const MAX_MONITOR_LOGS = 3;
+
+        function updateMonitorTask(task, status = 'active') {
+            const taskEl = document.getElementById('monitor-current-task');
+            const dotEl = document.getElementById('monitor-status-dot');
+
+            if (taskEl) taskEl.textContent = task;
+            if (dotEl) {
+                dotEl.className = `monitor-status-dot ${status}`;
+            }
+        }
+
+        function addMonitorLog(message) {
+            monitorLogs.unshift(message);
+            if (monitorLogs.length > MAX_MONITOR_LOGS) {
+                monitorLogs.pop();
+            }
+
+            const logsEl = document.getElementById('monitor-logs');
+            if (logsEl) {
+                logsEl.innerHTML = monitorLogs.map(log =>
+                    `<div class="monitor-log-item">${log}</div>`
+                ).join('');
+            }
+        }
+
+        function updateMonitorEvolution(data) {
+            if (data.generation !== undefined) {
+                const genEl = document.getElementById('monitor-generation');
+                if (genEl) genEl.textContent = data.generation;
+            }
+            if (data.best_fitness !== undefined) {
+                const fitEl = document.getElementById('monitor-best-fitness');
+                if (fitEl) fitEl.textContent = data.best_fitness.toFixed(1);
+            }
+            if (data.status !== undefined) {
+                const statusEl = document.getElementById('monitor-evo-status');
+                if (statusEl) statusEl.textContent = data.status;
+            }
+        }
+
+        async function refreshMonitorEvolution() {
+            try {
+                const response = await fetch('/api/evolution/status');
+                const data = await response.json();
+
+                if (data.success) {
+                    updateMonitorEvolution({
+                        generation: data.current_generation || 0,
+                        best_fitness: data.best_fitness || 0,
+                        status: data.is_running ? '진행 중' : '대기'
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to refresh evolution status:', error);
+            }
+        }
+
         // ==================== Socket.IO ====================
         const socket = io();
 
         socket.on('connect', () => {
             console.log('Connected to server');
+            updateMonitorTask('시스템 연결됨', 'active');
+            addMonitorLog('✅ 서버 연결 성공');
         });
 
         socket.on('trading_status', (data) => {
@@ -4403,6 +4601,44 @@
             if (data.total_assets) {
                 document.getElementById('total-assets').textContent = data.total_assets.toLocaleString() + '원';
             }
+        });
+
+        socket.on('system_log', (data) => {
+            const msg = data.message || '';
+            const msgLower = msg.toLowerCase();
+
+            // 현재 작업 업데이트
+            if (msgLower.includes('분석') || msgLower.includes('deep scan')) {
+                updateMonitorTask('📊 ' + msg.substring(0, 30), 'active');
+                addMonitorLog('📊 ' + msg.substring(0, 50));
+            } else if (msgLower.includes('ai') || msgLower.includes('gemini')) {
+                updateMonitorTask('🤖 ' + msg.substring(0, 30), 'active');
+                addMonitorLog('🤖 ' + msg.substring(0, 50));
+            } else if (msgLower.includes('매수') || msgLower.includes('매도')) {
+                updateMonitorTask('💰 ' + msg.substring(0, 30), 'active');
+                addMonitorLog('💰 ' + msg.substring(0, 50));
+            } else if (msgLower.includes('진화') || msgLower.includes('evolution')) {
+                updateMonitorTask('🧬 ' + msg.substring(0, 30), 'active');
+                addMonitorLog('🧬 ' + msg.substring(0, 50));
+                refreshMonitorEvolution();
+            } else {
+                addMonitorLog(msg.substring(0, 50));
+            }
+
+            // 3초 후 대기 상태로
+            setTimeout(() => {
+                updateMonitorTask('시스템 대기 중', 'idle');
+            }, 3000);
+        });
+
+        socket.on('trade_executed', (data) => {
+            updateMonitorTask(`💰 거래: ${data.action} ${data.stock_name}`, 'active');
+            addMonitorLog(`💰 ${data.action} ${data.stock_name} ${data.quantity}주`);
+        });
+
+        socket.on('error', (data) => {
+            updateMonitorTask('❌ 오류 발생', 'error');
+            addMonitorLog('❌ ' + (data.message || '').substring(0, 50));
         });
 
         // ==================== Initialize ====================
@@ -4416,6 +4652,7 @@
             refreshVirtualTradingSummary();  // 개요 탭의 가상매매 통계
             refreshPortfolio();
             loadPerformanceMetrics();
+            refreshMonitorEvolution();  // 진화 알고리즘 모니터링
 
             // Refresh periodically
             setInterval(refreshAccount, 5000);  // Every 5 seconds
@@ -4423,6 +4660,7 @@
             setInterval(refreshPortfolio, 5000);
             setInterval(refreshVirtualTrading, 10000);  // Every 10 seconds
             setInterval(refreshVirtualTradingSummary, 10000);  // 가상매매 통계도 10초마다 갱신
+            setInterval(refreshMonitorEvolution, 10000);  // 진화 알고리즘 모니터링 10초마다
         });
     </script>
 
