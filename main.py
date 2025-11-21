@@ -737,6 +737,16 @@ class AutoTradingBot:
             logger.info(f"대시보드 서버 시작됨: http://{HOST}:{PORTS['dashboard']}")
             print(f"📊 Dashboard: {URLS['dashboard']}")
 
+            # 대시보드 자동 열기
+            try:
+                import webbrowser
+                import time
+                time.sleep(2)  # 서버 시작 대기
+                webbrowser.open(URLS['dashboard'])
+                logger.info("브라우저에서 대시보드 열기 완료")
+            except Exception as e:
+                logger.warning(f"브라우저 열기 실패: {e}")
+
             if self.emergency_manager:
                 try:
                     logger.info("비상 모니터링 시스템 시작 중...")
