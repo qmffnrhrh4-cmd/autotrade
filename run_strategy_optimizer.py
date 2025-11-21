@@ -98,6 +98,7 @@ def main():
     parser.add_argument('--stocks', type=str, default='005930,000660,035720', help='테스트 종목 (쉼표 구분)')
     parser.add_argument('--simulation', action='store_true', help='시뮬레이션 모드 강제 (Market API 없이 실행)')
     parser.add_argument('--auto-deploy', action='store_true', help='최우수 전략 자동 배포 (가상매매 연동)')
+    parser.add_argument('--continuous', action='store_true', help='연속 실행 모드 (무한 반복)')
 
     args = parser.parse_args()
 
@@ -116,7 +117,13 @@ def main():
     logger.info(f"  - 최대 세대: {args.max_generations or '무한'}")
     logger.info(f"  - 테스트 종목: {args.stocks}")
     logger.info(f"  - 자동 배포: {'활성화' if args.auto_deploy else '비활성화'}")
+    logger.info(f"  - 연속 실행: {'활성화 (무한 반복)' if args.continuous else '비활성화'}")
     logger.info("=" * 100)
+
+    # 연속 실행 모드면 무한 세대 설정
+    if args.continuous and args.max_generations is None:
+        args.max_generations = None  # 무한 반복
+        logger.info("🔄 연속 실행 모드: 무한 세대 진화")
 
     # API 초기화 (시뮬레이션 모드가 아닌 경우)
     apis = None if args.simulation else initialize_apis()

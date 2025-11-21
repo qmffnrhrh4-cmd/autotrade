@@ -27,3 +27,9 @@ def chart_page():
 def evolution_dashboard():
     """진화 알고리즘 실시간 대시보드"""
     return render_template('evolution_dashboard.html')
+
+
+@pages_bp.route('/live-monitor')
+def live_monitor():
+    """실시간 활동 모니터"""
+    return render_template('live_monitor.html')

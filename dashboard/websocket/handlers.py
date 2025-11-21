@@ -56,3 +56,25 @@ def emit_trade_executed(data):
     """거래 체결 알림 전송"""
     if _socketio:
         _socketio.emit('trade_executed', data)
+
+
+def emit_system_log(message, log_type='info'):
+    """시스템 로그 전송"""
+    if _socketio:
+        _socketio.emit('system_log', {
+            'message': message,
+            'type': log_type,
+            'timestamp': __import__('datetime').datetime.now().isoformat()
+        })
+
+
+def emit_strategy_update(data):
+    """전략 상태 업데이트 전송"""
+    if _socketio:
+        _socketio.emit('strategy_update', data)
+
+
+def emit_stats_update(data):
+    """통계 업데이트 전송"""
+    if _socketio:
+        _socketio.emit('stats_update', data)

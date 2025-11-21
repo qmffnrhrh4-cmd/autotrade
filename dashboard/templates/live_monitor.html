@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>실시간 활동 모니터 - AutoTrade Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: #0a0e27;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+        }
+
+        .header-section {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 1.5s infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
+        .stat-card {
+            background: #1a1f3a;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4CAF50;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-label {
+            color: #9e9e9e;
+            font-size: 0.9rem;
+        }
+
+        .log-container {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 20px;
+            height: 600px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .log-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-container::-webkit-scrollbar-thumb {
+            background: #4CAF50;
+            border-radius: 4px;
+        }
+
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-left: 3px solid transparent;
+            transition: background 0.3s;
+        }
+
+        .log-entry:hover {
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .log-entry.info {
+            border-left-color: #2196F3;
+            color: #90CAF9;
+        }
+
+        .log-entry.success {
+            border-left-color: #4CAF50;
+            color: #A5D6A7;
+        }
+
+        .log-entry.warning {
+            border-left-color: #FF9800;
+            color: #FFB74D;
+        }
+
+        .log-entry.error {
+            border-left-color: #f44336;
+            color: #EF9A9A;
+        }
+
+        .log-entry.trade {
+            border-left-color: #9C27B0;
+            color: #CE93D8;
+            font-weight: bold;
+        }
+
+        .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .strategy-activity {
+            background: #1a1f3a;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .strategy-name {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-bottom: 10px;
+        }
+
+        .activity-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+
+        .badge-buy {
+            background: rgba(244, 67, 54, 0.2);
+            color: #ff5252;
+            border: 1px solid #ff5252;
+        }
+
+        .badge-sell {
+            background: rgba(33, 150, 243, 0.2);
+            color: #448AFF;
+            border: 1px solid #448AFF;
+        }
+
+        .badge-analyzing {
+            background: rgba(255, 152, 0, 0.2);
+            color: #FFB74D;
+            border: 1px solid #FFB74D;
+        }
+
+        .card-header-custom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 600;
+            padding: 15px;
+            border-radius: 10px 10px 0 0;
+        }
+
+        .control-panel {
+            background: #1a1f3a;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .btn-control {
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid p-4">
+        <!-- Header -->
+        <div class="header-section">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h2 class="mb-0">
+                        <span class="live-indicator"></span>
+                        실시간 활동 모니터
+                    </h2>
+                    <p class="mb-0 text-light">AutoTrade Pro - 실시간 거래 및 시스템 활동</p>
+                </div>
+                <div>
+                    <a href="/" class="btn btn-outline-light btn-control">
+                        <i class="fas fa-home"></i> 메인
+                    </a>
+                    <a href="/evolution" class="btn btn-outline-light btn-control">
+                        <i class="fas fa-dna"></i> 진화 대시보드
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Row -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="active-strategies">0</div>
+                    <div class="stat-label"><i class="fas fa-play-circle"></i> 활성 전략</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-trades">0</div>
+                    <div class="stat-label"><i class="fas fa-exchange-alt"></i> 오늘 거래</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="open-positions">0</div>
+                    <div class="stat-label"><i class="fas fa-briefcase"></i> 보유 포지션</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-profit">+0원</div>
+                    <div class="stat-label"><i class="fas fa-chart-line"></i> 오늘 수익</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h5 class="mb-3"><i class="fas fa-sliders-h"></i> 제어판</h5>
+            <button class="btn btn-success btn-control" onclick="startAllStrategies()">
+                <i class="fas fa-play"></i> 모든 전략 시작
+            </button>
+            <button class="btn btn-warning btn-control" onclick="pauseAllStrategies()">
+                <i class="fas fa-pause"></i> 일시 정지
+            </button>
+            <button class="btn btn-danger btn-control" onclick="stopAllStrategies()">
+                <i class="fas fa-stop"></i> 모두 중지
+            </button>
+            <button class="btn btn-info btn-control" onclick="clearLogs()">
+                <i class="fas fa-trash"></i> 로그 지우기
+            </button>
+            <button class="btn btn-primary btn-control" onclick="refreshStats()">
+                <i class="fas fa-sync"></i> 새로고침
+            </button>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row">
+            <!-- Left: Active Strategies -->
+            <div class="col-md-4">
+                <div class="card-header-custom">
+                    <i class="fas fa-robot"></i> 활성 전략 현황
+                </div>
+                <div id="active-strategies-list" style="max-height: 600px; overflow-y: auto; background: #1a1f3a; padding: 15px; border-radius: 0 0 10px 10px;">
+                    <p class="text-center text-muted">활성 전략이 없습니다</p>
+                </div>
+            </div>
+
+            <!-- Center: Real-time Logs -->
+            <div class="col-md-4">
+                <div class="card-header-custom">
+                    <i class="fas fa-terminal"></i> 실시간 로그
+                </div>
+                <div class="log-container" id="log-container">
+                    <div class="log-entry info">
+                        <span class="timestamp">[시스템]</span> 실시간 모니터링 시작...
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Recent Trades -->
+            <div class="col-md-4">
+                <div class="card-header-custom">
+                    <i class="fas fa-history"></i> 최근 거래
+                </div>
+                <div id="recent-trades-list" style="max-height: 600px; overflow-y: auto; background: #1a1f3a; padding: 15px; border-radius: 0 0 10px 10px;">
+                    <p class="text-center text-muted">거래 내역이 없습니다</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // WebSocket 연결
+        const socket = io();
+
+        // 로그 추가 함수
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const timestamp = new Date().toLocaleTimeString('ko-KR');
+
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+
+            // 로그 개수 제한 (최대 500개)
+            if (logContainer.children.length > 500) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+
+        // 통계 업데이트
+        function updateStats(data) {
+            if (data.active_strategies !== undefined) {
+                document.getElementById('active-strategies').textContent = data.active_strategies;
+            }
+            if (data.total_trades !== undefined) {
+                document.getElementById('total-trades').textContent = data.total_trades;
+            }
+            if (data.open_positions !== undefined) {
+                document.getElementById('open-positions').textContent = data.open_positions;
+            }
+            if (data.total_profit !== undefined) {
+                const profit = data.total_profit;
+                const profitEl = document.getElementById('total-profit');
+                profitEl.textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString() + '원';
+                profitEl.style.color = profit >= 0 ? '#4CAF50' : '#f44336';
+            }
+        }
+
+        // 활성 전략 목록 업데이트
+        function updateActiveStrategies(strategies) {
+            const listEl = document.getElementById('active-strategies-list');
+
+            if (!strategies || strategies.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-muted">활성 전략이 없습니다</p>';
+                return;
+            }
+
+            let html = '';
+            strategies.forEach(strategy => {
+                html += `
+                    <div class="strategy-activity">
+                        <div class="strategy-name">${strategy.name}</div>
+                        <div>
+                            <span class="activity-badge badge-analyzing">
+                                <i class="fas fa-chart-line"></i> ${strategy.status || '분석 중'}
+                            </span>
+                            ${strategy.positions > 0 ?
+                                `<span class="activity-badge badge-buy">
+                                    <i class="fas fa-briefcase"></i> ${strategy.positions}개 보유
+                                </span>` : ''}
+                        </div>
+                        <div class="mt-2 text-muted small">
+                            수익률: <span style="color: ${strategy.return_rate >= 0 ? '#4CAF50' : '#f44336'}">
+                                ${strategy.return_rate >= 0 ? '+' : ''}${strategy.return_rate.toFixed(2)}%
+                            </span>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        // 최근 거래 목록 업데이트
+        function updateRecentTrades(trades) {
+            const listEl = document.getElementById('recent-trades-list');
+
+            if (!trades || trades.length === 0) {
+                listEl.innerHTML = '<p class="text-center text-muted">거래 내역이 없습니다</p>';
+                return;
+            }
+
+            let html = '';
+            trades.forEach(trade => {
+                const isBuy = trade.action === 'BUY' || trade.action === '매수';
+                html += `
+                    <div class="strategy-activity">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="activity-badge ${isBuy ? 'badge-buy' : 'badge-sell'}">
+                                ${isBuy ? '매수' : '매도'}
+                            </span>
+                            <span class="text-muted small">${new Date(trade.timestamp).toLocaleTimeString()}</span>
+                        </div>
+                        <div class="mt-2">
+                            <strong>${trade.stock_name || trade.stock_code}</strong>
+                        </div>
+                        <div class="text-muted small">
+                            ${trade.quantity}주 @ ${trade.price.toLocaleString()}원
+                        </div>
+                        ${trade.profit !== undefined && !isBuy ?
+                            `<div class="mt-1" style="color: ${trade.profit >= 0 ? '#4CAF50' : '#f44336'}">
+                                ${trade.profit >= 0 ? '+' : ''}${trade.profit.toLocaleString()}원
+                            </div>` : ''}
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        // WebSocket 이벤트 핸들러
+        socket.on('system_log', (data) => {
+            addLog(data.message, data.type || 'info');
+        });
+
+        socket.on('trade_executed', (data) => {
+            addLog(`[거래] ${data.action} ${data.stock_name} ${data.quantity}주 @ ${data.price.toLocaleString()}원`, 'trade');
+            refreshStats();
+        });
+
+        socket.on('strategy_update', (data) => {
+            addLog(`[전략] ${data.strategy_name}: ${data.message}`, 'success');
+            updateActiveStrategies(data.strategies);
+        });
+
+        socket.on('stats_update', (data) => {
+            updateStats(data);
+        });
+
+        socket.on('error', (data) => {
+            addLog(`[오류] ${data.message}`, 'error');
+        });
+
+        // 제어 함수
+        async function startAllStrategies() {
+            try {
+                const response = await fetch('/api/virtual-trading/start-all', {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                addLog('[시스템] 모든 가상매매 전략을 시작합니다...', 'success');
+            } catch (error) {
+                addLog('[오류] 전략 시작 실패: ' + error.message, 'error');
+            }
+        }
+
+        async function pauseAllStrategies() {
+            addLog('[시스템] 모든 전략을 일시 정지합니다...', 'warning');
+        }
+
+        async function stopAllStrategies() {
+            addLog('[시스템] 모든 전략을 중지합니다...', 'warning');
+        }
+
+        function clearLogs() {
+            const logContainer = document.getElementById('log-container');
+            logContainer.innerHTML = '<div class="log-entry info"><span class="timestamp">[시스템]</span> 로그가 지워졌습니다.</div>';
+        }
+
+        async function refreshStats() {
+            try {
+                // 가상매매 통계 가져오기
+                const response = await fetch('/api/virtual-trading/strategies');
+                const data = await response.json();
+
+                if (data.success && data.strategies) {
+                    const activeStrategies = data.strategies.filter(s => s.is_active);
+                    const totalTrades = data.strategies.reduce((sum, s) => sum + (s.trade_count || 0), 0);
+                    const totalProfit = data.strategies.reduce((sum, s) => sum + (s.total_profit || 0), 0);
+                    const openPositions = data.strategies.reduce((sum, s) => sum + (s.position_count || 0), 0);
+
+                    updateStats({
+                        active_strategies: activeStrategies.length,
+                        total_trades: totalTrades,
+                        total_profit: totalProfit,
+                        open_positions: openPositions
+                    });
+
+                    updateActiveStrategies(activeStrategies);
+                }
+
+                // 거래 내역 가져오기
+                const tradesResponse = await fetch('/api/virtual-trading/trades?limit=20');
+                const tradesData = await tradesResponse.json();
+                if (tradesData.success && tradesData.trades) {
+                    updateRecentTrades(tradesData.trades);
+                }
+
+                addLog('[시스템] 통계가 업데이트되었습니다.', 'info');
+            } catch (error) {
+                addLog('[오류] 통계 갱신 실패: ' + error.message, 'error');
+            }
+        }
+
+        // 초기 로드
+        document.addEventListener('DOMContentLoaded', () => {
+            addLog('[시스템] 실시간 모니터링이 시작되었습니다.', 'success');
+            refreshStats();
+
+            // 5초마다 자동 갱신
+            setInterval(refreshStats, 5000);
+        });
+    </script>
+</body>
+</html>
