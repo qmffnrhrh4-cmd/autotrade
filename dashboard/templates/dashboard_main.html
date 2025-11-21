@@ -2206,10 +2206,41 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.strategies) {
-                        updateVirtualTradingDisplay(data.strategies);
+                        // 필터링: 포지션이 있거나 거래가 있거나 수익이 있는 전략만 표시
+                        const filteredStrategies = data.strategies.filter(s => {
+                            const hasPositions = (s.position_count || 0) > 0;
+                            const hasTrades = (s.trade_count || 0) > 0;
+                            const hasProfit = Math.abs(s.total_profit || 0) > 100; // 100원 이상 수익/손실
+                            return hasPositions || hasTrades || hasProfit;
+                        });
+
+                        // 전략 목록을 객체로 변환 (기존 updateVirtualTradingDisplay 형식)
+                        const strategiesObj = {};
+                        filteredStrategies.forEach(s => {
+                            strategiesObj[s.name] = {
+                                capital: s.total_assets || s.current_capital,
+                                return: s.return_rate,
+                                trades: s.trade_count,
+                                status: s.is_active !== false ? 'active' : 'inactive',
+                                position_count: s.position_count,
+                                total_profit: s.total_profit
+                            };
+                        });
+
+                        updateVirtualTradingDisplay(strategiesObj);
+
+                        // 필터링 정보 표시
+                        const totalCount = data.strategies.length;
+                        const shownCount = filteredStrategies.length;
+                        const content = document.getElementById('virtual-trading-content');
+                        if (content && totalCount > shownCount) {
+                            const info = document.createElement('div');
+                            info.style.cssText = 'text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem; border-top: 1px solid var(--border-color); margin-top: 1rem;';
+                            info.innerHTML = `<i class="fas fa-filter"></i> 활성 전략 ${shownCount}개 표시 중 (전체 ${totalCount}개, ${totalCount - shownCount}개 숨김)`;
+                            content.appendChild(info);
+                        }
                     } else {
                         console.warn('No strategies data:', data);
-                        // Show empty state if no strategies
                         const content = document.getElementById('virtual-trading-content');
                         if (content) {
                             content.innerHTML = `
@@ -2224,7 +2255,6 @@
                 })
                 .catch(error => {
                     console.error('Error fetching virtual trading strategies:', error);
-                    // Show error state
                     const content = document.getElementById('virtual-trading-content');
                     if (content) {
                         content.innerHTML = `
