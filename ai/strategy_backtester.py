@@ -344,6 +344,24 @@ class StrategyBacktester:
         historical_data = {}
 
         # Fix: OpenAPI 클라이언트 우선 사용 (장 마감 시간과 무관하게 데이터 조회 가능)
+        # 디버깅: OpenAPI 클라이언트 상태 확인
+        if self.openapi_client:
+            logger.info(f"✅ OpenAPI 클라이언트 존재: {self.openapi_client}")
+            if hasattr(self.openapi_client, 'is_connected'):
+                logger.info(f"   is_connected 속성: {self.openapi_client.is_connected}")
+                # 연결이 안되어 있으면 재연결 시도
+                if not self.openapi_client.is_connected:
+                    logger.warning("⚠️ OpenAPI 연결이 끊어져 있음, 재연결 시도...")
+                    try:
+                        self.openapi_client.connect()
+                        logger.info(f"   재연결 후 상태: {self.openapi_client.is_connected}")
+                    except Exception as e:
+                        logger.error(f"   재연결 실패: {e}")
+            else:
+                logger.warning("⚠️ is_connected 속성 없음")
+        else:
+            logger.warning("⚠️ OpenAPI 클라이언트 없음 (self.openapi_client = None)")
+
         if self.openapi_client and hasattr(self.openapi_client, 'is_connected') and self.openapi_client.is_connected:
             logger.info("✅ OpenAPI 클라이언트 사용 (장 마감 시간 무관)")
             try:

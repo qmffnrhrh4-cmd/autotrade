@@ -1125,9 +1125,11 @@ class AutoTradingBot:
                     self.ai_approved_candidates.insert(0, buy_candidate)
                     self.ai_approved_candidates = self.ai_approved_candidates[:10]
 
+                # Fix: 매수 조건 완화 (250 → 200, 300 → 280)
+                # 너무 엄격한 조건으로 인해 매수가 발생하지 않는 문제 해결
                 buy_approved = (
-                    (ai_signal == 'buy' and scoring_result.total_score >= 250) or
-                    (ai_signal == 'hold' and scoring_result.total_score >= 300)
+                    (ai_signal == 'buy' and scoring_result.total_score >= 200) or
+                    (ai_signal == 'hold' and scoring_result.total_score >= 280)
                 )
 
                 if buy_approved:
@@ -1242,35 +1244,55 @@ class AutoTradingBot:
     def _get_optimal_sell_price(self, stock_code, current_price):
         """
         호가 분석 기반 최적 매도 가격 계산
-        매도호가 중에서 유리한 가격 선택 (높은 가격)
+        현재가보다 약간 높게 설정하여 매도 체결 확률 향상
         """
         try:
             orderbook = self.data_fetcher.get_orderbook(stock_code)
-            if not orderbook or 'asks' not in orderbook:
-                logger.warning(f"{stock_code} 호가 정보 없음, 현재가 사용")
-                return current_price
+            if not orderbook or 'asks' not in orderbook or 'bids' not in orderbook:
+                # 호가 정보 없으면 현재가의 101% 사용 (약간 높게)
+                optimal_price = int(current_price * 1.01)
+                logger.warning(f"{stock_code} 호가 정보 없음, 현재가의 101% 사용: {optimal_price:,}원")
+                return optimal_price
 
             asks = orderbook['asks'][:5]  # 상위 5개 매도호가
-            if not asks:
-                return current_price
+            bids = orderbook['bids'][:5]  # 상위 5개 매수호가
 
-            # 매도호가 중 가장 낮은 가격 (1호가) 사용
-            # 체결 확률을 높이면서도 시장가보다 높은 가격
+            if not asks or not bids:
+                # 현재가의 101% 사용
+                optimal_price = int(current_price * 1.01)
+                logger.info(f"매도 가격 최적화: {current_price:,}원 → {optimal_price:,}원 (현재가 +1%)")
+                return optimal_price
+
+            # 매수 1호가 (가장 높은 매수 호가)
+            best_bid = bids[0]['price']
+
+            # 매도 1호가 (가장 낮은 매도 호가)
             best_ask = asks[0]['price']
 
-            # 현재가보다 낮으면 현재가 사용
-            if best_ask < current_price:
-                optimal_price = current_price
-            else:
-                # 1호가 사용 (빠른 체결 우선)
-                optimal_price = best_ask
+            # 전략: 매수 1호가보다 약간 높게, 하지만 매도 1호가보다는 낮게
+            # 체결 확률을 높이면서도 유리한 가격 확보
+            if best_bid > 0:
+                # 매수 1호가의 101% ~ 102% 사이
+                optimal_price = int(best_bid * 1.015)  # 1.5% 높게
 
-            logger.info(f"매도 가격 최적화: {current_price:,}원 → {optimal_price:,}원 (호가 분석)")
+                # 현재가보다 낮아지면 안됨
+                if optimal_price < current_price:
+                    optimal_price = int(current_price * 1.01)
+
+                # 매도 1호가보다 높아지면 안됨 (체결 확률 낮아짐)
+                if optimal_price > best_ask:
+                    optimal_price = best_ask
+            else:
+                # 매수호가가 없으면 현재가의 101% 사용
+                optimal_price = int(current_price * 1.01)
+
+            logger.info(f"매도 가격 최적화: {current_price:,}원 → {optimal_price:,}원 (호가 분석, 매수1호가 {best_bid:,}원 기준 +1.5%)")
             return optimal_price
 
         except Exception as e:
             logger.warning(f"최적 매도 가격 계산 실패: {e}")
-            return current_price
+            # 실패 시 현재가의 101% 사용
+            return int(current_price * 1.01)
 
     def _execute_buy(self, candidate, scoring_result):
         try:
@@ -1481,12 +1503,25 @@ class AutoTradingBot:
             # Fix v6.1.3: 분할 매도 사용
             if self.split_order_executor:
                 logger.info(f"🔀 분할 매도 실행: {stock_name} {quantity}주")
+
+                # 평균 매수가 조회
+                avg_price = 0
+                holdings = self.account_api.get_holdings()
+                for h in holdings:
+                    if h.get('stk_cd', '').replace('A', '').replace('_NX', '') == stock_code:
+                        avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+                        break
+
+                if avg_price == 0:
+                    logger.warning(f"평균 매수가를 찾을 수 없음, 현재가를 진입가로 사용: {optimal_price}")
+                    avg_price = optimal_price
+
                 order_result = self.split_order_executor.execute_split_sell(
                     stock_code=stock_code,
                     stock_name=stock_name,
                     total_quantity=quantity,
-                    target_price=optimal_price,
-                    order_type=order_type
+                    entry_price=avg_price,  # Fix: target_price → entry_price (평균 매수가)
+                    account_number=None
                 )
             else:
                 # Fallback: 일반 매도
