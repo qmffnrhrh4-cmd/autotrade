@@ -267,6 +267,8 @@ class VirtualTradingDB:
         rows = cursor.fetchall()
 
         strategies = []
+        seen_names = set()  # Fix: 중복 전략 이름 제거 (DB에 중복 데이터 방지)
+
         for row in rows:
             # ID 추출 (SQLite Row 객체는 dict-like이므로 row['id']로 접근)
             try:
@@ -279,6 +281,16 @@ class VirtualTradingDB:
             if strategy_id is None:
                 logger.warning(f"전략 ID가 None입니다. 스킵합니다: {row}")
                 continue
+
+            # Fix: 중복 이름 체크 (같은 이름은 최신 것만 유지, DB 정리 전까지 임시 조치)
+            try:
+                strategy_name = row['name']
+                if strategy_name in seen_names:
+                    logger.debug(f"중복 전략 스킵: {strategy_name} (ID: {strategy_id})")
+                    continue
+                seen_names.add(strategy_name)
+            except (KeyError, TypeError):
+                pass  # 이름이 없으면 계속 진행
 
             # 활성 포지션 수 계산 (새로운 cursor 사용)
             position_cursor = self.conn.cursor()
