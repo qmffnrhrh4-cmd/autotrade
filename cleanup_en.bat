@@ -35,10 +35,12 @@ echo [3/4] Cleaning BAT files...
 for %%f in (*.bat) do (
     if /i not "%%f"=="run.bat" (
         if /i not "%%f"=="run_openapi.bat" (
-            if /i not "%%f"=="cleanup.bat" (
-                if /i not "%%f"=="cleanup_en.bat" (
-                    echo   - Delete: %%f
-                    del "%%f" 2>nul
+            if /i not "%%f"=="start_with_openapi.bat" (
+                if /i not "%%f"=="cleanup.bat" (
+                    if /i not "%%f"=="cleanup_en.bat" (
+                        echo   - Delete: %%f
+                        del "%%f" 2>nul
+                    )
                 )
             )
         )
@@ -66,6 +68,7 @@ echo   - START_HERE.md
 echo   - QUICK_START.md
 echo   - run.bat
 echo   - run_openapi.bat
+echo   - start_with_openapi.bat
 echo   - cleanup.bat
 echo   - cleanup_en.bat (this file)
 echo.
