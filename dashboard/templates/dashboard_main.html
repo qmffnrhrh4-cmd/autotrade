@@ -4899,18 +4899,31 @@
 
         async function refreshLiveMonitorStats() {
             try {
-                // Get virtual trading stats
-                const vtResponse = await fetch('/api/virtual-trading/summary');
+                // Get virtual trading stats with filtering
+                const vtResponse = await fetch('/api/virtual-trading/strategies');
                 const vtData = await vtResponse.json();
 
-                if (vtData.success) {
-                    // Update stats
-                    const activeStrategies = vtData.active_strategies || 0;
-                    const totalTrades = vtData.total_trades || 0;
-                    const openPositions = vtData.open_positions || 0;
-                    const totalProfit = vtData.total_profit || 0;
+                if (vtData.success && vtData.strategies) {
+                    // Apply same filtering as virtual trading tab
+                    const filteredStrategies = vtData.strategies.filter(s => {
+                        const hasPositions = (s.position_count || 0) > 0;
+                        const hasTrades = (s.trade_count || 0) > 0;
+                        const hasProfit = Math.abs(s.total_profit || 0) > 100;
+                        return hasPositions || hasTrades || hasProfit;
+                    });
 
-                    document.getElementById('lm-active-strategies').textContent = activeStrategies;
+                    // Calculate stats from filtered strategies
+                    let totalTrades = 0;
+                    let openPositions = 0;
+                    let totalProfit = 0;
+
+                    filteredStrategies.forEach(s => {
+                        totalTrades += s.trade_count || 0;
+                        openPositions += s.position_count || 0;
+                        totalProfit += s.total_profit || 0;
+                    });
+
+                    document.getElementById('lm-active-strategies').textContent = filteredStrategies.length;
                     document.getElementById('lm-total-trades').textContent = totalTrades;
                     document.getElementById('lm-open-positions').textContent = openPositions;
 
@@ -4935,14 +4948,21 @@
                     return;
                 }
 
-                const activeStrategies = data.strategies.filter(s => s.is_active);
-                if (activeStrategies.length === 0) {
+                // Apply same filtering as virtual trading tab
+                const filteredStrategies = data.strategies.filter(s => {
+                    const hasPositions = (s.position_count || 0) > 0;
+                    const hasTrades = (s.trade_count || 0) > 0;
+                    const hasProfit = Math.abs(s.total_profit || 0) > 100;
+                    return hasPositions || hasTrades || hasProfit;
+                });
+
+                if (filteredStrategies.length === 0) {
                     strategiesEl.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">활성 전략이 없습니다</p>';
                     return;
                 }
 
                 let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
-                activeStrategies.forEach(strategy => {
+                filteredStrategies.forEach(strategy => {
                     const profitColor = strategy.total_profit >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
                     html += `
                         <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.75rem;">
