@@ -1413,13 +1413,19 @@ class AutoTradingBot:
                     logger.error(f"❌ 가상매매 실행 실패: {e}", exc_info=True)
 
             if order_result:
-                # Fix v6.1.5: SplitOrderGroup vs dict 처리
-                if isinstance(order_result, dict):
-                    # 일반 주문 (dict)
-                    order_no = order_result.get('order_no', '')
+                # Fix: SplitOrderGroup vs 딕셔너리 구분
+                from strategy.split_order_manager import SplitOrderGroup
+                if isinstance(order_result, SplitOrderGroup):
+                    # 분할 주문의 경우 group_id 또는 첫 번째 entry의 order_number 사용
+                    order_no = order_result.group_id
+                    if order_result.entries and len(order_result.entries) > 0:
+                        first_entry = order_result.entries[0]
+                        if hasattr(first_entry, 'order_number') and first_entry.order_number:
+                            order_no = first_entry.order_number
+                    logger.info(f"분할 매수 완료: {len(order_result.entries)}개 주문 생성 (그룹 ID: {order_result.group_id})")
                 else:
-                    # 분할 주문 (SplitOrderGroup)
-                    order_no = order_result.group_id if hasattr(order_result, 'group_id') else ''
+                    # 일반 주문의 경우
+                    order_no = order_result.get('order_no', '') if isinstance(order_result, dict) else ''
 
                 trade = Trade(
                     stock_code=stock_code,
@@ -1562,7 +1568,19 @@ class AutoTradingBot:
                     logger.error(f"❌ 가상매매 매도 실패: {e}", exc_info=True)
 
             if order_result:
-                order_no = order_result.get('order_no', '')
+                # Fix: SplitOrderGroup vs 딕셔너리 구분
+                from strategy.split_order_manager import SplitOrderGroup
+                if isinstance(order_result, SplitOrderGroup):
+                    # 분할 주문의 경우 group_id 또는 첫 번째 entry의 order_number 사용
+                    order_no = order_result.group_id
+                    if order_result.entries and len(order_result.entries) > 0:
+                        first_entry = order_result.entries[0]
+                        if hasattr(first_entry, 'order_number') and first_entry.order_number:
+                            order_no = first_entry.order_number
+                    logger.info(f"분할 매도 완료: {len(order_result.entries)}개 주문 생성 (그룹 ID: {order_result.group_id})")
+                else:
+                    # 일반 주문의 경우
+                    order_no = order_result.get('order_no', '') if isinstance(order_result, dict) else ''
 
                 trade = Trade(
                     stock_code=stock_code,

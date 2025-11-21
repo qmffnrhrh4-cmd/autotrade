@@ -112,8 +112,22 @@ class SplitOrderExecutor:
                     account_number=account_number
                 )
 
-                if result and result.get('success'):
-                    order_number = result.get('order_number', result.get('odno', ''))
+                # Fix: 성공 여부 판단 로직 수정
+                # result 구조: {'order_no': '...', 'result': {'return_code': 0, 'return_msg': '...'}}
+                is_success = False
+                if result:
+                    # 방법 1: 'success' 키가 있는 경우 (기존)
+                    if result.get('success'):
+                        is_success = True
+                    # 방법 2: 'result' 키 내부의 return_code가 0인 경우 (신규)
+                    elif 'result' in result and result['result'].get('return_code') == 0:
+                        is_success = True
+                    # 방법 3: order_no가 있고 에러 메시지가 없는 경우
+                    elif result.get('order_no') and not result.get('error'):
+                        is_success = True
+
+                if is_success:
+                    order_number = result.get('order_no', result.get('order_number', result.get('odno', '')))
 
                     # 주문 상태 업데이트
                     self.manager.update_entry_status(
@@ -213,8 +227,22 @@ class SplitOrderExecutor:
                     account_number=account_number
                 )
 
-                if result and result.get('success'):
-                    order_number = result.get('order_number', result.get('odno', ''))
+                # Fix: 성공 여부 판단 로직 수정
+                # result 구조: {'order_no': '...', 'result': {'return_code': 0, 'return_msg': '...'}}
+                is_success = False
+                if result:
+                    # 방법 1: 'success' 키가 있는 경우 (기존)
+                    if result.get('success'):
+                        is_success = True
+                    # 방법 2: 'result' 키 내부의 return_code가 0인 경우 (신규)
+                    elif 'result' in result and result['result'].get('return_code') == 0:
+                        is_success = True
+                    # 방법 3: order_no가 있고 에러 메시지가 없는 경우
+                    elif result.get('order_no') and not result.get('error'):
+                        is_success = True
+
+                if is_success:
+                    order_number = result.get('order_no', result.get('order_number', result.get('odno', '')))
 
                     # 주문 상태 업데이트
                     self.manager.update_entry_status(
