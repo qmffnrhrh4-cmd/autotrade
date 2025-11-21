@@ -104,6 +104,7 @@ class AutoTradingBot:
         self.emergency_manager = None
         self.liquidity_splitter = None
         self.cache_manager = None
+        self.trailing_stop_manager = None  # Fix: 트레일링 스탑 관리자 추가
 
         self.split_order_ai = None
         self.parameter_optimizer = None
@@ -385,6 +386,7 @@ class AutoTradingBot:
                 from strategy.emergency_manager import get_emergency_manager
                 from strategy.liquidity_splitter import get_liquidity_splitter
                 from utils.cache_manager import get_cache_manager
+                from strategy.trailing_stop_manager import TrailingStopManager
 
                 # Split order executor
                 self.split_order_executor = SplitOrderExecutor(
@@ -417,6 +419,15 @@ class AutoTradingBot:
                 # Cache manager
                 self.cache_manager = get_cache_manager()
                 logger.info("  ✅ Cache manager")
+
+                # Trailing stop manager
+                trailing_settings = {
+                    'atr_multiplier': 2.0,           # ATR 승수
+                    'activation_pct': 0.03,          # 3% 수익에서 활성화
+                    'min_profit_lock_pct': 0.50      # 최소 50% 수익 보호
+                }
+                self.trailing_stop_manager = TrailingStopManager(settings=trailing_settings)
+                logger.info("  ✅ Trailing stop manager (ATR 기반 동적 손절/익절)")
 
                 logger.info("자동화 시스템 초기화 완료")
 
@@ -959,16 +970,34 @@ class AutoTradingBot:
                 should_sell = False
                 sell_reason = ""
 
-                if current_price >= take_profit_price:
-                    should_sell = True
-                    sell_reason = f"익절 ({take_profit_price:,}원)"
-                elif current_price <= stop_loss_price:
-                    should_sell = True
-                    sell_reason = f"손절 ({stop_loss_price:,}원)"
+                # Fix: 트레일링 스탑 체크 (우선순위 1)
+                if self.trailing_stop_manager and stock_code in self.trailing_stop_manager.states:
+                    try:
+                        should_sell_ts, reason_ts = self.trailing_stop_manager.update(stock_code, current_price)
+                        if should_sell_ts:
+                            should_sell = True
+                            sell_reason = f"트레일링스탑 {reason_ts}"
+                            logger.info(f"🎯 트레일링 스탑 발동: {stock_name} - {reason_ts}")
+                    except Exception as e:
+                        logger.warning(f"트레일링 스탑 체크 실패: {e}")
+
+                # 기본 손익 체크 (트레일링 스탑이 없거나 발동 안된 경우)
+                if not should_sell:
+                    if current_price >= take_profit_price:
+                        should_sell = True
+                        sell_reason = f"익절 ({take_profit_price:,}원)"
+                    elif current_price <= stop_loss_price:
+                        should_sell = True
+                        sell_reason = f"손절 ({stop_loss_price:,}원)"
 
                 if should_sell:
                     logger.info(f"매도 신호: {stock_name} - {sell_reason}")
                     self._execute_sell(stock_code, stock_name, quantity, current_price, profit_loss, profit_loss_rate, sell_reason)
+
+                    # 매도 후 트레일링 스탑 상태 제거
+                    if self.trailing_stop_manager and stock_code in self.trailing_stop_manager.states:
+                        del self.trailing_stop_manager.states[stock_code]
+                        logger.debug(f"트레일링 스탑 제거: {stock_code}")
 
         except Exception as e:
             logger.error(f"매도 신호 확인 실패: {e}")
@@ -1089,13 +1118,31 @@ class AutoTradingBot:
                     }
                 }
 
-                ai_analysis = self.analyzer.analyze_stock(
-                    stock_data,
-                    score_info=score_info,
-                    portfolio_info=portfolio_info
-                )
-                ai_signal = ai_analysis.get('signal', 'hold')
-                split_strategy = ai_analysis.get('split_strategy', '')
+                # Fix: AI 분석 디버깅 강화
+                try:
+                    print(f"\n   🤖 AI 분석 시작...")
+                    logger.info(f"AI 분석 시작: {candidate.name} (점수: {scoring_result.total_score})")
+
+                    ai_analysis = self.analyzer.analyze_stock(
+                        stock_data,
+                        score_info=score_info,
+                        portfolio_info=portfolio_info
+                    )
+
+                    if not ai_analysis:
+                        logger.error(f"AI 분석 결과 없음: {candidate.name}")
+                        print(f"   ❌ AI 분석 실패 - 결과 없음")
+                        continue
+
+                    ai_signal = ai_analysis.get('signal', 'hold')
+                    split_strategy = ai_analysis.get('split_strategy', '')
+
+                    logger.info(f"AI 분석 완료: {candidate.name} → {ai_signal} (전략: {split_strategy})")
+
+                except Exception as e:
+                    logger.error(f"AI 분석 예외 발생: {candidate.name} - {e}", exc_info=True)
+                    print(f"   ❌ AI 분석 오류: {e}")
+                    continue
 
                 candidate.ai_signal = ai_signal
                 candidate.ai_reasons = ai_analysis.get('reasons', [])
@@ -1131,6 +1178,10 @@ class AutoTradingBot:
                     (ai_signal == 'buy' and scoring_result.total_score >= 200) or
                     (ai_signal == 'hold' and scoring_result.total_score >= 280)
                 )
+
+                # 매수 조건 평가 로깅
+                logger.info(f"매수 조건 평가: {candidate.name} - AI={ai_signal}, 점수={scoring_result.total_score}, 승인={buy_approved}")
+                print(f"   📊 매수 평가: AI={ai_signal}, 점수={scoring_result.total_score:.0f}, 승인={'✅' if buy_approved else '❌'}")
 
                 if buy_approved:
                     # 중복 매수 방지: 이미 보유한 종목인지 확인
@@ -1446,6 +1497,27 @@ class AutoTradingBot:
                 self.db_session.commit()
 
                 logger.info(f"{stock_name} 매수 성공 (주문번호: {order_no})")
+
+                # Fix: 트레일링 스탑 추가 (ATR 기반 동적 손절/익절)
+                if self.trailing_stop_manager:
+                    try:
+                        # ATR 값 추정 (가격의 2% 또는 변동성 기반)
+                        volatility = getattr(candidate, 'volatility', None)
+                        if volatility and volatility > 0:
+                            atr_value = optimal_price * volatility * 0.5  # 변동성의 50%
+                        else:
+                            atr_value = optimal_price * 0.02  # 기본 2%
+
+                        self.trailing_stop_manager.add_position(
+                            stock_code=stock_code,
+                            entry_price=optimal_price,
+                            atr_value=atr_value,
+                            initial_stop_loss_pct=0.05,  # 5% 손절
+                            initial_take_profit_pct=0.10  # 10% 익절
+                        )
+                        logger.info(f"🎯 트레일링 스탑 설정: {stock_name} (ATR: {atr_value:,.0f}원)")
+                    except Exception as e:
+                        logger.warning(f"트레일링 스탑 설정 실패: {e}")
 
                 self.alert_manager.alert_position_opened(
                     stock_code=stock_code,
