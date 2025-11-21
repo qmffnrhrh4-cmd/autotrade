@@ -133,22 +133,34 @@ def get_strategies():
         # Fix: JavaScript가 배열을 기대하므로 리스트 형식으로 반환
         strategies_output = []
         for strategy in strategies_list:
-            initial_capital = strategy.get('initial_capital', 10000000)
-            current_capital = strategy.get('current_capital', initial_capital)
-            total_profit = current_capital - initial_capital
-            return_rate = (total_profit / initial_capital * 100) if initial_capital > 0 else 0
+            strategy_id = strategy.get('strategy_id') or strategy.get('id')
+
+            # Fix v6.2: 포지션 평가액을 포함한 정확한 성과 지표 계산
+            metrics = virtual_manager.get_performance_metrics(strategy_id)
+
+            # 성과 지표에서 값 가져오기 (fallback으로 기존 값 사용)
+            initial_capital = metrics.get('initial_capital', strategy.get('initial_capital', 10000000))
+            current_capital = metrics.get('current_capital', strategy.get('current_capital', initial_capital))
+            total_assets = metrics.get('total_assets', current_capital)  # 포지션 평가액 포함
+            position_value = metrics.get('position_value', 0)
+            total_profit = metrics.get('realized_profit', 0)
+            unrealized_profit = metrics.get('unrealized_profit', 0)
+            return_rate = ((total_assets - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
 
             strategies_output.append({
-                'id': strategy.get('strategy_id') or strategy.get('id'),
-                'name': strategy.get('name', f"전략{strategy.get('id', '?')}"),
+                'id': strategy_id,
+                'name': metrics.get('strategy_name', strategy.get('name', f"전략{strategy_id}")),
                 'description': strategy.get('description', ''),
                 'initial_capital': initial_capital,
                 'current_capital': current_capital,
-                'total_assets': current_capital,  # TODO: 포지션 평가액 포함
+                'total_assets': total_assets,  # Fix: 포지션 평가액 포함
+                'position_value': position_value,  # 추가: 포지션 평가액
                 'total_profit': total_profit,
+                'unrealized_profit': unrealized_profit,  # 추가: 미실현 손익
                 'return_rate': round(return_rate, 2),
-                'win_rate': strategy.get('win_rate', 0),
-                'trade_count': strategy.get('trade_count', 0),
+                'win_rate': metrics.get('win_rate', strategy.get('win_rate', 0)),
+                'trade_count': metrics.get('trade_count', strategy.get('trade_count', 0)),
+                'position_count': metrics.get('position_count', 0),  # 추가: 포지션 개수
                 'is_active': strategy.get('is_active', True)
             })
 

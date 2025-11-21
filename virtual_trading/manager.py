@@ -26,6 +26,16 @@ class VirtualTradingManager:
         self.db = VirtualTradingDB(db_path)
         self.active_strategies: Dict[int, Dict[str, Any]] = {}
         self.price_cache: Dict[str, float] = {}  # 종목코드 -> 현재가
+
+        # Fix v6.2: AI 분할 주문 시스템 통합
+        self.split_order_ai = None
+        try:
+            from ai.split_order_ai import get_split_order_ai
+            self.split_order_ai = get_split_order_ai()
+            logger.info("✅ AI 분할 주문 시스템 통합 완료")
+        except Exception as e:
+            logger.warning(f"⚠️ AI 분할 주문 시스템 로드 실패: {e}")
+
         logger.info("가상매매 매니저 초기화 완료")
 
     def create_strategy(
@@ -64,10 +74,12 @@ class VirtualTradingManager:
         price: float,
         stop_loss_percent: float = None,
         take_profit_percent: float = None,
-        use_split: bool = True
+        use_split: bool = True,
+        use_ai_split: bool = True,
+        market_data: Dict[str, Any] = None
     ) -> Optional[int]:
         """
-        가상매매 매수 주문 실행 (분할매수 지원)
+        가상매매 매수 주문 실행 (AI 기반 분할매수 지원)
 
         Args:
             strategy_id: 전략 ID
@@ -78,6 +90,8 @@ class VirtualTradingManager:
             stop_loss_percent: 손절 비율 (예: 5.0 = -5%)
             take_profit_percent: 익절 비율 (예: 10.0 = +10%)
             use_split: 분할매수 사용 여부 (기본값: True)
+            use_ai_split: AI 기반 분할 전략 사용 (기본값: True)
+            market_data: 시장 데이터 (AI 분석용)
 
         Returns:
             생성된 포지션 ID (실패시 None)
@@ -90,10 +104,6 @@ class VirtualTradingManager:
             logger.error(f"전략을 찾을 수 없음: {strategy_id}")
             return None
 
-        # 분할매수 설정 확인
-        split_enabled = use_split and strategy.get('split_buy_enabled', 1) == 1
-        split_ratios_str = strategy.get('split_buy_ratios', '0.33,0.33,0.34')
-
         # 손절/익절가 계산
         stop_loss_price = None
         take_profit_price = None
@@ -104,38 +114,92 @@ class VirtualTradingManager:
         if take_profit_percent:
             take_profit_price = price * (1 + take_profit_percent / 100)
 
+        # 분할매수 설정 확인
+        split_enabled = use_split and strategy.get('split_buy_enabled', 1) == 1
+
         try:
             if split_enabled:
-                # 분할매수 실행
-                split_ratios = [float(r) for r in split_ratios_str.split(',')]
-                logger.info(f"분할매수 시작: {stock_name} {quantity}주 (비율: {split_ratios})")
+                # Fix v6.2: AI 기반 분할 매수 전략 사용
+                if use_ai_split and self.split_order_ai and market_data:
+                    logger.info(f"🤖 AI 분할매수 전략 결정 중: {stock_name}")
 
-                position_ids = []
-                for i, ratio in enumerate(split_ratios):
-                    split_qty = int(quantity * ratio)
-                    if split_qty == 0:
-                        continue
-
-                    # 각 차수별로 포지션 생성
-                    split_price = price * (1 - 0.005 * i)  # 0.5%씩 낮은 가격
-
-                    position_id = self.db.open_position(
-                        strategy_id=strategy_id,
+                    # AI 분할 전략 결정
+                    ai_decision = self.split_order_ai.decide_split_buy_strategy(
                         stock_code=stock_code,
                         stock_name=stock_name,
-                        quantity=split_qty,
-                        price=split_price,
-                        stop_loss_price=stop_loss_price,
-                        take_profit_price=take_profit_price
+                        total_quantity=quantity,
+                        current_price=price,
+                        market_data=market_data or {}
                     )
 
-                    position_ids.append(position_id)
                     logger.info(
-                        f"  [{i+1}/{len(split_ratios)}] {split_qty}주 @ {split_price:,.0f}원"
+                        f"🤖 AI 결정: {ai_decision.strategy} 전략, "
+                        f"{ai_decision.num_splits}회 분할, 신뢰도 {ai_decision.confidence:.1%}"
                     )
+                    logger.info(f"   {ai_decision.reasoning}")
 
-                logger.info(f"✅ 분할매수 완료: {len(position_ids)}개 포지션 생성")
-                return position_ids[0] if position_ids else None
+                    # AI 결정에 따라 분할 매수 실행
+                    position_ids = []
+                    for i in range(ai_decision.num_splits):
+                        split_qty = ai_decision.quantities[i]
+                        if split_qty == 0:
+                            continue
+
+                        # AI가 결정한 가격 간격 적용
+                        price_gap_pct = ai_decision.price_gaps[i]
+                        split_price = price * (1 + price_gap_pct)
+
+                        position_id = self.db.open_position(
+                            strategy_id=strategy_id,
+                            stock_code=stock_code,
+                            stock_name=stock_name,
+                            quantity=split_qty,
+                            price=split_price,
+                            stop_loss_price=stop_loss_price,
+                            take_profit_price=take_profit_price
+                        )
+
+                        position_ids.append(position_id)
+                        logger.info(
+                            f"  [{i+1}/{ai_decision.num_splits}] {split_qty}주 @ {split_price:,.0f}원 "
+                            f"(간격: {price_gap_pct*100:+.2f}%)"
+                        )
+
+                    logger.info(f"✅ AI 분할매수 완료: {len(position_ids)}개 포지션 생성")
+                    return position_ids[0] if position_ids else None
+
+                else:
+                    # 기존 고정 비율 분할 매수
+                    split_ratios_str = strategy.get('split_buy_ratios', '0.33,0.33,0.34')
+                    split_ratios = [float(r) for r in split_ratios_str.split(',')]
+                    logger.info(f"분할매수 시작: {stock_name} {quantity}주 (비율: {split_ratios})")
+
+                    position_ids = []
+                    for i, ratio in enumerate(split_ratios):
+                        split_qty = int(quantity * ratio)
+                        if split_qty == 0:
+                            continue
+
+                        # 각 차수별로 포지션 생성
+                        split_price = price * (1 - 0.005 * i)  # 0.5%씩 낮은 가격
+
+                        position_id = self.db.open_position(
+                            strategy_id=strategy_id,
+                            stock_code=stock_code,
+                            stock_name=stock_name,
+                            quantity=split_qty,
+                            price=split_price,
+                            stop_loss_price=stop_loss_price,
+                            take_profit_price=take_profit_price
+                        )
+
+                        position_ids.append(position_id)
+                        logger.info(
+                            f"  [{i+1}/{len(split_ratios)}] {split_qty}주 @ {split_price:,.0f}원"
+                        )
+
+                    logger.info(f"✅ 분할매수 완료: {len(position_ids)}개 포지션 생성")
+                    return position_ids[0] if position_ids else None
 
             else:
                 # 일반 매수 실행
@@ -177,10 +241,12 @@ class VirtualTradingManager:
         sell_price: float,
         reason: str = "manual",
         use_split: bool = True,
-        sell_ratio: float = 1.0
+        sell_ratio: float = 1.0,
+        use_ai_split: bool = True,
+        market_data: Dict[str, Any] = None
     ) -> Optional[float]:
         """
-        가상매매 매도 주문 실행 (분할매도 지원)
+        가상매매 매도 주문 실행 (AI 기반 분할매도 지원)
 
         Args:
             position_id: 포지션 ID
@@ -188,6 +254,8 @@ class VirtualTradingManager:
             reason: 매도 사유 (manual/stop_loss/take_profit/partial)
             use_split: 분할매도 사용 여부 (기본값: True)
             sell_ratio: 매도 비율 (0.0 ~ 1.0, 기본값: 1.0 = 전량 매도)
+            use_ai_split: AI 기반 분할 전략 사용 (기본값: True)
+            market_data: 시장 데이터 (AI 분석용)
 
         Returns:
             실현 수익 (실패시 None)
@@ -211,45 +279,105 @@ class VirtualTradingManager:
                 logger.error(f"전략을 찾을 수 없음: {strategy_id}")
                 return None
 
+            # 손절/익절은 즉시 전량 매도
+            is_emergency_exit = reason in ["stop_loss"]
+
             # 분할매도 설정 확인
-            split_enabled = use_split and strategy.get('split_sell_enabled', 1) == 1 and sell_ratio < 1.0
-            split_ratios_str = strategy.get('split_sell_ratios', '0.33,0.33,0.34')
+            split_enabled = (
+                use_split
+                and strategy.get('split_sell_enabled', 1) == 1
+                and not is_emergency_exit  # 긴급 매도는 분할 안함
+                and sell_ratio >= 0.5  # 50% 이상 매도만 분할
+            )
 
             if split_enabled:
-                # 분할매도 실행
-                split_ratios = [float(r) for r in split_ratios_str.split(',')]
-                logger.info(f"분할매도 시작: {position['stock_name']} (비율: {split_ratios})")
+                # Fix v6.2: AI 기반 분할 매도 전략 사용
+                if use_ai_split and self.split_order_ai and market_data and reason in ["take_profit", "manual"]:
+                    logger.info(f"🤖 AI 분할매도 전략 결정 중: {position['stock_name']}")
 
-                total_profit = 0
-                remaining_qty = position['quantity']
+                    # 보유 기간 계산 (시간)
+                    buy_date = datetime.fromisoformat(position['buy_date'])
+                    holding_hours = (datetime.now() - buy_date).total_seconds() / 3600
 
-                for i, ratio in enumerate(split_ratios):
-                    if remaining_qty <= 0:
-                        break
-
-                    # 각 차수별 매도
-                    split_qty = int(position['quantity'] * ratio)
-                    if split_qty > remaining_qty:
-                        split_qty = remaining_qty
-
-                    split_price = sell_price * (1 + 0.01 * i)  # 1%씩 높은 가격
-
-                    # 부분 매도는 새로운 포지션으로 분리하지 않고 수량만 조정
-                    # 실제 구현에서는 더 복잡한 로직이 필요할 수 있습니다
-                    profit = self.db.close_position(
-                        position_id=position_id,
-                        sell_price=split_price
+                    # AI 분할 전략 결정
+                    ai_decision = self.split_order_ai.decide_split_sell_strategy(
+                        stock_code=position['stock_code'],
+                        stock_name=position['stock_name'],
+                        total_quantity=position['quantity'],
+                        current_price=sell_price,
+                        entry_price=position['avg_price'],
+                        market_data=market_data or {},
+                        holding_duration_hours=holding_hours
                     )
-
-                    total_profit += profit if profit else 0
-                    remaining_qty -= split_qty
 
                     logger.info(
-                        f"  [{i+1}/{len(split_ratios)}] {split_qty}주 @ {split_price:,.0f}원 (수익: {profit:+,.0f}원)"
+                        f"🤖 AI 결정: {ai_decision.strategy} 전략, "
+                        f"{ai_decision.num_splits}회 분할, 신뢰도 {ai_decision.confidence:.1%}"
+                    )
+                    logger.info(f"   {ai_decision.reasoning}")
+
+                    # AI 즉시 청산 결정 시 전량 매도
+                    if ai_decision.num_splits == 1:
+                        profit = self.db.close_position(
+                            position_id=position_id,
+                            sell_price=sell_price
+                        )
+                        logger.info(f"✅ AI 즉시 청산: 수익 {profit:+,.0f}원")
+                        return profit
+
+                    # AI 결정에 따라 분할 매도 실행
+                    # 참고: 현재 DB 구조는 부분 매도를 지원하지 않으므로
+                    # 여기서는 첫 번째 분할만 실행하고 나머지는 로그만 출력
+                    logger.warning("⚠️ 부분 매도 미지원 - 첫 번째 분할만 실행")
+
+                    first_split_qty = ai_decision.quantities[0]
+                    first_split_price = sell_price * (1 + ai_decision.price_gaps[0])
+
+                    # 전량 매도로 처리 (DB 구조 제약)
+                    profit = self.db.close_position(
+                        position_id=position_id,
+                        sell_price=first_split_price
                     )
 
-                logger.info(f"✅ 분할매도 완료: 총 수익 {total_profit:+,.0f}원")
-                return total_profit
+                    logger.info(f"✅ AI 분할매도 (1/{ai_decision.num_splits}): 수익 {profit:+,.0f}원")
+                    return profit
+
+                else:
+                    # 기존 고정 비율 분할 매도
+                    split_ratios_str = strategy.get('split_sell_ratios', '0.33,0.33,0.34')
+                    split_ratios = [float(r) for r in split_ratios_str.split(',')]
+                    logger.info(f"분할매도 시작: {position['stock_name']} (비율: {split_ratios})")
+
+                    total_profit = 0
+                    remaining_qty = position['quantity']
+
+                    for i, ratio in enumerate(split_ratios):
+                        if remaining_qty <= 0:
+                            break
+
+                        # 각 차수별 매도
+                        split_qty = int(position['quantity'] * ratio)
+                        if split_qty > remaining_qty:
+                            split_qty = remaining_qty
+
+                        split_price = sell_price * (1 + 0.01 * i)  # 1%씩 높은 가격
+
+                        # 부분 매도는 새로운 포지션으로 분리하지 않고 수량만 조정
+                        # 실제 구현에서는 더 복잡한 로직이 필요할 수 있습니다
+                        profit = self.db.close_position(
+                            position_id=position_id,
+                            sell_price=split_price
+                        )
+
+                        total_profit += profit if profit else 0
+                        remaining_qty -= split_qty
+
+                        logger.info(
+                            f"  [{i+1}/{len(split_ratios)}] {split_qty}주 @ {split_price:,.0f}원 (수익: {profit:+,.0f}원)"
+                        )
+
+                    logger.info(f"✅ 분할매도 완료: 총 수익 {total_profit:+,.0f}원")
+                    return total_profit
 
             else:
                 # 일반 매도 실행
