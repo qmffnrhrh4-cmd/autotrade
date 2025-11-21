@@ -48,12 +48,34 @@ def initialize_apis():
         openapi_client = None
         try:
             logger.info("🔗 OpenAPI 클라이언트 초기화 중...")
-            openapi_client = KiwoomOpenAPIClient(auto_connect=True)
-            if openapi_client.is_connected:
-                logger.info("✅ OpenAPI 클라이언트 연결 완료 - 백테스팅에 OpenAPI 사용")
-            else:
-                logger.warning("⚠️ OpenAPI 클라이언트 연결 실패 - REST API로 폴백")
+            openapi_client = KiwoomOpenAPIClient(auto_connect=False)
+
+            # 연결 재시도 (최대 3회)
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    openapi_client.connect()
+                    if openapi_client.is_connected:
+                        logger.info(f"✅ OpenAPI 클라이언트 연결 완료 (시도 {attempt + 1}/{max_retries})")
+                        break
+                    else:
+                        logger.warning(f"⚠️ OpenAPI 연결 실패 (시도 {attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            import time
+                            time.sleep(2)  # 2초 대기 후 재시도
+                except Exception as e:
+                    logger.warning(f"⚠️ OpenAPI 연결 시도 {attempt + 1} 실패: {e}")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(2)
+
+            if not openapi_client.is_connected:
+                logger.warning("⚠️ OpenAPI 클라이언트 연결 최종 실패 - REST API로 폴백")
+                logger.warning("   💡 OpenAPI 서버가 실행 중인지 확인하세요: http://127.0.0.1:5001/health")
                 openapi_client = None
+            else:
+                logger.info("✅ OpenAPI 클라이언트 사용 - 시간 무관 데이터 수집 가능")
+
         except Exception as e:
             logger.warning(f"⚠️ OpenAPI 클라이언트 초기화 실패: {e}")
             logger.warning("   → REST API로 폴백")

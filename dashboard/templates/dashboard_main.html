@@ -2296,7 +2296,28 @@
                         return;
                     }
 
-                    const strategies = Object.entries(data.strategies);
+                    // Apply same filtering as virtual trading tab
+                    const filteredStrategies = data.strategies.filter(s => {
+                        const hasPositions = (s.position_count || 0) > 0;
+                        const hasTrades = (s.trade_count || 0) > 0;
+                        const hasProfit = Math.abs(s.total_profit || 0) > 100;
+                        const hasReturn = Math.abs(s.return_rate || 0) > 0.1;
+                        const hasCapitalChange = Math.abs((s.current_capital || 0) - (s.initial_capital || 0)) > 100;
+                        return hasPositions || hasTrades || hasProfit || hasReturn || hasCapitalChange;
+                    });
+
+                    // Convert to object format for compatibility
+                    const strategiesObj = {};
+                    filteredStrategies.forEach(s => {
+                        strategiesObj[s.name] = {
+                            capital: s.total_assets || s.current_capital,
+                            return: s.return_rate,
+                            trades: s.trade_count,
+                            status: s.is_active !== false ? 'active' : 'inactive'
+                        };
+                    });
+
+                    const strategies = Object.entries(strategiesObj);
                     const totalStrategies = strategies.length;
                     const avgReturn = strategies.reduce((sum, [_, s]) => sum + (s.return || 0), 0) / totalStrategies;
                     const totalCapital = strategies.reduce((sum, [_, s]) => sum + (s.capital || 0), 0);
@@ -4599,17 +4620,20 @@
             let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
             strategies.slice(0, 10).forEach((strategy, index) => {
                 const rankColor = index === 0 ? '#ffc107' : index === 1 ? '#6c757d' : '#0dcaf0';
-                const profitColor = strategy.return_rate >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                const returnRate = strategy.return_rate || 0;
+                const winRate = strategy.win_rate || 0;
+                const profitColor = returnRate >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                const profitSign = returnRate >= 0 ? '+' : '';
                 html += `
                     <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.75rem; transition: all 0.3s;">
                         <div style="display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <span style="background: ${rankColor}; color: white; padding: 0.25rem 0.5rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem;">#${index + 1}</span>
-                                <strong style="margin-left: 0.5rem;">${strategy.name}</strong>
+                                <strong style="margin-left: 0.5rem;">${strategy.name || '전략'}</strong>
                             </div>
                             <div style="text-align: right;">
-                                <div style="color: ${profitColor}; font-weight: 700;">+${strategy.return_rate.toFixed(2)}%</div>
-                                <small style="color: var(--text-muted);">승률 ${strategy.win_rate.toFixed(1)}%</small>
+                                <div style="color: ${profitColor}; font-weight: 700;">${profitSign}${returnRate.toFixed(2)}%</div>
+                                <small style="color: var(--text-muted);">승률 ${winRate.toFixed(1)}%</small>
                             </div>
                         </div>
                     </div>
