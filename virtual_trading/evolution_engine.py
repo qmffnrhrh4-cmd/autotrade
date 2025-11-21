@@ -21,56 +21,111 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class StrategyGene:
-    """전략 유전자 (염색체)"""
-    # 매수 조건
+    """전략 유전자 (염색체) - 33개 지표"""
+    # === 기본 매수 조건 (4개) ===
     rsi_min: float  # 30-50
     rsi_max: float  # 50-70
     volume_ratio_min: float  # 1.0-3.0
     bid_ask_ratio_min: float  # 1.0-2.0
 
-    # 매도 조건
+    # === 매도 조건 (5개) ===
     take_profit_pct: float  # 5-20%
     stop_loss_pct: float  # 3-10%
     trailing_stop_pct: float  # 5-15%
     rsi_overbought_min: float  # 65-80
     rsi_overbought_max: float  # 80-95
 
-    # 포지션 관리
+    # === 포지션 관리 (2개) ===
     position_size_pct: float  # 5-30%
     max_positions: int  # 1-5
 
-    # 시간 필터
+    # === 시간 필터 (2개) ===
     trade_start_hour: int  # 9-12
     trade_end_hour: int  # 14-20
 
-    # 가격 범위
+    # === 가격 범위 (2개) ===
     price_min: int  # 1000-50000
     price_max: int  # 50000-500000
 
-    # 분할 매수 설정
+    # === 분할 매수 (2개) ===
     split_buy_enabled: bool
     split_buy_count: int  # 2-5
+
+    # === MACD 지표 (3개) ===
+    macd_signal_cross: bool  # MACD 골든/데드 크로스 사용
+    macd_histogram_threshold: float  # Histogram 임계값 (-5.0 ~ 5.0)
+    macd_divergence_enabled: bool  # 다이버전스 체크
+
+    # === 볼린저 밴드 (3개) ===
+    bb_upper_touch: bool  # 상단 터치 시 매도 신호
+    bb_lower_touch: bool  # 하단 터치 시 매수 신호
+    bb_width_threshold: float  # 밴드 폭 임계값 (0.5-3.0)
+
+    # === 이동평균선 (4개) ===
+    ma5_cross: bool  # 5일선 골든크로스 사용
+    ma20_cross: bool  # 20일선 골든크로스 사용
+    ma60_above: bool  # 60일선 위에서만 매수
+    ma_arrangement: str  # 정배열/역배열/무관 ("bull"/"bear"/"any")
+
+    # === 외국인/기관 (4개) ===
+    foreign_buy_min: float  # 외국인 최소 순매수 (백만원, 0-1000)
+    foreign_ratio_min: float  # 외국인 보유 비율 최소 (%, 0-30)
+    institution_buy_min: float  # 기관 최소 순매수 (백만원, 0-1000)
+    institution_ratio_min: float  # 기관 보유 비율 최소 (%, 0-30)
+
+    # === 거래량/호가/체결 (3개) ===
+    trading_value_min: float  # 최소 거래대금 (억원, 10-1000)
+    execution_power_min: float  # 최소 체결강도 (50-150)
+    bid_ask_imbalance_min: float  # 호가 불균형 최소값 (1.0-2.0)
 
     def to_dict(self) -> Dict[str, Any]:
         """딕셔너리로 변환"""
         return {
+            # 기본 매수 조건
             'rsi_min': self.rsi_min,
             'rsi_max': self.rsi_max,
             'volume_ratio_min': self.volume_ratio_min,
             'bid_ask_ratio_min': self.bid_ask_ratio_min,
+            # 매도 조건
             'take_profit_pct': self.take_profit_pct,
             'stop_loss_pct': self.stop_loss_pct,
             'trailing_stop_pct': self.trailing_stop_pct,
             'rsi_overbought_min': self.rsi_overbought_min,
             'rsi_overbought_max': self.rsi_overbought_max,
+            # 포지션 관리
             'position_size_pct': self.position_size_pct,
             'max_positions': self.max_positions,
+            # 시간 필터
             'trade_start_hour': self.trade_start_hour,
             'trade_end_hour': self.trade_end_hour,
+            # 가격 범위
             'price_min': self.price_min,
             'price_max': self.price_max,
+            # 분할 매수
             'split_buy_enabled': self.split_buy_enabled,
-            'split_buy_count': self.split_buy_count
+            'split_buy_count': self.split_buy_count,
+            # MACD
+            'macd_signal_cross': self.macd_signal_cross,
+            'macd_histogram_threshold': self.macd_histogram_threshold,
+            'macd_divergence_enabled': self.macd_divergence_enabled,
+            # 볼린저 밴드
+            'bb_upper_touch': self.bb_upper_touch,
+            'bb_lower_touch': self.bb_lower_touch,
+            'bb_width_threshold': self.bb_width_threshold,
+            # 이동평균선
+            'ma5_cross': self.ma5_cross,
+            'ma20_cross': self.ma20_cross,
+            'ma60_above': self.ma60_above,
+            'ma_arrangement': self.ma_arrangement,
+            # 외국인/기관
+            'foreign_buy_min': self.foreign_buy_min,
+            'foreign_ratio_min': self.foreign_ratio_min,
+            'institution_buy_min': self.institution_buy_min,
+            'institution_ratio_min': self.institution_ratio_min,
+            # 거래량/호가/체결
+            'trading_value_min': self.trading_value_min,
+            'execution_power_min': self.execution_power_min,
+            'bid_ask_imbalance_min': self.bid_ask_imbalance_min
         }
 
 
@@ -334,75 +389,169 @@ class StrategyEvolutionEngine:
         return new_strategy_ids
 
     def _generate_random_gene(self) -> StrategyGene:
-        """랜덤 유전자 생성"""
+        """랜덤 유전자 생성 (33개 지표)"""
         return StrategyGene(
+            # 기본 매수 조건
             rsi_min=random.uniform(20, 40),
             rsi_max=random.uniform(50, 70),
             volume_ratio_min=random.uniform(1.2, 2.5),
             bid_ask_ratio_min=random.uniform(1.05, 1.5),
+            # 매도 조건
             take_profit_pct=random.uniform(5, 20),
             stop_loss_pct=random.uniform(3, 10),
             trailing_stop_pct=random.uniform(5, 15),
             rsi_overbought_min=random.uniform(65, 75),
             rsi_overbought_max=random.uniform(80, 95),
+            # 포지션 관리
             position_size_pct=random.uniform(10, 25),
             max_positions=random.randint(2, 4),
+            # 시간 필터
             trade_start_hour=random.randint(9, 11),
             trade_end_hour=random.randint(14, 18),
+            # 가격 범위
             price_min=random.randint(5000, 30000),
             price_max=random.randint(100000, 400000),
+            # 분할 매수
             split_buy_enabled=random.choice([True, False]),
-            split_buy_count=random.randint(2, 4)
+            split_buy_count=random.randint(2, 4),
+            # MACD
+            macd_signal_cross=random.choice([True, False]),
+            macd_histogram_threshold=random.uniform(-5.0, 5.0),
+            macd_divergence_enabled=random.choice([True, False]),
+            # 볼린저 밴드
+            bb_upper_touch=random.choice([True, False]),
+            bb_lower_touch=random.choice([True, False]),
+            bb_width_threshold=random.uniform(0.5, 3.0),
+            # 이동평균선
+            ma5_cross=random.choice([True, False]),
+            ma20_cross=random.choice([True, False]),
+            ma60_above=random.choice([True, False]),
+            ma_arrangement=random.choice(['bull', 'bear', 'any']),
+            # 외국인/기관
+            foreign_buy_min=random.uniform(0, 1000),
+            foreign_ratio_min=random.uniform(0, 30),
+            institution_buy_min=random.uniform(0, 1000),
+            institution_ratio_min=random.uniform(0, 30),
+            # 거래량/호가/체결
+            trading_value_min=random.uniform(10, 1000),
+            execution_power_min=random.uniform(50, 150),
+            bid_ask_imbalance_min=random.uniform(1.0, 2.0)
         )
 
     def _crossover(self, parent1: StrategyGene, parent2: StrategyGene) -> StrategyGene:
-        """교배 (2점 교차)"""
-        # 각 유전자를 50% 확률로 선택
+        """교배 (2점 교차) - 각 유전자를 50% 확률로 부모에서 선택"""
         return StrategyGene(
+            # 기본 매수 조건
             rsi_min=random.choice([parent1.rsi_min, parent2.rsi_min]),
             rsi_max=random.choice([parent1.rsi_max, parent2.rsi_max]),
             volume_ratio_min=random.choice([parent1.volume_ratio_min, parent2.volume_ratio_min]),
             bid_ask_ratio_min=random.choice([parent1.bid_ask_ratio_min, parent2.bid_ask_ratio_min]),
+            # 매도 조건
             take_profit_pct=random.choice([parent1.take_profit_pct, parent2.take_profit_pct]),
             stop_loss_pct=random.choice([parent1.stop_loss_pct, parent2.stop_loss_pct]),
             trailing_stop_pct=random.choice([parent1.trailing_stop_pct, parent2.trailing_stop_pct]),
             rsi_overbought_min=random.choice([parent1.rsi_overbought_min, parent2.rsi_overbought_min]),
             rsi_overbought_max=random.choice([parent1.rsi_overbought_max, parent2.rsi_overbought_max]),
+            # 포지션 관리
             position_size_pct=random.choice([parent1.position_size_pct, parent2.position_size_pct]),
             max_positions=random.choice([parent1.max_positions, parent2.max_positions]),
+            # 시간 필터
             trade_start_hour=random.choice([parent1.trade_start_hour, parent2.trade_start_hour]),
             trade_end_hour=random.choice([parent1.trade_end_hour, parent2.trade_end_hour]),
+            # 가격 범위
             price_min=random.choice([parent1.price_min, parent2.price_min]),
             price_max=random.choice([parent1.price_max, parent2.price_max]),
+            # 분할 매수
             split_buy_enabled=random.choice([parent1.split_buy_enabled, parent2.split_buy_enabled]),
-            split_buy_count=random.choice([parent1.split_buy_count, parent2.split_buy_count])
+            split_buy_count=random.choice([parent1.split_buy_count, parent2.split_buy_count]),
+            # MACD
+            macd_signal_cross=random.choice([parent1.macd_signal_cross, parent2.macd_signal_cross]),
+            macd_histogram_threshold=random.choice([parent1.macd_histogram_threshold, parent2.macd_histogram_threshold]),
+            macd_divergence_enabled=random.choice([parent1.macd_divergence_enabled, parent2.macd_divergence_enabled]),
+            # 볼린저 밴드
+            bb_upper_touch=random.choice([parent1.bb_upper_touch, parent2.bb_upper_touch]),
+            bb_lower_touch=random.choice([parent1.bb_lower_touch, parent2.bb_lower_touch]),
+            bb_width_threshold=random.choice([parent1.bb_width_threshold, parent2.bb_width_threshold]),
+            # 이동평균선
+            ma5_cross=random.choice([parent1.ma5_cross, parent2.ma5_cross]),
+            ma20_cross=random.choice([parent1.ma20_cross, parent2.ma20_cross]),
+            ma60_above=random.choice([parent1.ma60_above, parent2.ma60_above]),
+            ma_arrangement=random.choice([parent1.ma_arrangement, parent2.ma_arrangement]),
+            # 외국인/기관
+            foreign_buy_min=random.choice([parent1.foreign_buy_min, parent2.foreign_buy_min]),
+            foreign_ratio_min=random.choice([parent1.foreign_ratio_min, parent2.foreign_ratio_min]),
+            institution_buy_min=random.choice([parent1.institution_buy_min, parent2.institution_buy_min]),
+            institution_ratio_min=random.choice([parent1.institution_ratio_min, parent2.institution_ratio_min]),
+            # 거래량/호가/체결
+            trading_value_min=random.choice([parent1.trading_value_min, parent2.trading_value_min]),
+            execution_power_min=random.choice([parent1.execution_power_min, parent2.execution_power_min]),
+            bid_ask_imbalance_min=random.choice([parent1.bid_ask_imbalance_min, parent2.bid_ask_imbalance_min])
         )
 
     def _mutate(self, gene: StrategyGene) -> StrategyGene:
-        """돌연변이 (랜덤 필드 변경)"""
+        """돌연변이 (랜덤 필드 변경) - 1-5개 필드 랜덤 변경"""
         mutated = copy.deepcopy(gene)
 
-        # 랜덤으로 1-3개 필드 변경
-        fields_to_mutate = random.sample([
+        # 모든 가능한 필드 목록
+        all_fields = [
             'rsi_min', 'rsi_max', 'volume_ratio_min', 'take_profit_pct',
-            'stop_loss_pct', 'position_size_pct', 'max_positions'
-        ], k=random.randint(1, 3))
+            'stop_loss_pct', 'position_size_pct', 'max_positions',
+            'macd_signal_cross', 'macd_histogram_threshold', 'bb_width_threshold',
+            'ma5_cross', 'ma20_cross', 'ma60_above', 'ma_arrangement',
+            'foreign_buy_min', 'institution_buy_min', 'trading_value_min',
+            'execution_power_min', 'bid_ask_imbalance_min'
+        ]
+
+        # 랜덤으로 1-5개 필드 변경
+        fields_to_mutate = random.sample(all_fields, k=random.randint(1, 5))
 
         for field in fields_to_mutate:
+            # 기본 매수 조건
             if field == 'rsi_min':
                 mutated.rsi_min = random.uniform(20, 40)
             elif field == 'rsi_max':
                 mutated.rsi_max = random.uniform(50, 70)
             elif field == 'volume_ratio_min':
                 mutated.volume_ratio_min = random.uniform(1.2, 2.5)
+            # 매도 조건
             elif field == 'take_profit_pct':
                 mutated.take_profit_pct = random.uniform(5, 20)
             elif field == 'stop_loss_pct':
                 mutated.stop_loss_pct = random.uniform(3, 10)
+            # 포지션 관리
             elif field == 'position_size_pct':
                 mutated.position_size_pct = random.uniform(10, 25)
             elif field == 'max_positions':
                 mutated.max_positions = random.randint(2, 4)
+            # MACD
+            elif field == 'macd_signal_cross':
+                mutated.macd_signal_cross = random.choice([True, False])
+            elif field == 'macd_histogram_threshold':
+                mutated.macd_histogram_threshold = random.uniform(-5.0, 5.0)
+            # 볼린저 밴드
+            elif field == 'bb_width_threshold':
+                mutated.bb_width_threshold = random.uniform(0.5, 3.0)
+            # 이동평균선
+            elif field == 'ma5_cross':
+                mutated.ma5_cross = random.choice([True, False])
+            elif field == 'ma20_cross':
+                mutated.ma20_cross = random.choice([True, False])
+            elif field == 'ma60_above':
+                mutated.ma60_above = random.choice([True, False])
+            elif field == 'ma_arrangement':
+                mutated.ma_arrangement = random.choice(['bull', 'bear', 'any'])
+            # 외국인/기관
+            elif field == 'foreign_buy_min':
+                mutated.foreign_buy_min = random.uniform(0, 1000)
+            elif field == 'institution_buy_min':
+                mutated.institution_buy_min = random.uniform(0, 1000)
+            # 거래량/호가/체결
+            elif field == 'trading_value_min':
+                mutated.trading_value_min = random.uniform(10, 1000)
+            elif field == 'execution_power_min':
+                mutated.execution_power_min = random.uniform(50, 150)
+            elif field == 'bid_ask_imbalance_min':
+                mutated.bid_ask_imbalance_min = random.uniform(1.0, 2.0)
 
         return mutated
 
