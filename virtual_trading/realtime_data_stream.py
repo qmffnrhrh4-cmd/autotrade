@@ -99,8 +99,8 @@ class RealtimeDataStream:
             if not self.market_api:
                 return
 
-            # 현재가 조회
-            current_price = self.market_api.get_current_price(stock_code)
+            # 현재가 조회 (get_stock_price로 수정)
+            current_price = self.market_api.get_stock_price(stock_code)
 
             if not current_price:
                 return

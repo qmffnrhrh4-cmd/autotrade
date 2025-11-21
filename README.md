@@ -1,10 +1,19 @@
-# AutoTrade Pro v2.0 🚀
+# AutoTrade Pro v7.0 🚀
 
-**Kiwoom API + Gemini AI 기반 자동매매 봇**
+**진화 알고리즘 기반 자동매매 시스템 - OpenAPI + AI 진화 + 실시간 대시보드**
 
-[![Version](https://img.shields.io/badge/version-2.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-7.0-blue.svg)](CHANGELOG.md)
 [![Python](https://img.shields.io/badge/python-3.9+-green.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
+
+## 🆕 v7.0 주요 기능
+
+- 🧬 **진화 알고리즘**: 33개 기술 지표를 활용한 YOLO 스타일 연속 학습
+- 📊 **실시간 대시보드**: `/evolution` - 진화 상태 실시간 모니터링
+- 📈 **OpenAPI 지속 수신**: 2초 간격 실시간 시장 데이터 스트리밍
+- 🔄 **백테스팅 분석**: 전략별 성과 분석 (MDD, 샤프 비율, 수익 곡선)
+- 💰 **실전 투자 전환**: 가상매매에서 검증된 전략을 실전으로 자동 전환
+- ⚡ **WebSocket**: 실시간 진화 상태, 거래 체결 알림
 
 ---
 
