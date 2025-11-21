@@ -649,6 +649,87 @@
             to { transform: rotate(360deg); }
         }
 
+        /* ==================== Activity Monitor Bar ==================== */
+        .activity-monitor-compact {
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 0.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            font-size: 0.85rem;
+            z-index: 99;
+        }
+
+        .activity-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .activity-status .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse-anim 2s infinite;
+        }
+
+        .activity-status .pulse-dot.idle {
+            background: #f59e0b;
+        }
+
+        .activity-status .pulse-dot.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse-anim {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.1); }
+        }
+
+        .activity-text {
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .activity-counters {
+            display: flex;
+            gap: 1.5rem;
+            margin-left: auto;
+        }
+
+        .activity-counter {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-muted);
+        }
+
+        .activity-counter i {
+            font-size: 0.9rem;
+        }
+
+        .activity-counter .count {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 768px) {
+            .activity-monitor-compact {
+                flex-wrap: wrap;
+                padding: 0.5rem 1rem;
+            }
+
+            .activity-counters {
+                margin-left: 0;
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+
         @keyframes highlight-pulse {
             0%, 100% {
                 box-shadow: 0 0 0 0 rgba(102, 126, 234, 0);
@@ -796,6 +877,28 @@
                 </button>
             </div>
         </header>
+
+        <!-- Activity Monitor Bar (Compact) -->
+        <div class="activity-monitor-compact">
+            <div class="activity-status">
+                <span class="pulse-dot idle" id="activity-pulse"></span>
+                <span class="activity-text" id="activity-text">시스템 대기 중</span>
+            </div>
+            <div class="activity-counters">
+                <div class="activity-counter">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="count" id="analyze-count">0</span>
+                </div>
+                <div class="activity-counter">
+                    <i class="fas fa-exchange-alt"></i>
+                    <span class="count" id="trade-count">0</span>
+                </div>
+                <div class="activity-counter">
+                    <i class="fas fa-robot"></i>
+                    <span class="count" id="ai-count">0</span>
+                </div>
+            </div>
+        </div>
 
         <!-- Main Content -->
         <div class="main-content">
@@ -4388,11 +4491,33 @@
             loadDeploymentStatus();
         }
 
+        // ==================== Activity Monitor ====================
+        let activityCounts = { analyze: 0, trade: 0, ai: 0 };
+
+        function updateActivityMonitor(text, status = 'active') {
+            const activityText = document.getElementById('activity-text');
+            const pulseDot = document.getElementById('activity-pulse');
+
+            if (activityText) activityText.textContent = text;
+            if (pulseDot) {
+                pulseDot.className = `pulse-dot ${status}`;
+            }
+        }
+
+        function updateActivityCount(type) {
+            if (activityCounts.hasOwnProperty(type)) {
+                activityCounts[type]++;
+                const countEl = document.getElementById(`${type}-count`);
+                if (countEl) countEl.textContent = activityCounts[type];
+            }
+        }
+
         // ==================== Socket.IO ====================
         const socket = io();
 
         socket.on('connect', () => {
             console.log('Connected to server');
+            updateActivityMonitor('시스템 연결됨', 'active');
         });
 
         socket.on('trading_status', (data) => {
@@ -4403,6 +4528,34 @@
             if (data.total_assets) {
                 document.getElementById('total-assets').textContent = data.total_assets.toLocaleString() + '원';
             }
+        });
+
+        socket.on('system_log', (data) => {
+            const msg = (data.message || '').toLowerCase();
+            if (msg.includes('분석') || msg.includes('deep scan')) {
+                updateActivityMonitor('📊 ' + data.message.substring(0, 50), 'active');
+                updateActivityCount('analyze');
+            } else if (msg.includes('ai') || msg.includes('gemini')) {
+                updateActivityMonitor('🤖 ' + data.message.substring(0, 50), 'active');
+                updateActivityCount('ai');
+            } else if (msg.includes('매수') || msg.includes('매도') || msg.includes('거래')) {
+                updateActivityMonitor('💰 ' + data.message.substring(0, 50), 'active');
+                updateActivityCount('trade');
+            }
+
+            // 5초 후 대기 상태로 전환
+            setTimeout(() => {
+                updateActivityMonitor('시스템 대기 중', 'idle');
+            }, 5000);
+        });
+
+        socket.on('trade_executed', (data) => {
+            updateActivityMonitor(`💰 거래 실행: ${data.action} ${data.stock_name}`, 'active');
+            updateActivityCount('trade');
+        });
+
+        socket.on('error', (data) => {
+            updateActivityMonitor('❌ 오류: ' + data.message, 'error');
         });
 
         // ==================== Initialize ====================
