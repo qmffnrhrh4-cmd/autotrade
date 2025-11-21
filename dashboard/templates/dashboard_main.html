@@ -142,6 +142,105 @@
             align-items: center;
             box-shadow: var(--shadow-md);
             z-index: 100;
+            gap: 2rem;
+        }
+
+        /* Header Monitor (인라인) */
+        .header-monitor {
+            display: flex;
+            gap: 2rem;
+            flex: 1;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .header-monitor-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .header-monitor-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            opacity: 0.7;
+        }
+
+        .header-monitor-value {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+        }
+
+        .header-monitor-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+
+        .header-monitor-dot.idle {
+            background: #f59e0b;
+        }
+
+        .header-monitor-dot.error {
+            background: #ef4444;
+        }
+
+        .header-monitor-logs {
+            max-height: 35px;
+            overflow: hidden;
+        }
+
+        .header-monitor-log {
+            font-size: 0.7rem;
+            line-height: 1.3;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-monitor-stats {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .header-monitor-stat {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header-monitor-stat-label {
+            font-size: 0.6rem;
+            opacity: 0.7;
+        }
+
+        .header-monitor-stat-value {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        @media (max-width: 1400px) {
+            .header-monitor {
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 1024px) {
+            .header {
+                flex-wrap: wrap;
+            }
+            .header-monitor {
+                order: 3;
+                width: 100%;
+                justify-content: space-between;
+            }
         }
 
         .logo {
@@ -226,103 +325,6 @@
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
-        }
-
-        /* ==================== Monitor Bar ==================== */
-        .monitor-bar {
-            background: var(--bg-glass);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-bottom: 1px solid var(--border-glass);
-            padding: 0.75rem 2rem;
-            display: grid;
-            grid-template-columns: 1fr 2fr 1fr;
-            gap: 1rem;
-            font-size: 0.8rem;
-            z-index: 99;
-        }
-
-        .monitor-section {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .monitor-section-title {
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .monitor-content {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--text-secondary);
-        }
-
-        .monitor-status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #10b981;
-            animation: pulse 2s infinite;
-        }
-
-        .monitor-status-dot.idle {
-            background: #f59e0b;
-        }
-
-        .monitor-status-dot.error {
-            background: #ef4444;
-        }
-
-        /* 실시간 로그 섹션 */
-        .monitor-logs {
-            max-height: 40px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .monitor-log-item {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1.3;
-        }
-
-        /* 진화 알고리즘 섹션 */
-        .monitor-evolution {
-            display: flex;
-            gap: 1rem;
-            align-items: center;
-        }
-
-        .monitor-stat {
-            display: flex;
-            flex-direction: column;
-        }
-
-        .monitor-stat-label {
-            font-size: 0.65rem;
-            color: var(--text-muted);
-        }
-
-        .monitor-stat-value {
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        @media (max-width: 1024px) {
-            .monitor-bar {
-                grid-template-columns: 1fr;
-                gap: 0.5rem;
-            }
         }
 
         /* Main Content */
@@ -882,6 +884,45 @@
                 </div>
             </div>
 
+            <!-- Header Monitor (Inline) -->
+            <div class="header-monitor">
+                <!-- 현재 작업 -->
+                <div class="header-monitor-item">
+                    <div class="header-monitor-label">🔄 현재 작업</div>
+                    <div class="header-monitor-value">
+                        <span class="header-monitor-dot" id="monitor-status-dot"></span>
+                        <span id="monitor-current-task">시스템 연결됨</span>
+                    </div>
+                </div>
+
+                <!-- 실시간 로그 -->
+                <div class="header-monitor-item">
+                    <div class="header-monitor-label">📋 실시간 로그</div>
+                    <div class="header-monitor-logs" id="monitor-logs">
+                        <div class="header-monitor-log">✅ 서버 연결 성공</div>
+                    </div>
+                </div>
+
+                <!-- 진화 알고리즘 -->
+                <div class="header-monitor-item">
+                    <div class="header-monitor-label">🧬 진화 알고리즘</div>
+                    <div class="header-monitor-stats">
+                        <div class="header-monitor-stat">
+                            <span class="header-monitor-stat-label">세대</span>
+                            <span class="header-monitor-stat-value" id="monitor-generation">-</span>
+                        </div>
+                        <div class="header-monitor-stat">
+                            <span class="header-monitor-stat-label">점수</span>
+                            <span class="header-monitor-stat-value" id="monitor-best-fitness">-</span>
+                        </div>
+                        <div class="header-monitor-stat">
+                            <span class="header-monitor-stat-label">상태</span>
+                            <span class="header-monitor-stat-value" id="monitor-evo-status">대기</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="header-actions">
                 <div class="status-badge">
                     <span class="status-dot"></span>
@@ -893,45 +934,6 @@
                 </button>
             </div>
         </header>
-
-        <!-- Monitor Bar -->
-        <div class="monitor-bar">
-            <!-- 현재 작업 중 -->
-            <div class="monitor-section">
-                <div class="monitor-section-title">🔄 현재 작업</div>
-                <div class="monitor-content">
-                    <span class="monitor-status-dot" id="monitor-status-dot"></span>
-                    <span id="monitor-current-task">시스템 대기 중</span>
-                </div>
-            </div>
-
-            <!-- 실시간 로그 -->
-            <div class="monitor-section">
-                <div class="monitor-section-title">📋 실시간 로그</div>
-                <div class="monitor-logs" id="monitor-logs">
-                    <div class="monitor-log-item">시스템 초기화 완료</div>
-                </div>
-            </div>
-
-            <!-- 진화 알고리즘 -->
-            <div class="monitor-section">
-                <div class="monitor-section-title">🧬 진화 알고리즘</div>
-                <div class="monitor-evolution">
-                    <div class="monitor-stat">
-                        <span class="monitor-stat-label">세대</span>
-                        <span class="monitor-stat-value" id="monitor-generation">-</span>
-                    </div>
-                    <div class="monitor-stat">
-                        <span class="monitor-stat-label">최고점수</span>
-                        <span class="monitor-stat-value" id="monitor-best-fitness">-</span>
-                    </div>
-                    <div class="monitor-stat">
-                        <span class="monitor-stat-label">상태</span>
-                        <span class="monitor-stat-value" id="monitor-evo-status">대기</span>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Main Content -->
         <div class="main-content">
@@ -4534,7 +4536,7 @@
 
             if (taskEl) taskEl.textContent = task;
             if (dotEl) {
-                dotEl.className = `monitor-status-dot ${status}`;
+                dotEl.className = `header-monitor-dot ${status}`;
             }
         }
 
@@ -4547,7 +4549,7 @@
             const logsEl = document.getElementById('monitor-logs');
             if (logsEl) {
                 logsEl.innerHTML = monitorLogs.map(log =>
-                    `<div class="monitor-log-item">${log}</div>`
+                    `<div class="header-monitor-log">${log}</div>`
                 ).join('');
             }
         }
