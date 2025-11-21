@@ -288,4 +288,42 @@ def get_deployment_status():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@evolution_bp.route('/start', methods=['POST'])
+def start_evolution():
+    """진화 알고리즘 시작"""
+    try:
+        # Fix: 실제 진화 프로세스를 시작하는 로직은 별도 구현 필요
+        # 현재는 안내 메시지만 반환
+        logger.info("진화 알고리즘 시작 요청")
+
+        return jsonify({
+            'success': False,
+            'message': '진화 알고리즘은 별도 프로세스에서 실행해야 합니다',
+            'command': 'python run_strategy_optimizer.py --auto-deploy',
+            'note': '대시보드에서 직접 시작할 수 없습니다. 터미널에서 실행하세요.'
+        })
+
+    except Exception as e:
+        logger.error(f"진화 알고리즘 시작 실패: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@evolution_bp.route('/stop', methods=['POST'])
+def stop_evolution():
+    """진화 알고리즘 중지"""
+    try:
+        # Fix: 실제 진화 프로세스를 중지하는 로직은 별도 구현 필요
+        logger.info("진화 알고리즘 중지 요청")
+
+        return jsonify({
+            'success': False,
+            'message': '진화 알고리즘은 별도 프로세스에서 실행 중입니다',
+            'note': '프로세스를 종료하려면 터미널에서 Ctrl+C를 누르세요.'
+        })
+
+    except Exception as e:
+        logger.error(f"진화 알고리즘 중지 실패: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 __all__ = ['evolution_bp']

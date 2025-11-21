@@ -709,3 +709,92 @@ def start_all_strategies():
     except Exception as e:
         logger.error(f"전략 활성화 실패: {e}", exc_info=True)
         return error_response(str(e), status=500)
+
+
+@virtual_trading_bp.route('/api/virtual-trading/summary', methods=['GET'])
+def get_summary():
+    """가상매매 전체 통계 요약"""
+    try:
+        if not virtual_manager:
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
+
+        strategies = virtual_manager.get_strategy_summary()
+
+        # 활성 전략 개수
+        active_strategies = sum(1 for s in strategies if s.get('is_active', True))
+
+        # 전체 포지션 개수
+        all_positions = virtual_manager.get_all_positions()
+        open_positions = sum(1 for p in all_positions if not p.get('is_closed', False))
+
+        # 오늘 거래 개수 및 수익 (간단한 구현)
+        total_trades = 0
+        total_profit = 0
+
+        for strategy in strategies:
+            strategy_id = strategy.get('strategy_id') or strategy.get('id')
+            metrics = virtual_manager.get_performance_metrics(strategy_id)
+            total_trades += metrics.get('trade_count', 0)
+            total_profit += metrics.get('realized_profit', 0)
+
+        return jsonify({
+            'success': True,
+            'active_strategies': active_strategies,
+            'total_trades': total_trades,
+            'open_positions': open_positions,
+            'total_profit': total_profit
+        })
+
+    except Exception as e:
+        logger.error(f"통계 요약 조회 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)
+
+
+@virtual_trading_bp.route('/api/virtual-trading/recent-trades', methods=['GET'])
+def get_recent_trades():
+    """최근 거래 내역 조회"""
+    try:
+        if not virtual_manager:
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
+
+        limit = request.args.get('limit', type=int, default=20)
+
+        # 모든 전략의 거래 내역 가져오기
+        all_trades = []
+        strategies = virtual_manager.get_strategy_summary()
+
+        for strategy in strategies:
+            strategy_id = strategy.get('strategy_id') or strategy.get('id')
+            strategy_name = strategy.get('name', f'전략{strategy_id}')
+            trades = virtual_manager.get_trade_history(strategy_id, limit=limit)
+
+            for trade in trades:
+                trade['strategy_name'] = strategy_name
+                # 거래 시간 정보가 없으면 현재 시간 사용
+                if 'time' not in trade and 'trade_time' in trade:
+                    trade['time'] = trade['trade_time']
+                elif 'time' not in trade:
+                    trade['time'] = None
+
+                # action 필드 확인
+                if 'action' not in trade and 'trade_type' in trade:
+                    trade['action'] = trade['trade_type']
+                elif 'action' not in trade:
+                    trade['action'] = 'BUY'  # 기본값
+
+                all_trades.append(trade)
+
+        # 시간순 정렬 (최신순)
+        all_trades.sort(key=lambda x: x.get('time') or '', reverse=True)
+
+        # limit 적용
+        all_trades = all_trades[:limit]
+
+        return jsonify({
+            'success': True,
+            'trades': all_trades
+        })
+
+    except Exception as e:
+        logger.error(f"최근 거래 내역 조회 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)
