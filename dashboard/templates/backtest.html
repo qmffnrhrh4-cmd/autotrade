@@ -422,9 +422,22 @@
         }
 
         function displayResults(data) {
+            // Check if data is valid
+            if (!data || !data.results || Object.keys(data.results).length === 0) {
+                alert('백테스팅 결과가 없습니다.\n\n' +
+                      '가능한 원인:\n' +
+                      '1. API 연결 실패 - secrets.json 파일을 확인하세요\n' +
+                      '2. 데이터가 없는 기간을 선택했습니다\n' +
+                      '3. 백테스팅 엔진이 초기화되지 않았습니다\n\n' +
+                      '해결 방법:\n' +
+                      '1. setup_secrets.bat을 실행하여 API 키를 설정하세요\n' +
+                      '2. start_with_openapi.bat으로 시스템을 재시작하세요');
+                return;
+            }
+
             document.getElementById('results').style.display = 'block';
 
-            displayRankingTable(data.ranking);
+            displayRankingTable(data.ranking || []);
             displayCumulativeChart(data.results);
             displayDailyReturnsChart(data.results);
             displayRiskReturnChart(data.results);
@@ -435,6 +448,13 @@
         function displayRankingTable(ranking) {
             const tbody = document.querySelector('#ranking-table tbody');
             tbody.innerHTML = '';
+
+            if (!ranking || ranking.length === 0) {
+                const tr = document.createElement('tr');
+                tr.innerHTML = '<td colspan="6" style="text-align: center; padding: 20px; color: #999;">백테스팅 결과가 없습니다</td>';
+                tbody.appendChild(tr);
+                return;
+            }
 
             ranking.forEach((item, index) => {
                 const tr = document.createElement('tr');
@@ -458,25 +478,41 @@
 
             if (cumulativeChart) cumulativeChart.destroy();
 
+            // Check if results is empty or invalid
+            if (!results || Object.keys(results).length === 0) {
+                // Display empty chart message
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#999';
+                ctx.textAlign = 'center';
+                ctx.fillText('데이터 없음', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
             const datasets = [];
             const colors = ['#667eea', '#764ba2', '#f093fb', '#4facfe', '#43e97b', '#fa709a'];
 
             Object.keys(results).slice(0, 6).forEach((strategyName, index) => {
                 const result = results[strategyName];
-                datasets.push({
-                    label: strategyName,
-                    data: result.daily_cash,
-                    borderColor: colors[index % colors.length],
-                    backgroundColor: 'transparent',
-                    borderWidth: 2,
-                    tension: 0.4
-                });
+                if (result && result.daily_cash) {
+                    datasets.push({
+                        label: strategyName,
+                        data: result.daily_cash,
+                        borderColor: colors[index % colors.length],
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.4
+                    });
+                }
             });
+
+            // Get labels from first strategy that has data
+            const firstStrategyKey = Object.keys(results)[0];
+            const labels = results[firstStrategyKey]?.daily_dates || [];
 
             cumulativeChart = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: results[Object.keys(results)[0]].daily_dates,
+                    labels: labels,
                     datasets: datasets
                 },
                 options: {
@@ -509,9 +545,17 @@
 
             if (dailyReturnsChart) dailyReturnsChart.destroy();
 
+            if (!results || Object.keys(results).length === 0) {
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#999';
+                ctx.textAlign = 'center';
+                ctx.fillText('데이터 없음', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
             const labels = Object.keys(results);
             const avgReturns = labels.map(strategy => {
-                const returns = results[strategy].daily_returns;
+                const returns = results[strategy]?.daily_returns || [];
                 return returns.length > 0 ? returns.reduce((a, b) => a + b, 0) / returns.length : 0;
             });
 
@@ -549,11 +593,19 @@
 
             if (riskReturnChart) riskReturnChart.destroy();
 
+            if (!results || Object.keys(results).length === 0) {
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#999';
+                ctx.textAlign = 'center';
+                ctx.fillText('데이터 없음', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
             const data = Object.keys(results).map(strategyName => {
                 const result = results[strategyName];
                 return {
-                    x: Math.abs(result.max_drawdown_pct),
-                    y: result.total_return_pct,
+                    x: Math.abs(result?.max_drawdown_pct || 0),
+                    y: result?.total_return_pct || 0,
                     label: strategyName
                 };
             });
@@ -607,8 +659,16 @@
 
             if (profitChart) profitChart.destroy();
 
+            if (!results || Object.keys(results).length === 0) {
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#999';
+                ctx.textAlign = 'center';
+                ctx.fillText('데이터 없음', ctx.canvas.width / 2, ctx.canvas.height / 2);
+                return;
+            }
+
             const labels = Object.keys(results);
-            const profits = labels.map(strategy => results[strategy].total_return);
+            const profits = labels.map(strategy => results[strategy]?.total_return || 0);
 
             profitChart = new Chart(ctx, {
                 type: 'bar',
@@ -645,9 +705,10 @@
         }
 
         function displayBestStrategyDetails(bestStrategy, results) {
-            if (!bestStrategy) return;
+            if (!bestStrategy || !results) return;
 
             const result = results[bestStrategy.name];
+            if (!result) return;
 
             // Get backtest parameters
             const stockCodes = document.getElementById('stock_codes').value;
