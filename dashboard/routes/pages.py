@@ -21,3 +21,9 @@ def backtest_page():
 @pages_bp.route('/chart')
 def chart_page():
     return render_template('chart_analysis.html')
+
+
+@pages_bp.route('/evolution')
+def evolution_dashboard():
+    """진화 알고리즘 실시간 대시보드"""
+    return render_template('evolution_dashboard.html')

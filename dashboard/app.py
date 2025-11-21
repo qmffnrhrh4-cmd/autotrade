@@ -252,6 +252,32 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
     else:
         print("⚠️ WebSocket manager not available, real-time minute charts disabled")
 
+    # Initialize real-time data stream (OpenAPI 지속 수신)
+    try:
+        if bot_instance and hasattr(bot_instance, 'market_api'):
+            from virtual_trading import get_realtime_data_stream
+            from dashboard.websocket.handlers import emit_market_data, emit_trade_executed
+
+            market_api = bot_instance.market_api if hasattr(bot_instance, 'market_api') else None
+            data_fetcher = bot_instance.data_fetcher if hasattr(bot_instance, 'data_fetcher') else None
+
+            if market_api:
+                realtime_stream = get_realtime_data_stream(
+                    market_api=market_api,
+                    data_fetcher=data_fetcher
+                )
+
+                # WebSocket 콜백 등록
+                realtime_stream.register_callback('market_data', emit_market_data)
+
+                # 자동 시작
+                realtime_stream.start()
+                print("✅ Real-time data stream initialized (OpenAPI 지속 수신)")
+            else:
+                print("⚠️ Market API not available")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize real-time data stream: {e}")
+
     print("=" * 80)
     print("🚀 AutoTrade Pro v5.4 - Modular AI-Powered Trading Dashboard")
     print("=" * 80)

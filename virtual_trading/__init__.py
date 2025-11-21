@@ -14,6 +14,7 @@ from .backtest_adapter import BacktestAdapter
 from .ai_strategy_manager import AIStrategyManager
 from .evolution_engine import StrategyEvolutionEngine, get_evolution_engine
 from .live_trading_bridge import LiveTradingBridge, LiveTradingConfig, get_live_trading_bridge
+from .realtime_data_stream import RealtimeDataStream, get_realtime_data_stream
 
 __all__ = [
     'VirtualAccount',
@@ -30,4 +31,6 @@ __all__ = [
     'LiveTradingBridge',
     'LiveTradingConfig',
     'get_live_trading_bridge',
+    'RealtimeDataStream',
+    'get_realtime_data_stream',
 ]

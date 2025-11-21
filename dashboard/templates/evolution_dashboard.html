@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>진화 알고리즘 실시간 대시보드 - AutoTrade Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .dashboard-container {
+            padding: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border: none;
+        }
+
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 20px;
+            transition: transform 0.3s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .strategy-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .strategy-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .badge-custom {
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .live-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 1.5s infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .realtime-log {
+            background: #1e1e1e;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 10px;
+            height: 300px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+        }
+
+        .realtime-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .realtime-log::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .control-btn {
+            border-radius: 25px;
+            padding: 10px 25px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .progress-ring {
+            width: 150px;
+            height: 150px;
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h2 class="mb-0">
+                                    <span class="live-indicator"></span>
+                                    진화 알고리즘 실시간 모니터링
+                                </h2>
+                                <p class="text-muted mb-0">YOLO-Style 연속 학습 & 33개 지표</p>
+                            </div>
+                            <div>
+                                <button class="btn btn-success control-btn me-2" onclick="startEvolution()">
+                                    <i class="fas fa-play"></i> 진화 시작
+                                </button>
+                                <button class="btn btn-danger control-btn" onclick="stopEvolution()">
+                                    <i class="fas fa-stop"></i> 중지
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <i class="fas fa-dna fa-3x text-primary mb-3"></i>
+                        <div class="stat-value" id="generation">0</div>
+                        <div class="stat-label">현재 세대</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <i class="fas fa-chart-line fa-3x text-success mb-3"></i>
+                        <div class="stat-value" id="best-fitness">0.00</div>
+                        <div class="stat-label">최고 적합도</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <i class="fas fa-users fa-3x text-info mb-3"></i>
+                        <div class="stat-value" id="population">0</div>
+                        <div class="stat-label">전략 개수</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card">
+                    <div class="card-body">
+                        <i class="fas fa-trophy fa-3x text-warning mb-3"></i>
+                        <div class="stat-value" id="win-rate">0%</div>
+                        <div class="stat-label">평균 승률</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="row">
+            <!-- Left Column - Strategy List -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-list-ul"></i> 활성 전략 Top 10
+                    </div>
+                    <div class="card-body" id="strategy-list" style="max-height: 600px; overflow-y: auto;">
+                        <p class="text-muted text-center">데이터를 불러오는 중...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Center Column - Realtime Data & Chart -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-chart-area"></i> 세대별 성과 추이
+                    </div>
+                    <div class="card-body">
+                        <canvas id="performance-chart"></canvas>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <i class="fas fa-database"></i> 실시간 OpenAPI 데이터
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6 mb-3">
+                                <div class="stat-label">현재가</div>
+                                <div class="stat-value" id="current-price" style="font-size: 1.5rem;">-</div>
+                            </div>
+                            <div class="col-6 mb-3">
+                                <div class="stat-label">거래량</div>
+                                <div class="stat-value" id="volume" style="font-size: 1.5rem;">-</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-label">외국인 순매수</div>
+                                <div class="stat-value" id="foreign-net" style="font-size: 1.2rem;">-</div>
+                            </div>
+                            <div class="col-6">
+                                <div class="stat-label">기관 순매수</div>
+                                <div class="stat-value" id="inst-net" style="font-size: 1.2rem;">-</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column - Realtime Log -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-terminal"></i> 실시간 로그
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="realtime-log" id="realtime-log">
+                            <div>[시스템] 실시간 로그 대기 중...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Row - Trade History -->
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <i class="fas fa-history"></i> 최근 거래 내역
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover" id="trade-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>시간</th>
+                                        <th>전략</th>
+                                        <th>종목</th>
+                                        <th>구분</th>
+                                        <th>가격</th>
+                                        <th>수량</th>
+                                        <th>수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trade-history-body">
+                                    <tr>
+                                        <td colspan="7" class="text-center text-muted">거래 내역이 없습니다</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        // WebSocket 연결
+        const socket = io();
+
+        // Chart 초기화
+        let performanceChart;
+        const ctx = document.getElementById('performance-chart');
+
+        function initChart() {
+            performanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '평균 수익률',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 데이터 갱신 함수들
+        function updateStats(data) {
+            document.getElementById('generation').textContent = data.generation || 0;
+            document.getElementById('best-fitness').textContent = (data.best_fitness || 0).toFixed(2);
+            document.getElementById('population').textContent = data.population || 0;
+            document.getElementById('win-rate').textContent = (data.avg_win_rate || 0).toFixed(1) + '%';
+        }
+
+        function updateStrategyList(strategies) {
+            const listEl = document.getElementById('strategy-list');
+            if (!strategies || strategies.length === 0) {
+                listEl.innerHTML = '<p class="text-muted text-center">전략이 없습니다</p>';
+                return;
+            }
+
+            let html = '';
+            strategies.slice(0, 10).forEach((strategy, index) => {
+                const rankBadge = index === 0 ? 'bg-warning' : index === 1 ? 'bg-secondary' : 'bg-info';
+                html += `
+                    <div class="strategy-item">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge ${rankBadge}">#${index + 1}</span>
+                                <strong class="ms-2">${strategy.name}</strong>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-success fw-bold">+${strategy.return_rate.toFixed(2)}%</div>
+                                <small class="text-muted">승률 ${strategy.win_rate.toFixed(1)}%</small>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            listEl.innerHTML = html;
+        }
+
+        function updateChart(generationData) {
+            if (!performanceChart) return;
+
+            performanceChart.data.labels = generationData.map(d => `G${d.generation}`);
+            performanceChart.data.datasets[0].data = generationData.map(d => d.avg_return);
+            performanceChart.update();
+        }
+
+        function addLog(message, type = 'info') {
+            const logEl = document.getElementById('realtime-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#00ff00' : type === 'error' ? '#ff4444' : '#00ff00';
+
+            const logLine = document.createElement('div');
+            logLine.style.color = color;
+            logLine.textContent = `[${timestamp}] ${message}`;
+
+            logEl.appendChild(logLine);
+            logEl.scrollTop = logEl.scrollHeight;
+
+            // 로그가 너무 많으면 오래된 것 삭제
+            if (logEl.children.length > 100) {
+                logEl.removeChild(logEl.firstChild);
+            }
+        }
+
+        function updateMarketData(data) {
+            document.getElementById('current-price').textContent =
+                data.price ? data.price.toLocaleString() + '원' : '-';
+            document.getElementById('volume').textContent =
+                data.volume ? (data.volume / 1000000).toFixed(1) + 'M' : '-';
+            document.getElementById('foreign-net').textContent =
+                data.foreign_net ? data.foreign_net.toLocaleString() + '백만' : '-';
+            document.getElementById('inst-net').textContent =
+                data.inst_net ? data.inst_net.toLocaleString() + '백만' : '-';
+        }
+
+        function updateTradeHistory(trades) {
+            const tbody = document.getElementById('trade-history-body');
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">거래 내역이 없습니다</td></tr>';
+                return;
+            }
+
+            let html = '';
+            trades.slice(0, 20).forEach(trade => {
+                const profitClass = trade.profit >= 0 ? 'text-success' : 'text-danger';
+                const profitSign = trade.profit >= 0 ? '+' : '';
+                html += `
+                    <tr>
+                        <td>${new Date(trade.time).toLocaleString()}</td>
+                        <td>${trade.strategy_name}</td>
+                        <td>${trade.stock_name}</td>
+                        <td><span class="badge ${trade.action === 'BUY' ? 'bg-danger' : 'bg-primary'}">${trade.action}</span></td>
+                        <td>${trade.price.toLocaleString()}원</td>
+                        <td>${trade.quantity}</td>
+                        <td class="${profitClass}">${profitSign}${trade.profit_pct.toFixed(2)}%</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // WebSocket 이벤트 핸들러
+        socket.on('evolution_update', (data) => {
+            addLog(`진화 업데이트: 세대 ${data.generation}`, 'success');
+            updateStats(data);
+            if (data.strategies) updateStrategyList(data.strategies);
+            if (data.generation_history) updateChart(data.generation_history);
+        });
+
+        socket.on('market_data', (data) => {
+            updateMarketData(data);
+        });
+
+        socket.on('trade_executed', (data) => {
+            addLog(`거래 체결: ${data.action} ${data.stock_name} ${data.quantity}주 @ ${data.price}원`, 'success');
+            fetchTradeHistory();
+        });
+
+        // API 호출 함수들
+        async function fetchEvolutionStatus() {
+            try {
+                const response = await fetch('/api/backtest/analysis/evolution-progress');
+                const data = await response.json();
+                if (data.success) {
+                    updateStats({
+                        generation: data.current_generation,
+                        best_fitness: data.best_fitness,
+                        population: data.population_size
+                    });
+                }
+            } catch (error) {
+                console.error('진화 상태 조회 실패:', error);
+            }
+        }
+
+        async function fetchStrategies() {
+            try {
+                const response = await fetch('/api/backtest/analysis/summary');
+                const data = await response.json();
+                if (data.success && data.strategies) {
+                    updateStrategyList(data.strategies);
+
+                    // 평균 승률 계산
+                    const avgWinRate = data.strategies.reduce((sum, s) => sum + s.win_rate, 0) / data.strategies.length;
+                    document.getElementById('win-rate').textContent = avgWinRate.toFixed(1) + '%';
+                }
+            } catch (error) {
+                console.error('전략 조회 실패:', error);
+            }
+        }
+
+        async function fetchTradeHistory() {
+            try {
+                const response = await fetch('/api/virtual-trades');
+                const data = await response.json();
+                if (data.success && data.data) {
+                    // 모든 전략의 거래 내역 합치기
+                    const allTrades = [];
+                    Object.keys(data.data).forEach(strategyName => {
+                        const trades = data.data[strategyName].trades || [];
+                        trades.forEach(trade => {
+                            allTrades.push({
+                                ...trade,
+                                strategy_name: strategyName
+                            });
+                        });
+                    });
+                    updateTradeHistory(allTrades);
+                }
+            } catch (error) {
+                console.error('거래 내역 조회 실패:', error);
+            }
+        }
+
+        function startEvolution() {
+            addLog('진화 알고리즘 시작 요청...', 'info');
+            // TODO: API 호출
+        }
+
+        function stopEvolution() {
+            addLog('진화 알고리즘 중지 요청...', 'info');
+            // TODO: API 호출
+        }
+
+        // 초기화 및 주기적 갱신
+        document.addEventListener('DOMContentLoaded', () => {
+            initChart();
+            addLog('대시보드 초기화 완료', 'success');
+
+            // 초기 데이터 로드
+            fetchEvolutionStatus();
+            fetchStrategies();
+            fetchTradeHistory();
+
+            // 5초마다 갱신
+            setInterval(() => {
+                fetchEvolutionStatus();
+                fetchStrategies();
+                fetchTradeHistory();
+            }, 5000);
+        });
+    </script>
+</body>
+</html>
