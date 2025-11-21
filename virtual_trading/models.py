@@ -268,17 +268,32 @@ class VirtualTradingDB:
 
         strategies = []
         for row in rows:
-            # ID 추출 (row factory에 관계없이 동작)
-            strategy_id = row['id'] if isinstance(row, dict) else row[0]
+            # ID 추출 (SQLite Row 객체는 dict-like이므로 row['id']로 접근)
+            try:
+                strategy_id = row['id']
+            except (KeyError, TypeError):
+                # Fallback: tuple 형태인 경우
+                strategy_id = row[0]
+
+            # strategy_id가 None이면 스킵
+            if strategy_id is None:
+                logger.warning(f"전략 ID가 None입니다. 스킵합니다: {row}")
+                continue
 
             # 활성 포지션 수 계산 (새로운 cursor 사용)
             position_cursor = self.conn.cursor()
-            position_cursor.execute("""
-                SELECT COUNT(*) as cnt FROM virtual_positions
-                WHERE strategy_id = ? AND is_closed = 0
-            """, (strategy_id,))
-            result = position_cursor.fetchone()
-            position_count = result['cnt'] if result else 0
+            try:
+                position_cursor.execute("""
+                    SELECT COUNT(*) as cnt FROM virtual_positions
+                    WHERE strategy_id = ? AND is_closed = 0
+                """, (int(strategy_id),))
+                result = position_cursor.fetchone()
+                position_count = result['cnt'] if result else 0
+            except Exception as e:
+                logger.error(f"포지션 수 조회 오류 (strategy_id={strategy_id}): {e}")
+                position_count = 0
+            finally:
+                position_cursor.close()
 
             strategies.append({
                 'id': row['id'],
