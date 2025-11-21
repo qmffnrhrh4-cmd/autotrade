@@ -313,6 +313,20 @@ class VirtualTradingScheduler:
             # 가상 매수 실행
             logger.info(f"🎯 가상매매 ({strategy_name}): {stock_name} {quantity}주 매수 시도 @ {current_price:,}원")
 
+            # Fix v6.2: AI 기반 분할 매수 활성화
+            # 시장 데이터 준비 (AI 분석용)
+            market_data = {
+                'current_price': current_price,
+                'volume': candidate.get('volume', 0),
+                'volume_ratio': candidate.get('volume_ratio', 1.0),
+                'price_change_pct': candidate.get('change_rate', 0) / 100,
+                'volatility': 0.02,  # 기본값 (실제로는 계산 필요)
+                'avg_volume': candidate.get('volume', 0) / max(candidate.get('volume_ratio', 1), 0.1),
+                'rsi': candidate.get('rsi', 50),
+                'kospi_change_pct': 0.0,  # TODO: 실제 코스피 등락률
+                'kosdaq_change_pct': 0.0  # TODO: 실제 코스닥 등락률
+            }
+
             result = self.virtual_manager.execute_buy(
                 strategy_id=strategy_id,
                 stock_code=stock_code,
@@ -321,7 +335,9 @@ class VirtualTradingScheduler:
                 price=float(current_price),
                 stop_loss_percent=5.0,
                 take_profit_percent=10.0,
-                use_split=False  # 독립 매매는 분할 안함
+                use_split=True,  # 분할 매수 활성화
+                use_ai_split=True,  # AI 기반 분할 전략 사용
+                market_data=market_data  # 시장 데이터 전달
             )
 
             if result:
