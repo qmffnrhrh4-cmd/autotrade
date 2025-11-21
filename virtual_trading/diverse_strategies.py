@@ -128,18 +128,20 @@ class MeanReversionStrategy(DiverseTradingStrategy):
         if len(account.positions) >= self.max_positions:
             return False
 
-        # RSI 과매도 확인
         rsi = stock_data.get('rsi', 50)
         if rsi > self.max_rsi:
             return False
 
-        # 연속 하락 확인
         consecutive_down = stock_data.get('consecutive_down_days', 0)
-        if consecutive_down < self.min_days_down:
+        price_change = stock_data.get('price_change_percent', 0)
+
+        if consecutive_down >= self.min_days_down:
+            pass
+        elif price_change < -3.0:
+            pass
+        else:
             return False
 
-        # 하락률 -5% 이상 (너무 급락한 종목 제외)
-        price_change = stock_data.get('price_change_percent', 0)
         if price_change < -10.0:
             return False
 
@@ -190,28 +192,23 @@ class BreakoutStrategy(DiverseTradingStrategy):
         if len(account.positions) >= self.max_positions:
             return False
 
-        # 52주 신고가 데이터가 없으면 간소화된 조건 사용
         current_price = stock_data.get('current_price', 0)
         high_52w = stock_data.get('high_52week')
 
-        if high_52w is not None:
-            # 52주 신고가 근접 확인
-            if current_price < high_52w * self.breakout_threshold:
+        if high_52w is not None and high_52w > 0:
+            if current_price < high_52w * 0.95:
                 return False
         else:
-            # 52주 데이터 없으면 강한 상승률로 대체 (5% 이상)
             price_change = stock_data.get('price_change_percent', 0)
-            if price_change < 5.0:
+            if price_change < 3.0:
                 return False
 
-        # 거래량 증가 확인 (돌파 신뢰성)
         volume_ratio = stock_data.get('volume_ratio', 1.0)
-        if volume_ratio < 1.5:
+        if volume_ratio < 1.2:
             return False
 
-        # 상승률 1% 이상 (돌파 확인)
         price_change = stock_data.get('price_change_percent', 0)
-        if price_change < 1.0:
+        if price_change < 0.5:
             return False
 
         return True
@@ -408,22 +405,33 @@ class MACDStrategy(DiverseTradingStrategy):
         if len(account.positions) >= self.max_positions:
             return False
 
-        # MACD 골든크로스 확인
-        macd = stock_data.get('macd', 0)
-        macd_signal = stock_data.get('macd_signal', 0)
-        if macd <= macd_signal:
-            return False
+        macd = stock_data.get('macd')
+        macd_signal = stock_data.get('macd_signal')
 
-        # MACD 히스토그램 양수 확인
-        macd_hist = stock_data.get('macd_histogram', 0)
-        if macd_hist <= 0:
-            return False
+        if macd is not None and macd_signal is not None and macd != 0 and macd_signal != 0:
+            if macd <= macd_signal:
+                return False
 
-        # 상승 추세 확인 (MA20 위)
-        price = stock_data.get('current_price', 0)
-        ma20 = stock_data.get('ma20', price)
-        if price < ma20:
-            return False
+            macd_hist = stock_data.get('macd_histogram', 0)
+            if macd_hist <= 0:
+                return False
+
+            price = stock_data.get('current_price', 0)
+            ma20 = stock_data.get('ma20', price)
+            if price < ma20:
+                return False
+        else:
+            price_change = stock_data.get('price_change_percent', 0)
+            if price_change < 2.0:
+                return False
+
+            volume_ratio = stock_data.get('volume_ratio', 1.0)
+            if volume_ratio < 1.3:
+                return False
+
+            rsi = stock_data.get('rsi', 50)
+            if not (45 <= rsi <= 65):
+                return False
 
         return True
 
@@ -474,27 +482,32 @@ class ContrarianStrategy(DiverseTradingStrategy):
         if len(account.positions) >= self.max_positions:
             return False
 
-        # 시장 공포 지수 확인
+        score = 0
+        required_score = 2
+
         fear_greed_index = market_data.get('fear_greed_index', 50)
-        if fear_greed_index > self.fear_threshold:
-            return False
+        if fear_greed_index <= self.fear_threshold:
+            score += 2
 
-        # 급락 종목 선호 (3일간 -10% 이상)
         price_change_3d = stock_data.get('price_change_3day', 0)
-        if price_change_3d > -5.0:
-            return False
+        if price_change_3d < -5.0:
+            score += 2
+        elif price_change_3d < -3.0:
+            score += 1
 
-        # 거래량 증가 확인 (패닉셀 확인)
         volume_ratio = stock_data.get('volume_ratio', 1.0)
-        if volume_ratio < 1.3:
-            return False
+        if volume_ratio >= 1.3:
+            score += 1
 
-        # 우량주 필터 (시가총액 1천억 이상)
         market_cap = stock_data.get('market_cap', 0)
-        if market_cap < 100_000_000_000:
-            return False
+        if market_cap >= 100_000_000_000:
+            score += 1
 
-        return True
+        price_change = stock_data.get('price_change_percent', 0)
+        if -4.0 <= price_change < -1.0:
+            score += 1
+
+        return score >= required_score
 
     def should_sell(self, position: VirtualPosition, current_price: int,
                     stock_data: Dict, days_held: int) -> tuple[bool, str]:
@@ -677,26 +690,44 @@ class DividendGrowthStrategy(DiverseTradingStrategy):
         if len(account.positions) >= self.max_positions:
             return False
 
-        # 배당수익률 확인
-        dividend_yield = stock_data.get('dividend_yield', 0)
-        if dividend_yield < self.min_dividend_yield:
-            return False
+        dividend_yield = stock_data.get('dividend_yield')
+        dividend_growth = stock_data.get('dividend_growth_rate')
+        eps = stock_data.get('eps')
+        dps = stock_data.get('dps')
+        debt_ratio = stock_data.get('debt_ratio')
 
-        # 배당 성장률 확인
-        dividend_growth = stock_data.get('dividend_growth_rate', 0)
-        if dividend_growth < self.min_dividend_growth:
-            return False
+        has_dividend_data = (dividend_yield is not None and dividend_yield > 0 and
+                            dividend_growth is not None)
 
-        # 배당 커버리지 확인 (EPS > DPS)
-        eps = stock_data.get('eps', 0)
-        dps = stock_data.get('dps', 0)
-        if dps == 0 or eps / dps < 1.5:
-            return False
+        if has_dividend_data:
+            if dividend_yield < self.min_dividend_yield:
+                return False
 
-        # 부채비율 낮은 종목 선호
-        debt_ratio = stock_data.get('debt_ratio', 999)
-        if debt_ratio > 100:
-            return False
+            if dividend_growth < self.min_dividend_growth:
+                return False
+
+            if eps and dps and dps > 0:
+                if eps / dps < 1.5:
+                    return False
+
+            if debt_ratio is not None and debt_ratio > 100:
+                return False
+        else:
+            price_change = stock_data.get('price_change_percent', 0)
+            if not (1.0 <= price_change <= 4.0):
+                return False
+
+            volume_ratio = stock_data.get('volume_ratio', 1.0)
+            if volume_ratio > 1.5:
+                return False
+
+            rsi = stock_data.get('rsi', 50)
+            if rsi < 40 or rsi > 60:
+                return False
+
+            market_cap = stock_data.get('market_cap', 0)
+            if market_cap < 100000000000:
+                return False
 
         return True
 
