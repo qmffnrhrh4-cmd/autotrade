@@ -30,6 +30,7 @@ class VirtualTradingScheduler:
         self.update_thread = None
         self.check_thread = None
         self.trading_thread = None  # Fix v6.1.4: 자동 매매 스레드
+        self.ai_management_thread = None  # Fix v6.3: AI 전략 자동 관리 스레드
 
         logger.info("가상매매 스케줄러 초기화")
 
@@ -64,7 +65,16 @@ class VirtualTradingScheduler:
             self.trading_thread.start()
             logger.info("✅ 가상매매 독립 매매 스레드 시작")
 
-        logger.info("가상매매 스케줄러 시작")
+        # Fix v6.3: AI 전략 자동 관리 스레드 (1시간마다)
+        if self.data_fetcher:
+            self.ai_management_thread = threading.Thread(
+                target=self._ai_management_loop,
+                daemon=True
+            )
+            self.ai_management_thread.start()
+            logger.info("✅ AI 전략 자동 관리 스레드 시작")
+
+        logger.info("가상매매 스케줄러 시작 (24시간 실행)")
 
     def stop(self):
         """스케줄러 중지"""
@@ -78,6 +88,9 @@ class VirtualTradingScheduler:
 
         if self.trading_thread:
             self.trading_thread.join(timeout=2)
+
+        if self.ai_management_thread:
+            self.ai_management_thread.join(timeout=2)
 
         logger.info("가상매매 스케줄러 중지")
 
@@ -111,8 +124,9 @@ class VirtualTradingScheduler:
         """
         독립적인 자동 매매 루프 (60초마다)
         Fix v6.1.4: 실제 매매 없이도 가상매매가 독립적으로 실행
+        Fix v6.3: 24시간 실행 (장 시간 체크 제거)
         """
-        logger.info("🤖 가상매매 독립 매매 스레드 시작")
+        logger.info("🤖 가상매매 독립 매매 스레드 시작 (24시간 실행)")
 
         # 첫 실행은 30초 후 (초기화 완료 대기)
         time.sleep(30)
@@ -126,15 +140,40 @@ class VirtualTradingScheduler:
             # 60초 대기
             time.sleep(60)
 
+    def _ai_management_loop(self):
+        """
+        AI 전략 자동 관리 루프 (1시간마다)
+        Fix v6.3: 24시간 실행 - 전략 검토, 개선, 추천
+        """
+        logger.info("🤖 AI 전략 자동 관리 스레드 시작 (24시간 실행)")
+
+        # 첫 실행은 5분 후 (초기 데이터 수집 대기)
+        time.sleep(300)
+
+        while self.is_running:
+            try:
+                self._execute_ai_management()
+            except Exception as e:
+                logger.error(f"AI 전략 관리 실패: {e}", exc_info=True)
+
+            # 1시간 대기
+            time.sleep(3600)
+
     def _execute_virtual_trading(self):
         """
         가상매매 실행: 시장 스캔 → 분석 → 매수/매도 결정
+
+        Fix v6.3: 가상매매는 과거 데이터를 사용하므로 24시간 실행
+        장 시간에 관계없이 OpenAPI로 데이터를 받아와서 계속 매매
         """
-        # 장 시간 체크
+        # Fix v6.3: 장 시간 체크 제거 - 가상매매는 24시간 실행
         from utils.trading_date import is_any_trading_hours
-        if not is_any_trading_hours():
-            logger.debug("장외 시간 - 가상매매 건너뛰기")
-            return
+        is_trading_hours = is_any_trading_hours()
+
+        if not is_trading_hours:
+            logger.info("💤 장외 시간 - 과거 데이터로 가상매매 계속 실행")
+        else:
+            logger.info("🕐 장중 시간 - 실시간 데이터로 가상매매 실행")
 
         # bot_instance가 없으면 실행 불가
         if not self.bot_instance:
@@ -406,6 +445,86 @@ class VirtualTradingScheduler:
         except Exception as e:
             logger.error(f"손절/익절 체크 중 오류: {e}", exc_info=True)
 
+    def _execute_ai_management(self):
+        """
+        AI 전략 자동 관리 실행
+        Fix v6.3: 24시간 실행 - 전략 검토, 개선, 추천
+
+        1시간마다:
+        - 모든 전략 성과 검토
+        - 저성과 전략 자동 개선 (백테스팅)
+        - S등급 전략 실매매 추천
+        """
+        logger.info("🤖 AI 전략 자동 관리 시작")
+
+        try:
+            # AIStrategyManager 임포트
+            from virtual_trading import AIStrategyManager
+
+            if not self.data_fetcher:
+                logger.warning("DataFetcher 없음 - AI 관리 건너뛰기")
+                return
+
+            # AIStrategyManager 생성
+            ai_manager = AIStrategyManager(
+                virtual_manager=self.virtual_manager,
+                data_fetcher=self.data_fetcher
+            )
+
+            # 모든 전략 가져오기
+            strategies = self.virtual_manager.get_strategy_summary()
+            if not strategies:
+                logger.info("AI 관리: 전략 없음")
+                return
+
+            ai_manager.active_strategy_ids = [s.get('strategy_id') or s.get('id') for s in strategies]
+            logger.info(f"AI 관리: {len(strategies)}개 전략 검토")
+
+            # 1. 전략 성과 검토
+            logger.info("📊 전략 성과 검토 중...")
+            review_result = ai_manager.review_strategies()
+
+            # 검토 결과 로그
+            if review_result and 'grades' in review_result:
+                for strategy_id, grade_info in review_result['grades'].items():
+                    grade = grade_info.get('grade', '?')
+                    score = grade_info.get('score', 0)
+                    name = grade_info.get('name', f'전략{strategy_id}')
+                    logger.info(f"  - {name}: {grade}등급 ({score}점)")
+
+            # 2. C/D등급 전략 자동 개선 (백테스팅)
+            poor_performers = [
+                sid for sid, info in review_result.get('grades', {}).items()
+                if info.get('grade') in ['C', 'D']
+            ]
+
+            if poor_performers:
+                logger.info(f"🔧 {len(poor_performers)}개 저성과 전략 개선 중...")
+                improvement_result = ai_manager.improve_strategies(backtest_period_days=30)
+
+                if improvement_result:
+                    logger.info(f"✅ 전략 개선 완료: {improvement_result.get('improved_count', 0)}개")
+            else:
+                logger.info("✅ 모든 전략이 양호한 성과 (B등급 이상)")
+
+            # 3. S등급 전략 실매매 추천
+            top_performers = [
+                (sid, info) for sid, info in review_result.get('grades', {}).items()
+                if info.get('grade') == 'S'
+            ]
+
+            if top_performers:
+                logger.info(f"⭐ {len(top_performers)}개 S등급 전략 발견!")
+                for strategy_id, info in top_performers:
+                    name = info.get('name', f'전략{strategy_id}')
+                    score = info.get('score', 0)
+                    logger.info(f"   🏆 {name}: {score}점 - 실매매 적용 추천!")
+
+            logger.info("🤖 AI 전략 자동 관리 완료")
+
+        except Exception as e:
+            logger.error(f"AI 전략 관리 실행 중 오류: {e}", exc_info=True)
+
     def get_status(self) -> Dict[str, Any]:
         """스케줄러 상태 조회"""
         return {
@@ -413,5 +532,6 @@ class VirtualTradingScheduler:
             'update_thread_alive': self.update_thread.is_alive() if self.update_thread else False,
             'check_thread_alive': self.check_thread.is_alive() if self.check_thread else False,
             'trading_thread_alive': self.trading_thread.is_alive() if self.trading_thread else False,
+            'ai_management_thread_alive': self.ai_management_thread.is_alive() if self.ai_management_thread else False,
             'positions_count': len(self.virtual_manager.get_positions()) if self.virtual_manager else 0
         }
