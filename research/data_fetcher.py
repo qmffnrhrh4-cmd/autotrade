@@ -219,7 +219,8 @@ class DataFetcher:
             cntr_list = response.get('cntr_infr', [])
 
             if not cntr_list or len(cntr_list) == 0:
-                logger.warning(f"{query_code} 체결 정보 없음 (거래 없음)")
+                # Fix: NXT 시간에는 체결 정보가 없는 것이 정상이므로 debug 레벨로 변경
+                logger.debug(f"{query_code} 체결 정보 없음 (거래 없음)")
                 return None
 
             # 최신 체결 정보 사용

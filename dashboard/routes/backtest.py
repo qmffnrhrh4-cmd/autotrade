@@ -23,10 +23,21 @@ def set_bot_instance(bot):
     if bot and hasattr(bot, 'market_api'):
         try:
             from ai.strategy_backtester import StrategyBacktester
-            _backtester = StrategyBacktester(bot.market_api)
-            logger.info("Backtester initialized")
+            # Fix: OpenAPI 클라이언트도 전달하여 백테스팅 데이터 조회 가능하도록 함
+            openapi_client = getattr(bot, 'openapi_client', None)
+            chart_api = getattr(bot, 'chart_api', None)
+            _backtester = StrategyBacktester(
+                market_api=bot.market_api,
+                chart_api=chart_api,
+                openapi_client=openapi_client
+            )
+            logger.info(f"Backtester initialized (strategies: {len(_backtester.strategies)})")
+            if openapi_client:
+                logger.info("  - OpenAPI client connected for backtesting")
         except Exception as e:
             logger.error(f"Failed to initialize backtester: {e}")
+            import traceback
+            logger.debug(traceback.format_exc())
 
 
 @backtest_bp.route('/strategies', methods=['GET'])
