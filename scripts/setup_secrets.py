@@ -23,7 +23,7 @@ BOLD = '\033[1m'
 RESET = '\033[0m'
 
 # 경로 설정
-PROJECT_ROOT = Path(__file__).parent
+PROJECT_ROOT = Path(__file__).parent.parent  # scripts 디렉토리의 상위 디렉토리
 SECRETS_DIR = PROJECT_ROOT / '_immutable' / 'credentials'
 SECRETS_FILE = SECRETS_DIR / 'secrets.json'
 EXAMPLE_FILE = SECRETS_DIR / 'secrets.example.json'
