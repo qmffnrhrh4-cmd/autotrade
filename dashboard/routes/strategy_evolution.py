@@ -4,6 +4,11 @@
 from flask import Blueprint, jsonify
 import sqlite3
 import json
+import threading
+import subprocess
+import signal
+import os
+import sys
 from datetime import datetime
 from utils.logger_new import get_logger
 
@@ -13,20 +18,35 @@ evolution_bp = Blueprint('evolution', __name__, url_prefix='/api/evolution')
 
 DB_PATH = "data/strategy_evolution.db"
 
+# Global state management
+_evolution_process = None
+_evolution_thread = None
+_evolution_running = False
+
 
 @evolution_bp.route('/status', methods=['GET'])
 def get_status():
     """현재 진화 상태 조회"""
+    global _evolution_process, _evolution_running
+
     try:
+        # Check if process is running
+        process_running = False
+        if _evolution_process:
+            if _evolution_process.poll() is None:
+                process_running = True
+            else:
+                # Process has terminated
+                _evolution_running = False
+
         # Fix: 데이터베이스 파일 존재 여부 확인
-        import os
         if not os.path.exists(DB_PATH):
             logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
             return jsonify({
                 'success': True,
-                'running': False,
-                'message': '전략 진화 엔진이 아직 실행되지 않았습니다',
-                'note': '실행 명령: python run_strategy_optimizer.py --auto-deploy'
+                'running': process_running,
+                'message': '전략 진화 엔진이 아직 실행되지 않았거나 데이터가 없습니다',
+                'note': '대시보드의 "진화 시작" 버튼을 클릭하세요'
             })
 
         conn = sqlite3.connect(DB_PATH)
@@ -57,7 +77,7 @@ def get_status():
 
         return jsonify({
             'success': True,
-            'running': True,
+            'running': process_running,
             'current_generation': latest['generation'],
             'total_generations': total_generations,
             'best_fitness': round(latest['best_fitness'], 2),
@@ -291,38 +311,113 @@ def get_deployment_status():
 @evolution_bp.route('/start', methods=['POST'])
 def start_evolution():
     """진화 알고리즘 시작"""
+    global _evolution_process, _evolution_running
+
     try:
-        # Fix: 실제 진화 프로세스를 시작하는 로직은 별도 구현 필요
-        # 현재는 안내 메시지만 반환
-        logger.info("진화 알고리즘 시작 요청")
+        # Check if already running
+        if _evolution_running and _evolution_process:
+            if _evolution_process.poll() is None:  # Process is still running
+                logger.warning("진화 알고리즘이 이미 실행 중입니다")
+                return jsonify({
+                    'success': False,
+                    'message': '진화 알고리즘이 이미 실행 중입니다',
+                    'running': True
+                })
+
+        logger.info("🚀 진화 알고리즘 시작 중...")
+
+        # Get the project root directory
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+        script_path = os.path.join(project_root, 'run_strategy_optimizer.py')
+
+        # Start the evolution process in background
+        _evolution_process = subprocess.Popen(
+            [sys.executable, script_path, '--auto-deploy', '--interval', '300', '--population-size', '20'],
+            cwd=project_root,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
+        )
+
+        _evolution_running = True
+
+        logger.info(f"✅ 진화 알고리즘 프로세스 시작됨 (PID: {_evolution_process.pid})")
 
         return jsonify({
-            'success': False,
-            'message': '진화 알고리즘은 별도 프로세스에서 실행해야 합니다',
-            'command': 'python run_strategy_optimizer.py --auto-deploy',
-            'note': '대시보드에서 직접 시작할 수 없습니다. 터미널에서 실행하세요.'
+            'success': True,
+            'message': '진화 알고리즘이 백그라운드에서 시작되었습니다',
+            'pid': _evolution_process.pid,
+            'running': True,
+            'note': '로그는 터미널 또는 로그 파일에서 확인하세요'
         })
 
     except Exception as e:
-        logger.error(f"진화 알고리즘 시작 실패: {e}")
+        logger.error(f"진화 알고리즘 시작 실패: {e}", exc_info=True)
+        _evolution_running = False
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @evolution_bp.route('/stop', methods=['POST'])
 def stop_evolution():
     """진화 알고리즘 중지"""
+    global _evolution_process, _evolution_running
+
     try:
-        # Fix: 실제 진화 프로세스를 중지하는 로직은 별도 구현 필요
-        logger.info("진화 알고리즘 중지 요청")
+        if not _evolution_running or not _evolution_process:
+            logger.warning("진화 알고리즘이 실행 중이지 않습니다")
+            return jsonify({
+                'success': False,
+                'message': '진화 알고리즘이 실행 중이지 않습니다',
+                'running': False
+            })
+
+        # Check if process is still running
+        if _evolution_process.poll() is not None:
+            logger.warning("진화 프로세스가 이미 종료되었습니다")
+            _evolution_running = False
+            return jsonify({
+                'success': False,
+                'message': '진화 프로세스가 이미 종료되었습니다',
+                'running': False
+            })
+
+        logger.info(f"⏹️  진화 알고리즘 중지 중... (PID: {_evolution_process.pid})")
+
+        # Terminate the process gracefully
+        try:
+            if sys.platform == 'win32':
+                # On Windows, use CTRL_BREAK_EVENT
+                _evolution_process.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                # On Unix, use SIGTERM
+                _evolution_process.terminate()
+
+            # Wait for process to terminate (with timeout)
+            try:
+                _evolution_process.wait(timeout=10)
+                logger.info("✅ 진화 프로세스 정상 종료됨")
+            except subprocess.TimeoutExpired:
+                logger.warning("진화 프로세스가 응답하지 않음, 강제 종료 중...")
+                _evolution_process.kill()
+                _evolution_process.wait()
+                logger.info("✅ 진화 프로세스 강제 종료됨")
+        except Exception as e:
+            logger.error(f"프로세스 종료 중 오류: {e}")
+            # Try to kill anyway
+            _evolution_process.kill()
+
+        _evolution_running = False
+        _evolution_process = None
 
         return jsonify({
-            'success': False,
-            'message': '진화 알고리즘은 별도 프로세스에서 실행 중입니다',
-            'note': '프로세스를 종료하려면 터미널에서 Ctrl+C를 누르세요.'
+            'success': True,
+            'message': '진화 알고리즘이 중지되었습니다',
+            'running': False
         })
 
     except Exception as e:
-        logger.error(f"진화 알고리즘 중지 실패: {e}")
+        logger.error(f"진화 알고리즘 중지 실패: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
