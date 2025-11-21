@@ -1653,84 +1653,147 @@
 
                 <!-- Strategy Evolution Tab -->
                 <div class="tab-content" id="strategy-evolution">
-                    <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
-                        <i class="fas fa-dna" style="color: var(--color-primary);"></i>
-                        전략 진화 시스템
-                    </h2>
-                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">
-                        24/7 자기진화하는 AI 전략 최적화 시스템 모니터링
-                    </p>
-
-                    <!-- Evolution Status -->
-                    <div class="glass-card" style="margin-bottom: 2rem;">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-info-circle"></i>
-                                진화 현황
-                            </h3>
-                            <button class="btn btn-primary btn-sm" onclick="refreshEvolutionStatus()">
-                                <i class="fas fa-sync-alt"></i>
-                                새로고침
+                    <!-- Header with Live Indicator -->
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <div>
+                            <h2 style="margin: 0; font-size: 2rem; font-weight: 700; display: flex; align-items: center; gap: 1rem;">
+                                <span style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #ff4444; animation: pulse 1.5s infinite;"></span>
+                                <span>진화 알고리즘 실시간 모니터링</span>
+                            </h2>
+                            <p style="color: var(--text-secondary); margin: 0.5rem 0 0 0;">YOLO-Style 연속 학습 & 33개 지표</p>
+                        </div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button class="btn btn-success" onclick="startEvolution()" style="border-radius: 25px; padding: 10px 25px; font-weight: 600;">
+                                <i class="fas fa-play"></i> 진화 시작
+                            </button>
+                            <button class="btn btn-danger" onclick="stopEvolution()" style="border-radius: 25px; padding: 10px 25px; font-weight: 600;">
+                                <i class="fas fa-stop"></i> 중지
                             </button>
                         </div>
-                        <div id="evolution-status" style="margin-top: 1.5rem;">
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-                                <div class="stat-box">
-                                    <div class="stat-label">현재 세대</div>
-                                    <div class="stat-value" id="evo-current-generation">-</div>
+                    </div>
+
+                    <!-- Stats Cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                        <div class="glass-card" style="padding: 1.5rem; text-align: center;">
+                            <i class="fas fa-dna" style="font-size: 3rem; color: var(--color-primary); margin-bottom: 1rem;"></i>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="evo-generation">0</div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">현재 세대</div>
+                        </div>
+                        <div class="glass-card" style="padding: 1.5rem; text-align: center;">
+                            <i class="fas fa-chart-line" style="font-size: 3rem; color: var(--color-success); margin-bottom: 1rem;"></i>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="evo-best-fitness">0.00</div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">최고 적합도</div>
+                        </div>
+                        <div class="glass-card" style="padding: 1.5rem; text-align: center;">
+                            <i class="fas fa-users" style="font-size: 3rem; color: var(--color-info); margin-bottom: 1rem;"></i>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="evo-population">0</div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">전략 개수</div>
+                        </div>
+                        <div class="glass-card" style="padding: 1.5rem; text-align: center;">
+                            <i class="fas fa-trophy" style="font-size: 3rem; color: var(--color-warning); margin-bottom: 1rem;"></i>
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--text-primary);" id="evo-win-rate">0%</div>
+                            <div style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem;">평균 승률</div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content: 3-Column Layout -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem;">
+                        <!-- Left: Active Strategies Top 10 -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-list-ul"></i>
+                                    활성 전략 Top 10
+                                </h3>
+                            </div>
+                            <div id="evo-strategy-list" style="margin-top: 1rem; max-height: 600px; overflow-y: auto;">
+                                <p style="text-align: center; color: var(--text-muted); padding: 2rem;">데이터를 불러오는 중...</p>
+                            </div>
+                        </div>
+
+                        <!-- Center: Chart & OpenAPI Data -->
+                        <div>
+                            <div class="glass-card" style="margin-bottom: 1.5rem;">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="fas fa-chart-area"></i>
+                                        세대별 성과 추이
+                                    </h3>
                                 </div>
-                                <div class="stat-box">
-                                    <div class="stat-label">전체 세대 수</div>
-                                    <div class="stat-value" id="evo-total-generations">-</div>
+                                <div style="margin-top: 1rem; height: 300px;">
+                                    <canvas id="evo-performance-chart"></canvas>
                                 </div>
-                                <div class="stat-box">
-                                    <div class="stat-label">최고 점수</div>
-                                    <div class="stat-value" id="evo-best-fitness">-</div>
+                            </div>
+
+                            <div class="glass-card">
+                                <div class="card-header">
+                                    <h3 class="card-title">
+                                        <i class="fas fa-database"></i>
+                                        실시간 OpenAPI 데이터
+                                    </h3>
                                 </div>
-                                <div class="stat-box">
-                                    <div class="stat-label">평균 점수</div>
-                                    <div class="stat-value" id="evo-avg-fitness">-</div>
+                                <div style="margin-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; text-align: center;">
+                                    <div>
+                                        <div style="color: var(--text-muted); font-size: 0.85rem;">현재가</div>
+                                        <div id="evo-current-price" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">-</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: var(--text-muted); font-size: 0.85rem;">거래량</div>
+                                        <div id="evo-volume" style="font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem;">-</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: var(--text-muted); font-size: 0.85rem;">외국인 순매수</div>
+                                        <div id="evo-foreign-net" style="font-size: 1.2rem; font-weight: 700; margin-top: 0.5rem;">-</div>
+                                    </div>
+                                    <div>
+                                        <div style="color: var(--text-muted); font-size: 0.85rem;">기관 순매수</div>
+                                        <div id="evo-inst-net" style="font-size: 1.2rem; font-weight: 700; margin-top: 0.5rem;">-</div>
+                                    </div>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Realtime Log -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-terminal"></i>
+                                    실시간 로그
+                                </h3>
+                            </div>
+                            <div id="evo-realtime-log" style="margin-top: 1rem; background: #1e1e1e; color: #00ff00; font-family: 'Courier New', monospace; padding: 15px; border-radius: 10px; height: 600px; overflow-y: auto; font-size: 0.85rem;">
+                                <div>[시스템] 실시간 로그 대기 중...</div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Evolution Chart -->
-                    <div class="glass-card" style="margin-bottom: 2rem;">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-chart-line"></i>
-                                세대별 진화 추이
-                            </h3>
-                        </div>
-                        <div id="evolution-chart" style="margin-top: 1.5rem; height: 400px;">
-                            <canvas id="evolution-canvas"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Best Strategy -->
-                    <div class="glass-card" style="margin-bottom: 2rem;">
-                        <div class="card-header">
-                            <h3 class="card-title">
-                                <i class="fas fa-trophy"></i>
-                                최우수 전략
-                            </h3>
-                        </div>
-                        <div id="best-strategy-info" style="margin-top: 1.5rem;">
-                            <p style="text-align: center; color: var(--text-secondary);">데이터 로딩 중...</p>
-                        </div>
-                    </div>
-
-                    <!-- Deployment Status -->
+                    <!-- Bottom: Trade History Table -->
                     <div class="glass-card">
                         <div class="card-header">
                             <h3 class="card-title">
-                                <i class="fas fa-rocket"></i>
-                                배포 현황
+                                <i class="fas fa-history"></i>
+                                최근 거래 내역
                             </h3>
                         </div>
-                        <div id="deployment-status" style="margin-top: 1.5rem;">
-                            <p style="text-align: center; color: var(--text-secondary);">데이터 로딩 중...</p>
+                        <div style="margin-top: 1rem; overflow-x: auto;">
+                            <table class="data-table" id="evo-trade-history-table">
+                                <thead>
+                                    <tr>
+                                        <th>시간</th>
+                                        <th>전략</th>
+                                        <th>종목</th>
+                                        <th>구분</th>
+                                        <th>가격</th>
+                                        <th>수량</th>
+                                        <th>수익률</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="evo-trade-history-body">
+                                    <tr>
+                                        <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">거래 내역이 없습니다</td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>
@@ -4410,232 +4473,284 @@
 
         // ==================== Strategy Evolution ====================
         let evolutionChart = null;
+        let evoPerformanceChart = null;
+        let evoLogs = [];
+        const MAX_EVO_LOGS = 100;
 
-        async function refreshEvolutionStatus() {
-            try {
-                const response = await fetch('/api/evolution/status');
-                const data = await response.json();
-
-                if (data.success && data.running) {
-                    document.getElementById('evo-current-generation').textContent = data.current_generation;
-                    document.getElementById('evo-total-generations').textContent = data.total_generations;
-                    document.getElementById('evo-best-fitness').textContent = data.best_fitness.toFixed(2);
-                    document.getElementById('evo-avg-fitness').textContent = data.avg_fitness.toFixed(2);
-                } else {
-                    document.getElementById('evolution-status').innerHTML = `
-                        <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
-                            <i class="fas fa-info-circle" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                            <p>전략 진화 엔진이 실행되지 않았습니다</p>
-                            <p style="font-size: 0.9rem; margin-top: 0.5rem;">
-                                실행: <code>python run_strategy_optimizer.py --auto-deploy</code>
-                            </p>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error loading evolution status:', error);
-            }
-        }
-
-        async function loadEvolutionChart() {
-            try {
-                const response = await fetch('/api/evolution/history');
-                const data = await response.json();
-
-                if (!data.success || !data.history || data.history.length === 0) {
-                    document.getElementById('evolution-chart').innerHTML = `
-                        <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
-                            <i class="fas fa-chart-line" style="font-size: 3rem; margin-bottom: 1rem;"></i>
-                            <p>진화 데이터가 없습니다</p>
-                        </div>
-                    `;
-                    return;
-                }
-
-                const ctx = document.getElementById('evolution-canvas');
-                if (!ctx) return;
-
-                const generations = data.history.map(h => h.generation);
-                const bestFitness = data.history.map(h => h.best_fitness);
-                const avgFitness = data.history.map(h => h.avg_fitness);
-
-                if (evolutionChart) {
-                    evolutionChart.destroy();
-                }
-
-                evolutionChart = new Chart(ctx, {
-                    type: 'line',
-                    data: {
-                        labels: generations,
-                        datasets: [
-                            {
-                                label: '최고 점수',
-                                data: bestFitness,
-                                borderColor: 'rgb(75, 192, 192)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            },
-                            {
-                                label: '평균 점수',
-                                data: avgFitness,
-                                borderColor: 'rgb(255, 159, 64)',
-                                backgroundColor: 'rgba(255, 159, 64, 0.1)',
-                                tension: 0.4,
-                                fill: true
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                display: true,
-                                position: 'top',
-                                labels: { color: 'rgba(255,255,255,0.8)' }
-                            }
-                        },
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: { color: 'rgba(255,255,255,0.6)' },
-                                grid: { color: 'rgba(255,255,255,0.1)' }
-                            },
-                            x: {
-                                ticks: { color: 'rgba(255,255,255,0.6)' },
-                                grid: { color: 'rgba(255,255,255,0.1)' }
-                            }
-                        }
+        // Evolution 버튼 액션
+        function startEvolution() {
+            addEvoLog('진화 알고리즘 시작 요청...', 'info');
+            fetch('/api/evolution/start', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addEvoLog('진화 알고리즘 시작됨', 'success');
+                    } else {
+                        addEvoLog('시작 실패: ' + (data.message || '알 수 없는 오류'), 'error');
                     }
+                })
+                .catch(error => {
+                    addEvoLog('시작 실패: ' + error.message, 'error');
                 });
-            } catch (error) {
-                console.error('Error loading evolution chart:', error);
+        }
+
+        function stopEvolution() {
+            addEvoLog('진화 알고리즘 중지 요청...', 'info');
+            fetch('/api/evolution/stop', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        addEvoLog('진화 알고리즘 중지됨', 'success');
+                    } else {
+                        addEvoLog('중지 실패: ' + (data.message || '알 수 없는 오류'), 'error');
+                    }
+                })
+                .catch(error => {
+                    addEvoLog('중지 실패: ' + error.message, 'error');
+                });
+        }
+
+        // 로그 추가 함수
+        function addEvoLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'success' ? '#00ff00' : type === 'error' ? '#ff4444' : '#00ff00';
+
+            evoLogs.unshift({ timestamp, message, color });
+            if (evoLogs.length > MAX_EVO_LOGS) {
+                evoLogs.pop();
+            }
+
+            const logEl = document.getElementById('evo-realtime-log');
+            if (logEl) {
+                logEl.innerHTML = evoLogs.map(log =>
+                    `<div style="color: ${log.color};">[${log.timestamp}] ${log.message}</div>`
+                ).join('');
+                logEl.scrollTop = logEl.scrollHeight;
             }
         }
 
-        async function loadBestStrategy() {
-            try {
-                const response = await fetch('/api/evolution/best-strategy');
-                const data = await response.json();
+        // Stats 업데이트
+        function updateEvoStats(data) {
+            document.getElementById('evo-generation').textContent = data.generation || 0;
+            document.getElementById('evo-best-fitness').textContent = (data.best_fitness || 0).toFixed(2);
+            document.getElementById('evo-population').textContent = data.population || 0;
+            document.getElementById('evo-win-rate').textContent = (data.avg_win_rate || 0).toFixed(1) + '%';
+        }
 
-                if (!data.success) {
-                    document.getElementById('best-strategy-info').innerHTML = `
-                        <p style="text-align: center; color: var(--text-secondary);">최우수 전략이 없습니다</p>
-                    `;
-                    return;
-                }
+        // 전략 목록 업데이트
+        function updateEvoStrategyList(strategies) {
+            const listEl = document.getElementById('evo-strategy-list');
+            if (!strategies || strategies.length === 0) {
+                listEl.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">전략이 없습니다</p>';
+                return;
+            }
 
-                const strategy = data.strategy;
-                const perf = strategy.performance;
-                const genes = strategy.genes;
-
-                document.getElementById('best-strategy-info').innerHTML = `
-                    <div style="display: grid; gap: 1.5rem;">
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
-                            <div class="stat-box">
-                                <div class="stat-label">세대</div>
-                                <div class="stat-value">${strategy.generation}</div>
+            let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+            strategies.slice(0, 10).forEach((strategy, index) => {
+                const rankColor = index === 0 ? '#ffc107' : index === 1 ? '#6c757d' : '#0dcaf0';
+                const profitColor = strategy.return_rate >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                html += `
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.75rem; transition: all 0.3s;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="background: ${rankColor}; color: white; padding: 0.25rem 0.5rem; border-radius: 20px; font-weight: 600; font-size: 0.8rem;">#${index + 1}</span>
+                                <strong style="margin-left: 0.5rem;">${strategy.name}</strong>
                             </div>
-                            <div class="stat-box">
-                                <div class="stat-label">적합도</div>
-                                <div class="stat-value">${strategy.fitness_score.toFixed(2)}</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-label">수익률</div>
-                                <div class="stat-value" style="color: ${perf.total_return_pct >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${perf.total_return_pct.toFixed(2)}%</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-label">승률</div>
-                                <div class="stat-value">${perf.win_rate.toFixed(2)}%</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-label">샤프비율</div>
-                                <div class="stat-value">${perf.sharpe_ratio.toFixed(2)}</div>
-                            </div>
-                            <div class="stat-box">
-                                <div class="stat-label">거래횟수</div>
-                                <div class="stat-value">${perf.total_trades}</div>
-                            </div>
-                        </div>
-
-                        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 1.5rem;">
-                            <h4 style="margin-bottom: 1rem; font-size: 1.1rem;">전략 조건</h4>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; font-size: 0.9rem;">
-                                <div>
-                                    <strong>매수 조건:</strong><br>
-                                    • RSI: ${genes.buy_rsi_min.toFixed(1)} ~ ${genes.buy_rsi_max.toFixed(1)}<br>
-                                    • 거래량비율: ${genes.buy_volume_ratio_min.toFixed(2)}x 이상<br>
-                                    • 호가비율: ${genes.buy_bid_ask_ratio_min.toFixed(2)}x 이상
-                                </div>
-                                <div>
-                                    <strong>매도 조건:</strong><br>
-                                    • 익절: +${(genes.sell_take_profit * 100).toFixed(1)}%<br>
-                                    • 손절: ${(genes.sell_stop_loss * 100).toFixed(1)}%<br>
-                                    • 추적손절: -${(genes.sell_trailing_stop * 100).toFixed(1)}%
-                                </div>
-                                <div>
-                                    <strong>기타:</strong><br>
-                                    • 포지션 크기: ${(genes.position_size_pct * 100).toFixed(1)}%<br>
-                                    • 거래시간: ${genes.trade_time_start} ~ ${genes.trade_time_end}<br>
-                                    • 가격범위: ${genes.min_price.toLocaleString()}원 ~ ${genes.max_price.toLocaleString()}원
-                                </div>
+                            <div style="text-align: right;">
+                                <div style="color: ${profitColor}; font-weight: 700;">+${strategy.return_rate.toFixed(2)}%</div>
+                                <small style="color: var(--text-muted);">승률 ${strategy.win_rate.toFixed(1)}%</small>
                             </div>
                         </div>
                     </div>
                 `;
-            } catch (error) {
-                console.error('Error loading best strategy:', error);
-            }
+            });
+            html += '</div>';
+            listEl.innerHTML = html;
         }
 
-        async function loadDeploymentStatus() {
-            try {
-                const response = await fetch('/api/evolution/deployment-status');
-                const data = await response.json();
+        // 차트 업데이트
+        function updateEvoChart(generationData) {
+            const canvas = document.getElementById('evo-performance-chart');
+            if (!canvas) return;
 
-                if (!data.success || !data.deployable_strategies || data.deployable_strategies.length === 0) {
-                    document.getElementById('deployment-status').innerHTML = `
-                        <p style="text-align: center; color: var(--text-secondary);">배포 가능한 전략이 없습니다</p>
-                    `;
-                    return;
+            const ctx = canvas.getContext('2d');
+
+            if (evoPerformanceChart) {
+                evoPerformanceChart.destroy();
+            }
+
+            evoPerformanceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: generationData.map(d => `G${d.generation}`),
+                    datasets: [{
+                        label: '평균 수익률',
+                        data: generationData.map(d => d.avg_return),
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                color: 'var(--text-primary)'
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                },
+                                color: 'var(--text-secondary)'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                color: 'var(--text-secondary)'
+                            },
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            }
+                        }
+                    }
                 }
+            });
+        }
 
-                let html = '<div style="display: grid; gap: 1rem;">';
-                data.deployable_strategies.slice(0, 5).forEach((strategy, idx) => {
-                    html += `
-                        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 1rem;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                <div>
-                                    <strong>세대 ${strategy.generation}</strong>
-                                    ${idx === 0 ? '<span style="background: gold; color: black; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; margin-left: 0.5rem;">최우수</span>' : ''}
-                                </div>
-                                <div style="font-size: 1.2rem; font-weight: 700;">점수: ${strategy.fitness.toFixed(2)}</div>
-                            </div>
-                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
-                                <div>수익률: <span style="color: ${strategy.backtest_return >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}">${strategy.backtest_return.toFixed(2)}%</span></div>
-                                <div>승률: ${strategy.win_rate.toFixed(2)}%</div>
-                                <div>샤프: ${strategy.sharpe_ratio.toFixed(2)}</div>
-                                <div>RSI: ${strategy.genes_summary.buy_rsi}</div>
-                                <div>익절: ${strategy.genes_summary.sell_profit}</div>
-                                <div>손절: ${strategy.genes_summary.sell_loss}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-                html += '</div>';
+        // OpenAPI 데이터 업데이트
+        function updateEvoMarketData(data) {
+            document.getElementById('evo-current-price').textContent =
+                data.price ? data.price.toLocaleString() + '원' : '-';
+            document.getElementById('evo-volume').textContent =
+                data.volume ? (data.volume / 1000000).toFixed(1) + 'M' : '-';
+            document.getElementById('evo-foreign-net').textContent =
+                data.foreign_net ? data.foreign_net.toLocaleString() + '백만' : '-';
+            document.getElementById('evo-inst-net').textContent =
+                data.inst_net ? data.inst_net.toLocaleString() + '백만' : '-';
+        }
 
-                document.getElementById('deployment-status').innerHTML = html;
+        // 거래 내역 업데이트
+        function updateEvoTradeHistory(trades) {
+            const tbody = document.getElementById('evo-trade-history-body');
+            if (!trades || trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 2rem;">거래 내역이 없습니다</td></tr>';
+                return;
+            }
+
+            let html = '';
+            trades.slice(0, 20).forEach(trade => {
+                const profitClass = trade.profit >= 0 ? 'color: var(--color-success)' : 'color: var(--color-danger)';
+                const profitSign = trade.profit >= 0 ? '+' : '';
+                const actionBadge = trade.action === 'BUY' ?
+                    '<span style="background: var(--color-danger); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">BUY</span>' :
+                    '<span style="background: var(--color-primary); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">SELL</span>';
+                html += `
+                    <tr>
+                        <td>${new Date(trade.time).toLocaleString()}</td>
+                        <td>${trade.strategy_name}</td>
+                        <td>${trade.stock_name}</td>
+                        <td>${actionBadge}</td>
+                        <td>${trade.price.toLocaleString()}원</td>
+                        <td>${trade.quantity}</td>
+                        <td style="${profitClass}">${profitSign}${trade.profit_pct.toFixed(2)}%</td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        }
+
+        // API 호출 함수들
+        async function fetchEvoStatus() {
+            try {
+                const response = await fetch('/api/backtest/analysis/evolution-progress');
+                const data = await response.json();
+                if (data.success) {
+                    updateEvoStats({
+                        generation: data.current_generation,
+                        best_fitness: data.best_fitness,
+                        population: data.population_size
+                    });
+                }
             } catch (error) {
-                console.error('Error loading deployment status:', error);
+                console.error('진화 상태 조회 실패:', error);
             }
         }
 
+        async function fetchEvoStrategies() {
+            try {
+                const response = await fetch('/api/backtest/analysis/summary');
+                const data = await response.json();
+                if (data.success && data.strategies) {
+                    updateEvoStrategyList(data.strategies);
+
+                    // 평균 승률 계산
+                    if (data.strategies.length > 0) {
+                        const avgWinRate = data.strategies.reduce((sum, s) => sum + s.win_rate, 0) / data.strategies.length;
+                        document.getElementById('evo-win-rate').textContent = avgWinRate.toFixed(1) + '%';
+                    }
+                }
+            } catch (error) {
+                console.error('전략 조회 실패:', error);
+            }
+        }
+
+        async function fetchEvoTradeHistory() {
+            try {
+                const response = await fetch('/api/virtual-trades');
+                const data = await response.json();
+                if (data.success && data.data) {
+                    // 모든 전략의 거래 내역 합치기
+                    const allTrades = [];
+                    Object.keys(data.data).forEach(strategyName => {
+                        const trades = data.data[strategyName].trades || [];
+                        trades.forEach(trade => {
+                            allTrades.push({
+                                ...trade,
+                                strategy_name: strategyName
+                            });
+                        });
+                    });
+                    updateEvoTradeHistory(allTrades);
+                }
+            } catch (error) {
+                console.error('거래 내역 조회 실패:', error);
+            }
+        }
+
+        // Evolution 탭 초기화
         function initEvolutionTab() {
-            refreshEvolutionStatus();
-            loadEvolutionChart();
-            loadBestStrategy();
-            loadDeploymentStatus();
+            addEvoLog('대시보드 초기화 완료', 'success');
+
+            // 초기 데이터 로드
+            fetchEvoStatus();
+            fetchEvoStrategies();
+            fetchEvoTradeHistory();
+
+            // 차트 초기화 (임시 데이터)
+            updateEvoChart([]);
+
+            // 5초마다 갱신
+            setInterval(() => {
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab && activeTab.id === 'strategy-evolution') {
+                    fetchEvoStatus();
+                    fetchEvoStrategies();
+                    fetchEvoTradeHistory();
+                }
+            }, 5000);
         }
 
         // ==================== Monitor Bar Functions ====================
@@ -4925,6 +5040,18 @@
             updateMonitorTask('❌ 오류 발생', 'error');
             addMonitorLog('❌ ' + (data.message || '').substring(0, 50));
             addLiveLog((data.message || '오류 발생'), 'error');
+        });
+
+        // Evolution WebSocket 이벤트
+        socket.on('evolution_update', (data) => {
+            addEvoLog(`진화 업데이트: 세대 ${data.generation}`, 'success');
+            updateEvoStats(data);
+            if (data.strategies) updateEvoStrategyList(data.strategies);
+            if (data.generation_history) updateEvoChart(data.generation_history);
+        });
+
+        socket.on('market_data', (data) => {
+            updateEvoMarketData(data);
         });
 
         // ==================== Initialize ====================
