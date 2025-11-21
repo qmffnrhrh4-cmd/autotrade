@@ -6,6 +6,8 @@ import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 
+from utils.validators import adjust_price_to_tick_size
+
 logger = logging.getLogger(__name__)
 
 
@@ -115,8 +117,11 @@ class OrderAPI:
                 ord_uv_value = ""
                 logger.info(f"⚠️ 시간외종가 주문: 장 마감 종가로 자동 체결")
             else:
-                # 나머지는 가격 지정
-                ord_uv_value = str(price)
+                # 나머지는 가격 지정 - 호가 단위에 맞게 조정
+                adjusted_price = adjust_price_to_tick_size(price)
+                ord_uv_value = str(adjusted_price)
+                if adjusted_price != price:
+                    logger.warning(f"⚠️ 매수가 조정: {price:,}원 → {adjusted_price:,}원 (호가 단위 준수)")
 
             body_params = {
                 "dmst_stex_tp": dmst_stex_tp,
@@ -254,8 +259,11 @@ class OrderAPI:
                 ord_uv_value = ""
                 logger.info(f"⚠️ 시간외종가 주문: 장 마감 종가로 자동 체결")
             else:
-                # 나머지는 가격 지정
-                ord_uv_value = str(price)
+                # 나머지는 가격 지정 - 호가 단위에 맞게 조정
+                adjusted_price = adjust_price_to_tick_size(price)
+                ord_uv_value = str(adjusted_price)
+                if adjusted_price != price:
+                    logger.warning(f"⚠️ 매도가 조정: {price:,}원 → {adjusted_price:,}원 (호가 단위 준수)")
 
             body_params = {
                 "dmst_stex_tp": dmst_stex_tp,
