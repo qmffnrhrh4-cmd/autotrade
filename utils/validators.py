@@ -313,21 +313,107 @@ def sanitize_stock_code(stock_code: str) -> str:
 def sanitize_account_number(account_number: str) -> str:
     """
     계좌번호 정제
-    
+
     Args:
         account_number: 원본 계좌번호
-    
+
     Returns:
         정제된 계좌번호 (XXXXXXXX-XX 형식)
     """
     # 숫자만 추출
     digits = ''.join(filter(str.isdigit, account_number))
-    
+
     # 형식 맞추기
     if len(digits) >= 10:
         return f"{digits[:8]}-{digits[8:10]}"
-    
+
     return account_number
+
+
+def adjust_price_to_tick_size(price: int) -> int:
+    """
+    호가 단위에 맞게 가격 조정 (내림)
+
+    한국 주식 시장 호가 단위:
+    - 1,000원 미만: 1원 단위
+    - 1,000원 이상 5,000원 미만: 5원 단위
+    - 5,000원 이상 10,000원 미만: 10원 단위
+    - 10,000원 이상 50,000원 미만: 50원 단위
+    - 50,000원 이상 100,000원 미만: 100원 단위
+    - 100,000원 이상 500,000원 미만: 500원 단위
+    - 500,000원 이상: 1,000원 단위
+
+    Args:
+        price: 원본 가격
+
+    Returns:
+        조정된 가격 (호가 단위에 맞춤)
+
+    Example:
+        >>> adjust_price_to_tick_size(50541)
+        50500
+        >>> adjust_price_to_tick_size(12345)
+        12300
+        >>> adjust_price_to_tick_size(999)
+        999
+    """
+    try:
+        price = int(price)
+    except (ValueError, TypeError):
+        logger.error(f"Invalid price format: {price}")
+        return 0
+
+    if price < 0:
+        return 0
+
+    # 호가 단위 결정 및 조정
+    if price < 1000:
+        # 1원 단위
+        tick_size = 1
+    elif price < 5000:
+        # 5원 단위
+        tick_size = 5
+    elif price < 10000:
+        # 10원 단위
+        tick_size = 10
+    elif price < 50000:
+        # 50원 단위
+        tick_size = 50
+    elif price < 100000:
+        # 100원 단위
+        tick_size = 100
+    elif price < 500000:
+        # 500원 단위
+        tick_size = 500
+    else:
+        # 1,000원 단위
+        tick_size = 1000
+
+    # 내림으로 조정
+    adjusted_price = (price // tick_size) * tick_size
+
+    if adjusted_price != price:
+        logger.info(f"💰 가격 조정: {price:,}원 → {adjusted_price:,}원 (호가단위: {tick_size}원)")
+
+    return adjusted_price
+
+
+def validate_tick_size(price: int) -> Tuple[bool, str]:
+    """
+    가격이 호가 단위에 맞는지 검증
+
+    Args:
+        price: 가격
+
+    Returns:
+        (검증 통과 여부, 메시지)
+    """
+    adjusted_price = adjust_price_to_tick_size(price)
+
+    if price != adjusted_price:
+        return False, f"호가 단위 오류: {price:,}원은 허용되지 않습니다. {adjusted_price:,}원을 사용하세요."
+
+    return True, "유효한 호가 단위"
 
 
 __all__ = [
@@ -344,4 +430,6 @@ __all__ = [
     'validate_trading_params',
     'sanitize_stock_code',
     'sanitize_account_number',
+    'adjust_price_to_tick_size',
+    'validate_tick_size',
 ]
