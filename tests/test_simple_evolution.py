@@ -104,7 +104,12 @@ def test_evolution_indicators():
                     'rsi_overbought_min', 'rsi_overbought_max'],
         '포지션': ['position_size_pct', 'max_positions'],
         '시간/가격': ['trade_start_hour', 'trade_end_hour', 'price_min', 'price_max'],
-        '분할': ['split_buy_enabled', 'split_buy_count']
+        '분할': ['split_buy_enabled', 'split_buy_count'],
+        'MACD': ['macd_signal_cross', 'macd_histogram_threshold', 'macd_divergence_enabled'],
+        '볼린저밴드': ['bb_upper_touch', 'bb_lower_touch', 'bb_width_threshold'],
+        '이동평균': ['ma5_cross', 'ma20_cross', 'ma60_above', 'ma_arrangement'],
+        '외국인/기관': ['foreign_buy_min', 'foreign_ratio_min', 'institution_buy_min', 'institution_ratio_min'],
+        '거래량/호가': ['trading_value_min', 'execution_power_min', 'bid_ask_imbalance_min']
     }
 
     for category, field_names in categories.items():
@@ -114,30 +119,35 @@ def test_evolution_indicators():
             status = "✅" if exists else "❌"
             logger.info(f"    {status} {field_name}")
 
-    logger.info(f"\n추가 필요한 지표:")
-    missing = [
-        "❌ MACD (signal, histogram)",
-        "❌ 볼린저 밴드 (상단, 하단, 폭)",
-        "❌ 이동평균선 (5일, 20일, 60일, 120일)",
-        "❌ 이평선 배열 (정배열/역배열)",
-        "❌ 골든크로스 / 데드크로스",
-        "❌ 스토캐스틱 (K, D, %K, %D)",
-        "❌ CCI (Commodity Channel Index)",
-        "❌ 외국인 순매수 (금액, 비율)",
-        "❌ 기관 순매수 (금액, 비율)",
-        "❌ 프로그램 순매수",
-        "❌ 체결강도",
-        "❌ 호가 불균형 (매수/매도)",
-        "❌ 거래대금",
-        "❌ 시가총액",
-        "❌ PER, PBR, ROE",
-        "❌ 변동성 (표준편차)",
-        "❌ 당일 고가/저가",
-        "❌ 전일 대비 등락률",
-        "❌ 52주 신고가/신저가"
+    logger.info(f"\n✅ 구현 완료 지표 (17개 추가):")
+    implemented = [
+        "✅ MACD (signal cross, histogram, divergence)",
+        "✅ 볼린저 밴드 (상단, 하단, 폭)",
+        "✅ 이동평균선 (5일, 20일, 60일)",
+        "✅ 이평선 배열 (정배열/역배열/무관)",
+        "✅ 골든크로스 / 데드크로스",
+        "✅ 외국인 순매수 (금액, 비율)",
+        "✅ 기관 순매수 (금액, 비율)",
+        "✅ 체결강도",
+        "✅ 호가 불균형 (매수/매도)",
+        "✅ 거래대금"
     ]
+    for indicator in implemented:
+        logger.info(f"  {indicator}")
 
-    for indicator in missing:
+    logger.info(f"\n향후 추가 가능 지표:")
+    future = [
+        "💡 스토캐스틱 (K, D, %K, %D)",
+        "💡 CCI (Commodity Channel Index)",
+        "💡 프로그램 순매수",
+        "💡 시가총액",
+        "💡 PER, PBR, ROE",
+        "💡 변동성 (표준편차)",
+        "💡 당일 고가/저가",
+        "💡 전일 대비 등락률",
+        "💡 52주 신고가/신저가"
+    ]
+    for indicator in future:
         logger.info(f"  {indicator}")
 
     return True
