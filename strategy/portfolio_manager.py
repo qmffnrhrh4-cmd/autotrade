@@ -69,25 +69,37 @@ class PortfolioManager:
         # 총 자산 계산
         stocks_value = 0
         for holding in holdings:
-            stock_code = holding.get('stock_code', '')
+            # Fix: API 응답 키 'stk_cd'와 'stock_code' 모두 지원
+            stock_code = holding.get('stock_code') or holding.get('stk_cd', '')
+
+            # 'A' 접두사 및 '_NX' 접미사 제거 (정규화)
+            if stock_code:
+                stock_code = str(stock_code).replace('A', '').replace('_NX', '')
 
             # Fix v6.1.5: 빈 stock_code 필터링
             if not stock_code or stock_code.strip() == '':
                 logger.warning(f"Holding with empty stock_code detected, skipping: {holding}")
                 continue
 
-            evaluation = holding.get('evaluation_amount', 0)
+            # API 응답 키 다양성 처리
+            stock_name = holding.get('stock_name') or holding.get('stk_nm', '')
+            quantity = int(str(holding.get('quantity') or holding.get('rmnd_qty', 0)).replace(',', ''))
+            purchase_price = int(float(str(holding.get('purchase_price') or holding.get('avg_prc', 0)).replace(',', '')))
+            current_price = int(float(str(holding.get('current_price') or holding.get('prpr', 0)).replace(',', '')))
+            evaluation = int(str(holding.get('evaluation_amount') or holding.get('eval_amt', 0)).replace(',', ''))
+            profit_loss = int(str(holding.get('profit_loss') or holding.get('fltt_rt', 0)).replace(',', ''))
+
             stocks_value += evaluation
 
             self.positions[stock_code] = {
                 'stock_code': stock_code,
-                'stock_name': holding.get('stock_name', ''),
-                'quantity': holding.get('quantity', 0),
-                'purchase_price': holding.get('purchase_price', 0),
-                'current_price': holding.get('current_price', 0),
+                'stock_name': stock_name,
+                'quantity': quantity,
+                'purchase_price': purchase_price,
+                'current_price': current_price,
                 'evaluation_amount': evaluation,
-                'profit_loss': holding.get('profit_loss', 0),
-                'profit_loss_rate': holding.get('profit_loss_rate', 0),
+                'profit_loss': profit_loss,
+                'profit_loss_rate': (profit_loss / (quantity * purchase_price) * 100) if (quantity * purchase_price) > 0 else 0,
             }
         
         self.total_assets = cash + stocks_value

@@ -1075,6 +1075,10 @@ class AutoTradingBot:
 
             portfolio_info = "No positions"
 
+            # 매수 카운터 추가 (한 스캔당 최대 매수 개수 제한)
+            bought_count = 0
+            max_buys_per_scan = 1  # 한 번 스캔에 최대 1개만 매수
+
             for idx, candidate in enumerate(top5[:3], 1):
                 print(f"\n[{idx}/3] {candidate.name} ({candidate.code})")
 
@@ -1206,9 +1210,16 @@ class AutoTradingBot:
                         print(f"최대 포지션 수 도달 - 매수 건너뜀")
                         break
 
+                    # 이번 스캔에서 이미 최대 매수 개수에 도달했는지 확인
+                    if bought_count >= max_buys_per_scan:
+                        logger.info(f"한 스캔당 최대 매수 개수({max_buys_per_scan}) 도달 - 더 이상 매수 안 함")
+                        print(f"✋ 한 스캔당 최대 매수 개수 도달 - 나머지 후보 분석만 진행")
+                        continue
+
                     print(f"매수 조건 충족 - 주문 실행 중")
 
                     self._execute_buy(candidate, scoring_result)
+                    bought_count += 1  # 매수 카운터 증가
 
                     if self.virtual_trader:
                         try:
@@ -1252,7 +1263,8 @@ class AutoTradingBot:
                         except Exception as e:
                             logger.warning(f"가상매매 실패: {e}")
 
-                    break
+                    # break 제거: 모든 후보 분석을 위해 계속 진행
+                    # 매수 개수는 위에서 bought_count로 제어됨
                 else:
                     reason_text = f"AI={ai_signal}, 점수={scoring_result.total_score:.0f}"
                     print(f"매수 조건 미충족 ({reason_text})")
