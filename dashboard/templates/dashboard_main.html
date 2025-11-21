@@ -4687,6 +4687,10 @@
                 const actionBadge = trade.action === 'BUY' ?
                     '<span style="background: var(--color-danger); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">BUY</span>' :
                     '<span style="background: var(--color-primary); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">SELL</span>';
+                // Handle undefined profit_pct
+                const profitPctDisplay = (trade.profit_pct !== undefined && trade.profit_pct !== null)
+                    ? `${profitSign}${trade.profit_pct.toFixed(2)}%`
+                    : '-';
                 html += `
                     <tr>
                         <td>${new Date(trade.time).toLocaleString()}</td>
@@ -4695,7 +4699,7 @@
                         <td>${actionBadge}</td>
                         <td>${trade.price.toLocaleString()}원</td>
                         <td>${trade.quantity}</td>
-                        <td style="${profitClass}">${profitSign}${trade.profit_pct.toFixed(2)}%</td>
+                        <td style="${profitClass}">${profitPctDisplay}</td>
                     </tr>
                 `;
             });

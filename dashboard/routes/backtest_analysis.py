@@ -41,22 +41,22 @@ def get_backtest_summary():
         summary_data = []
 
         for strategy in strategies:
-            strategy_id = strategy['strategy_id']
+            # Fix: Use 'id' instead of 'strategy_id'
+            strategy_id = strategy.get('id') or strategy.get('strategy_id')
+            if not strategy_id:
+                continue
 
-            # 전략 성과 조회
-            metrics = db.get_strategy_summary(strategy_id=strategy_id)
-
-            if metrics:
-                summary_data.append({
-                    'strategy_id': strategy_id,
-                    'strategy_name': strategy['strategy_name'],
-                    'initial_capital': strategy['initial_capital'],
-                    'current_capital': metrics[0]['current_capital'] if metrics else strategy['initial_capital'],
-                    'total_return': metrics[0]['total_return'] if metrics else 0,
-                    'win_rate': metrics[0]['win_rate'] if metrics else 0,
-                    'total_trades': metrics[0]['total_trades'] if metrics else 0,
-                    'created_at': strategy['created_at']
-                })
+            # Use data from get_all_strategies() which already includes metrics
+            summary_data.append({
+                'strategy_id': strategy_id,
+                'strategy_name': strategy.get('name', f'전략{strategy_id}'),
+                'initial_capital': strategy.get('initial_capital', 0),
+                'current_capital': strategy.get('current_capital', 0),
+                'total_return': strategy.get('return_rate', 0),
+                'win_rate': strategy.get('win_rate', 0),
+                'total_trades': strategy.get('trade_count', 0),
+                'created_at': strategy.get('created_at', '')
+            })
 
         # 수익률 순으로 정렬
         summary_data.sort(key=lambda x: x['total_return'], reverse=True)

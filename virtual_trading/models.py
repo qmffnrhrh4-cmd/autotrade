@@ -283,14 +283,24 @@ class VirtualTradingDB:
             # 활성 포지션 수 계산 (새로운 cursor 사용)
             position_cursor = self.conn.cursor()
             try:
+                # Ensure strategy_id is valid integer
+                if not isinstance(strategy_id, int):
+                    try:
+                        strategy_id = int(strategy_id)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Invalid strategy_id type: {type(strategy_id)}, value: {strategy_id}")
+                        position_count = 0
+                        continue
+
                 position_cursor.execute("""
                     SELECT COUNT(*) as cnt FROM virtual_positions
                     WHERE strategy_id = ? AND is_closed = 0
-                """, (int(strategy_id),))
+                """, (strategy_id,))
                 result = position_cursor.fetchone()
-                position_count = result['cnt'] if result else 0
+                # Access result as tuple index instead of dict key
+                position_count = result[0] if result else 0
             except Exception as e:
-                logger.error(f"포지션 수 조회 오류 (strategy_id={strategy_id}): {e}")
+                logger.error(f"포지션 수 조회 오류 (strategy_id={strategy_id}, type={type(strategy_id)}): {e}")
                 position_count = 0
             finally:
                 position_cursor.close()

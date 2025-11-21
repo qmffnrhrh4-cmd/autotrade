@@ -724,7 +724,7 @@ def get_summary():
         active_strategies = sum(1 for s in strategies if s.get('is_active', True))
 
         # 전체 포지션 개수
-        all_positions = virtual_manager.get_all_positions()
+        all_positions = virtual_manager.get_positions()
         open_positions = sum(1 for p in all_positions if not p.get('is_closed', False))
 
         # 오늘 거래 개수 및 수익 (간단한 구현)
