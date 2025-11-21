@@ -2206,13 +2206,18 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success && data.strategies) {
-                        // 필터링: 포지션이 있거나 거래가 있거나 수익이 있는 전략만 표시
+                        // 강화된 필터링: 실제 활동이 있는 전략만 표시
                         const filteredStrategies = data.strategies.filter(s => {
                             const hasPositions = (s.position_count || 0) > 0;
                             const hasTrades = (s.trade_count || 0) > 0;
-                            const hasProfit = Math.abs(s.total_profit || 0) > 100; // 100원 이상 수익/손실
-                            return hasPositions || hasTrades || hasProfit;
+                            const hasProfit = Math.abs(s.total_profit || 0) > 100;
+                            const hasReturn = Math.abs(s.return_rate || 0) > 0.1; // 0.1% 이상
+                            const hasCapitalChange = Math.abs((s.current_capital || 0) - (s.initial_capital || 0)) > 100;
+
+                            return hasPositions || hasTrades || hasProfit || hasReturn || hasCapitalChange;
                         });
+
+                        console.log(`가상매매 필터링: ${data.strategies.length}개 중 ${filteredStrategies.length}개 표시`);
 
                         // 전략 목록을 객체로 변환 (기존 updateVirtualTradingDisplay 형식)
                         const strategiesObj = {};
@@ -2234,7 +2239,12 @@
                         const shownCount = filteredStrategies.length;
                         const content = document.getElementById('virtual-trading-content');
                         if (content && totalCount > shownCount) {
+                            // 기존 필터 정보 제거
+                            const oldInfo = content.querySelector('.filter-info');
+                            if (oldInfo) oldInfo.remove();
+
                             const info = document.createElement('div');
+                            info.className = 'filter-info';
                             info.style.cssText = 'text-align: center; padding: 1rem; color: var(--text-muted); font-size: 0.85rem; border-top: 1px solid var(--border-color); margin-top: 1rem;';
                             info.innerHTML = `<i class="fas fa-filter"></i> 활성 전략 ${shownCount}개 표시 중 (전체 ${totalCount}개, ${totalCount - shownCount}개 숨김)`;
                             content.appendChild(info);
@@ -4514,13 +4524,24 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        addEvoLog('진화 알고리즘 시작됨', 'success');
+                        addEvoLog(`✅ 진화 알고리즘 시작됨 (PID: ${data.pid})`, 'success');
+                        if (data.stdout_log) {
+                            addEvoLog(`📋 로그 파일: ${data.stdout_log}`, 'info');
+                        }
+                        // Start polling for evolution data
+                        setTimeout(initEvolutionTab, 3000);
                     } else {
-                        addEvoLog('시작 실패: ' + (data.message || '알 수 없는 오류'), 'error');
+                        addEvoLog('❌ 시작 실패: ' + (data.message || '알 수 없는 오류'), 'error');
+                        if (data.error) {
+                            addEvoLog('오류 상세: ' + data.error, 'error');
+                        }
+                        if (data.stderr_log) {
+                            addEvoLog(`오류 로그: ${data.stderr_log}`, 'error');
+                        }
                     }
                 })
                 .catch(error => {
-                    addEvoLog('시작 실패: ' + error.message, 'error');
+                    addEvoLog('❌ 시작 실패: ' + error.message, 'error');
                 });
         }
 
@@ -4687,13 +4708,33 @@
                 const actionBadge = trade.action === 'BUY' ?
                     '<span style="background: var(--color-danger); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">BUY</span>' :
                     '<span style="background: var(--color-primary); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8rem;">SELL</span>';
+
+                // Handle time formatting - support multiple formats
+                let timeStr = '-';
+                if (trade.time) {
+                    try {
+                        const date = new Date(trade.time);
+                        if (!isNaN(date.getTime())) {
+                            timeStr = date.toLocaleString('ko-KR', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('Invalid trade time:', trade.time, e);
+                    }
+                }
+
                 // Handle undefined profit_pct
                 const profitPctDisplay = (trade.profit_pct !== undefined && trade.profit_pct !== null)
                     ? `${profitSign}${trade.profit_pct.toFixed(2)}%`
                     : '-';
                 html += `
                     <tr>
-                        <td>${new Date(trade.time).toLocaleString()}</td>
+                        <td>${timeStr}</td>
                         <td>${trade.strategy_name}</td>
                         <td>${trade.stock_name}</td>
                         <td>${actionBadge}</td>

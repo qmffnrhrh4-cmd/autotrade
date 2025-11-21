@@ -321,7 +321,8 @@ def start_evolution():
                 return jsonify({
                     'success': False,
                     'message': '진화 알고리즘이 이미 실행 중입니다',
-                    'running': True
+                    'running': True,
+                    'pid': _evolution_process.pid
                 })
 
         logger.info("🚀 진화 알고리즘 시작 중...")
@@ -330,26 +331,64 @@ def start_evolution():
         project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
         script_path = os.path.join(project_root, 'run_strategy_optimizer.py')
 
+        # Create logs directory
+        logs_dir = os.path.join(project_root, 'logs')
+        os.makedirs(logs_dir, exist_ok=True)
+
+        # Log files for stdout and stderr
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        stdout_log = os.path.join(logs_dir, f'evolution_stdout_{timestamp}.log')
+        stderr_log = os.path.join(logs_dir, f'evolution_stderr_{timestamp}.log')
+
+        stdout_f = open(stdout_log, 'w', encoding='utf-8')
+        stderr_f = open(stderr_log, 'w', encoding='utf-8')
+
         # Start the evolution process in background
         _evolution_process = subprocess.Popen(
             [sys.executable, script_path, '--auto-deploy', '--interval', '300', '--population-size', '20'],
             cwd=project_root,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=stdout_f,
+            stderr=stderr_f,
             stdin=subprocess.DEVNULL,
             creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if sys.platform == 'win32' else 0
         )
 
+        # Wait a moment to check if process starts successfully
+        import time
+        time.sleep(1)
+
+        if _evolution_process.poll() is not None:
+            # Process already terminated
+            stdout_f.close()
+            stderr_f.close()
+
+            # Read error logs
+            with open(stderr_log, 'r', encoding='utf-8') as f:
+                error_msg = f.read()
+
+            logger.error(f"진화 프로세스가 즉시 종료됨: {error_msg}")
+            return jsonify({
+                'success': False,
+                'message': '진화 알고리즘 시작 실패 - 프로세스가 즉시 종료되었습니다',
+                'error': error_msg[:500],  # First 500 chars
+                'stderr_log': stderr_log
+            }), 500
+
         _evolution_running = True
 
         logger.info(f"✅ 진화 알고리즘 프로세스 시작됨 (PID: {_evolution_process.pid})")
+        logger.info(f"   stdout 로그: {stdout_log}")
+        logger.info(f"   stderr 로그: {stderr_log}")
 
         return jsonify({
             'success': True,
             'message': '진화 알고리즘이 백그라운드에서 시작되었습니다',
             'pid': _evolution_process.pid,
             'running': True,
-            'note': '로그는 터미널 또는 로그 파일에서 확인하세요'
+            'stdout_log': stdout_log,
+            'stderr_log': stderr_log,
+            'note': f'로그 파일: {stdout_log}'
         })
 
     except Exception as e:
