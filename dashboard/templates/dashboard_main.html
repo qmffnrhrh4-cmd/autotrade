@@ -1342,10 +1342,10 @@
                             <div class="card-header">
                                 <h3 class="card-title">
                                     <i class="fas fa-list-check"></i>
-                                    가상매매 전략 (5가지)
+                                    <span id="virtual-strategies-title">가상매매 전략</span>
                                 </h3>
-                                <button class="btn btn-primary btn-sm" onclick="virtualTrading.showCreateStrategyModal()">
-                                    <i class="fas fa-plus"></i> 수동 생성
+                                <button class="btn btn-primary btn-sm" onclick="refreshVirtualTrading()">
+                                    <i class="fas fa-sync"></i> 새로고침
                                 </button>
                             </div>
                             <div id="virtual-strategies-list" style="margin-top: 1.5rem;">
@@ -2233,6 +2233,7 @@
                         });
 
                         updateVirtualTradingDisplay(strategiesObj);
+                        updateVirtualStrategiesList(strategiesObj);
 
                         // 필터링 정보 표시
                         const totalCount = data.strategies.length;
@@ -3864,6 +3865,73 @@
 
             html += '</div>';
             content.innerHTML = html;
+        }
+
+        function updateVirtualStrategiesList(strategies) {
+            const listEl = document.getElementById('virtual-strategies-list');
+            const titleEl = document.getElementById('virtual-strategies-title');
+
+            if (!strategies || Object.keys(strategies).length === 0) {
+                listEl.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-vial"></i>
+                        <h3>활성 전략 없음</h3>
+                        <p>활동이 있는 가상매매 전략이 없습니다</p>
+                    </div>
+                `;
+                if (titleEl) {
+                    titleEl.textContent = '가상매매 전략 (0개)';
+                }
+                return;
+            }
+
+            const strategiesArray = Object.entries(strategies).map(([name, stats]) => ({
+                name,
+                ...stats
+            }));
+
+            // Update title with count
+            if (titleEl) {
+                titleEl.textContent = `가상매매 전략 (${strategiesArray.length}개)`;
+            }
+
+            // Sort by return rate descending
+            strategiesArray.sort((a, b) => (b.return || 0) - (a.return || 0));
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+
+            strategiesArray.forEach(strategy => {
+                const capital = strategy.capital || 0;
+                const returnPct = strategy.return || 0;
+                const trades = strategy.trades || 0;
+                const positions = strategy.position_count || 0;
+                const profit = strategy.total_profit || 0;
+                const status = strategy.status || 'inactive';
+
+                const profitColor = returnPct >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                const profitSign = returnPct >= 0 ? '+' : '';
+
+                html += `
+                    <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.75rem; border-left: 3px solid ${status === 'active' ? 'var(--color-success)' : 'var(--color-muted)'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <div style="font-weight: 600; font-size: 0.95rem;">${strategy.name}</div>
+                            <div style="color: ${profitColor}; font-weight: 700; font-size: 1.1rem;">
+                                ${profitSign}${returnPct.toFixed(2)}%
+                            </div>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
+                            <span>자본: ${capital.toLocaleString()}원</span>
+                            <span>포지션: ${positions} | 거래: ${trades}회</span>
+                        </div>
+                        <div style="font-size: 0.75rem; color: ${profitColor}; margin-top: 0.25rem;">
+                            수익: ${profitSign}${profit.toLocaleString()}원
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            listEl.innerHTML = html;
         }
 
         function updatePortfolioDisplay(holdings) {
