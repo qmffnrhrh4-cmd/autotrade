@@ -18,6 +18,8 @@ from .virtual_trading import virtual_trading_bp
 from .automation import automation_bp
 from .program_manager import program_manager_bp
 from .strategy_evolution import evolution_bp  # Fix: 전략 진화 API 추가
+from .backtest_analysis import backtest_analysis_bp  # 백테스팅 결과 분석
+from .live_trading import live_trading_bp  # 실전 투자 전환
 
 __all__ = [
     'account_bp',
@@ -33,7 +35,9 @@ __all__ = [
     'virtual_trading_bp',
     'automation_bp',
     'program_manager_bp',
-    'evolution_bp'  # Fix: 전략 진화 API 추가
+    'evolution_bp',  # Fix: 전략 진화 API 추가
+    'backtest_analysis_bp',  # 백테스팅 결과 분석
+    'live_trading_bp'  # 실전 투자 전환
 ]
 
 
@@ -53,3 +57,5 @@ def register_routes(app):
     app.register_blueprint(automation_bp)
     app.register_blueprint(program_manager_bp)
     app.register_blueprint(evolution_bp)  # v6.1.3: 전략 진화 API
+    app.register_blueprint(backtest_analysis_bp)  # 백테스팅 결과 분석
+    app.register_blueprint(live_trading_bp)  # 실전 투자 전환
