@@ -5,8 +5,8 @@ HTTP 클라이언트로 32비트 OpenAPI 서버와 통신합니다.
 
 Architecture:
 - This client runs in 64-bit Python (main.py)
-- Communicates with openapi_server.py (32-bit) via HTTP
-- openapi_server.py handles actual koapy/OpenAPI calls
+- Communicates with openapi_server_v2.py (32-bit) via HTTP
+- openapi_server_v2.py handles actual koapy/OpenAPI calls
 
 Usage:
     client = KiwoomOpenAPIClient(auto_connect=True)
@@ -26,7 +26,7 @@ class KiwoomOpenAPIClient:
     """
     키움 OpenAPI+ HTTP 클라이언트
 
-    32비트 OpenAPI 서버(openapi_server.py)와 HTTP로 통신합니다.
+    32비트 OpenAPI 서버(openapi_server_v2.py)와 HTTP로 통신합니다.
 
     주요 기능:
     - 자동 연결 확인
@@ -81,7 +81,7 @@ class KiwoomOpenAPIClient:
 
         except requests.exceptions.ConnectionError:
             logger.error(f"❌ OpenAPI 서버 연결 실패: {url}")
-            logger.error("   서버가 실행 중인지 확인하세요 (openapi_server.py)")
+            logger.error("   서버가 실행 중인지 확인하세요 (openapi_server_v2.py)")
             return None
         except requests.exceptions.Timeout:
             logger.error(f"❌ 요청 시간 초과: {url}")

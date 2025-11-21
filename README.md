@@ -64,7 +64,7 @@ python main.py
 
 ```bash
 conda activate kiwoom32
-python openapi_server.py
+python openapi_server_v2.py
 ```
 
 ---
