@@ -971,6 +971,10 @@
                     <i class="fas fa-dna"></i>
                     <span>전략 진화</span>
                 </div>
+                <div class="nav-tab" data-tab="live-monitor">
+                    <i class="fas fa-eye"></i>
+                    <span>실시간 모니터</span>
+                </div>
                 <div class="nav-tab" data-tab="program-manager">
                     <i class="fas fa-robot"></i>
                     <span>프로그램 매니저</span>
@@ -1731,6 +1735,112 @@
                     </div>
                 </div>
 
+                <!-- Live Monitor Tab -->
+                <div class="tab-content" id="live-monitor">
+                    <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
+                        <i class="fas fa-eye" style="color: var(--color-primary);"></i>
+                        실시간 모니터
+                    </h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 2rem;">
+                        시스템 활동, 전략 현황, 거래 내역 실시간 모니터링
+                    </p>
+
+                    <!-- Stats Row -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+                        <div class="glass-card" style="padding: 1.5rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fas fa-robot"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">활성 전략</div>
+                                    <div id="lm-active-strategies" style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card" style="padding: 1.5rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #3b82f6, #2563eb); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fas fa-exchange-alt"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">오늘 거래</div>
+                                    <div id="lm-total-trades" style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card" style="padding: 1.5rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fas fa-briefcase"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">보유 포지션</div>
+                                    <div id="lm-open-positions" style="font-size: 2rem; font-weight: 700; color: var(--text-primary);">0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="glass-card" style="padding: 1.5rem;">
+                            <div style="display: flex; align-items: center; gap: 1rem;">
+                                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #ef4444, #dc2626); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem;">
+                                    <i class="fas fa-chart-line"></i>
+                                </div>
+                                <div style="flex: 1;">
+                                    <div style="color: var(--text-muted); font-size: 0.85rem;">오늘 수익</div>
+                                    <div id="lm-total-profit" style="font-size: 2rem; font-weight: 700; color: var(--color-success);">+0원</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Main Content Grid -->
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;">
+                        <!-- Active Strategies -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-robot"></i>
+                                    활성 전략
+                                </h3>
+                            </div>
+                            <div id="lm-strategies-list" style="margin-top: 1rem; max-height: 500px; overflow-y: auto;">
+                                <p style="text-align: center; color: var(--text-muted); padding: 2rem;">활성 전략이 없습니다</p>
+                            </div>
+                        </div>
+
+                        <!-- Real-time Logs -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-terminal"></i>
+                                    실시간 로그
+                                </h3>
+                                <button class="btn btn-sm btn-primary" onclick="clearLiveLogs()">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div id="lm-logs-container" style="margin-top: 1rem; max-height: 500px; overflow-y: auto; font-family: 'Courier New', monospace; font-size: 0.85rem;">
+                                <div style="padding: 0.5rem; border-left: 3px solid #3b82f6; color: var(--text-secondary);">
+                                    <span style="color: var(--text-muted);">[시스템]</span> 실시간 모니터링 시작...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Trades -->
+                        <div class="glass-card">
+                            <div class="card-header">
+                                <h3 class="card-title">
+                                    <i class="fas fa-history"></i>
+                                    최근 거래
+                                </h3>
+                            </div>
+                            <div id="lm-trades-list" style="margin-top: 1rem; max-height: 500px; overflow-y: auto;">
+                                <p style="text-align: center; color: var(--text-muted); padding: 2rem;">거래 내역이 없습니다</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Program Manager Tab -->
                 <div class="tab-content" id="program-manager">
                     <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
@@ -1971,6 +2081,8 @@
                 // Load data for specific tabs
                 if (tabId === 'strategy-evolution') {
                     initEvolutionTab();
+                } else if (tabId === 'live-monitor') {
+                    initLiveMonitorTab();
                 }
             });
         });
@@ -4586,6 +4698,167 @@
             }
         }
 
+        // ==================== Live Monitor Functions ====================
+        let liveLogs = [];
+        const MAX_LIVE_LOGS = 100;
+
+        function clearLiveLogs() {
+            liveLogs = [];
+            const logsEl = document.getElementById('lm-logs-container');
+            if (logsEl) {
+                logsEl.innerHTML = '<div style="padding: 0.5rem; border-left: 3px solid #3b82f6; color: var(--text-secondary);"><span style="color: var(--text-muted);">[시스템]</span> 로그 초기화됨</div>';
+            }
+        }
+
+        function addLiveLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('ko-KR');
+            const colors = {
+                info: '#3b82f6',
+                success: '#10b981',
+                warning: '#f59e0b',
+                error: '#ef4444'
+            };
+            const icons = {
+                info: 'ℹ️',
+                success: '✅',
+                warning: '⚠️',
+                error: '❌'
+            };
+
+            const logEntry = {
+                timestamp,
+                message,
+                type,
+                color: colors[type] || colors.info,
+                icon: icons[type] || icons.info
+            };
+
+            liveLogs.unshift(logEntry);
+            if (liveLogs.length > MAX_LIVE_LOGS) {
+                liveLogs.pop();
+            }
+
+            const logsEl = document.getElementById('lm-logs-container');
+            if (logsEl) {
+                logsEl.innerHTML = liveLogs.map(log => `
+                    <div style="padding: 0.5rem; border-left: 3px solid ${log.color}; margin-bottom: 0.5rem; color: var(--text-secondary);">
+                        <span style="color: var(--text-muted);">[${log.timestamp}]</span> ${log.icon} ${log.message}
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function refreshLiveMonitorStats() {
+            try {
+                // Get virtual trading stats
+                const vtResponse = await fetch('/api/virtual-trading/summary');
+                const vtData = await vtResponse.json();
+
+                if (vtData.success) {
+                    // Update stats
+                    const activeStrategies = vtData.active_strategies || 0;
+                    const totalTrades = vtData.total_trades || 0;
+                    const openPositions = vtData.open_positions || 0;
+                    const totalProfit = vtData.total_profit || 0;
+
+                    document.getElementById('lm-active-strategies').textContent = activeStrategies;
+                    document.getElementById('lm-total-trades').textContent = totalTrades;
+                    document.getElementById('lm-open-positions').textContent = openPositions;
+
+                    const profitEl = document.getElementById('lm-total-profit');
+                    const profitText = totalProfit >= 0 ? `+${totalProfit.toLocaleString()}원` : `${totalProfit.toLocaleString()}원`;
+                    profitEl.textContent = profitText;
+                    profitEl.style.color = totalProfit >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                }
+            } catch (error) {
+                console.error('Failed to refresh live monitor stats:', error);
+            }
+        }
+
+        async function updateLiveStrategies() {
+            try {
+                const response = await fetch('/api/virtual-trading/strategies');
+                const data = await response.json();
+
+                const strategiesEl = document.getElementById('lm-strategies-list');
+                if (!data.success || !data.strategies || data.strategies.length === 0) {
+                    strategiesEl.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">활성 전략이 없습니다</p>';
+                    return;
+                }
+
+                const activeStrategies = data.strategies.filter(s => s.is_active);
+                if (activeStrategies.length === 0) {
+                    strategiesEl.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">활성 전략이 없습니다</p>';
+                    return;
+                }
+
+                let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+                activeStrategies.forEach(strategy => {
+                    const profitColor = strategy.total_profit >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+                    html += `
+                        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.75rem;">
+                            <div style="font-weight: 600; margin-bottom: 0.25rem;">${strategy.name}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                포지션: ${strategy.position_count || 0} |
+                                수익: <span style="color: ${profitColor}">${strategy.total_profit >= 0 ? '+' : ''}${(strategy.total_profit || 0).toLocaleString()}원</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                strategiesEl.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to update live strategies:', error);
+            }
+        }
+
+        async function updateLiveTrades() {
+            try {
+                const response = await fetch('/api/virtual-trading/recent-trades?limit=20');
+                const data = await response.json();
+
+                const tradesEl = document.getElementById('lm-trades-list');
+                if (!data.success || !data.trades || data.trades.length === 0) {
+                    tradesEl.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">거래 내역이 없습니다</p>';
+                    return;
+                }
+
+                let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
+                data.trades.forEach(trade => {
+                    const actionColor = trade.action === '매수' ? 'var(--color-primary)' : 'var(--color-danger)';
+                    const actionIcon = trade.action === '매수' ? '📈' : '📉';
+                    const profitColor = trade.profit >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
+
+                    html += `
+                        <div style="background: rgba(255,255,255,0.03); border-radius: 8px; padding: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <div>
+                                    <span style="color: ${actionColor};">${actionIcon} ${trade.action}</span>
+                                    <strong style="margin-left: 0.5rem;">${trade.stock_name || trade.stock_code}</strong>
+                                </div>
+                                <div style="font-size: 0.85rem; color: var(--text-muted);">${trade.quantity}주</div>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">
+                                ${trade.price ? `${trade.price.toLocaleString()}원` : '-'}
+                                ${trade.profit !== undefined ? ` | <span style="color: ${profitColor}">${trade.profit >= 0 ? '+' : ''}${trade.profit.toLocaleString()}원</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                tradesEl.innerHTML = html;
+            } catch (error) {
+                console.error('Failed to update live trades:', error);
+            }
+        }
+
+        function initLiveMonitorTab() {
+            refreshLiveMonitorStats();
+            updateLiveStrategies();
+            updateLiveTrades();
+            addLiveLog('실시간 모니터링 시작', 'success');
+        }
+
         // ==================== Socket.IO ====================
         const socket = io();
 
@@ -4609,22 +4882,27 @@
             const msg = data.message || '';
             const msgLower = msg.toLowerCase();
 
-            // 현재 작업 업데이트
+            // 현재 작업 업데이트 (헤더 모니터)
             if (msgLower.includes('분석') || msgLower.includes('deep scan')) {
                 updateMonitorTask('📊 ' + msg.substring(0, 30), 'active');
                 addMonitorLog('📊 ' + msg.substring(0, 50));
+                addLiveLog(msg, 'info');
             } else if (msgLower.includes('ai') || msgLower.includes('gemini')) {
                 updateMonitorTask('🤖 ' + msg.substring(0, 30), 'active');
                 addMonitorLog('🤖 ' + msg.substring(0, 50));
+                addLiveLog(msg, 'info');
             } else if (msgLower.includes('매수') || msgLower.includes('매도')) {
                 updateMonitorTask('💰 ' + msg.substring(0, 30), 'active');
                 addMonitorLog('💰 ' + msg.substring(0, 50));
+                addLiveLog(msg, 'success');
             } else if (msgLower.includes('진화') || msgLower.includes('evolution')) {
                 updateMonitorTask('🧬 ' + msg.substring(0, 30), 'active');
                 addMonitorLog('🧬 ' + msg.substring(0, 50));
+                addLiveLog(msg, 'info');
                 refreshMonitorEvolution();
             } else {
                 addMonitorLog(msg.substring(0, 50));
+                addLiveLog(msg, 'info');
             }
 
             // 3초 후 대기 상태로
@@ -4636,11 +4914,17 @@
         socket.on('trade_executed', (data) => {
             updateMonitorTask(`💰 거래: ${data.action} ${data.stock_name}`, 'active');
             addMonitorLog(`💰 ${data.action} ${data.stock_name} ${data.quantity}주`);
+            addLiveLog(`거래 실행: ${data.action} ${data.stock_name} ${data.quantity}주`, 'success');
+
+            // Refresh live monitor data
+            refreshLiveMonitorStats();
+            updateLiveTrades();
         });
 
         socket.on('error', (data) => {
             updateMonitorTask('❌ 오류 발생', 'error');
             addMonitorLog('❌ ' + (data.message || '').substring(0, 50));
+            addLiveLog((data.message || '오류 발생'), 'error');
         });
 
         // ==================== Initialize ====================
@@ -4663,6 +4947,16 @@
             setInterval(refreshVirtualTrading, 10000);  // Every 10 seconds
             setInterval(refreshVirtualTradingSummary, 10000);  // 가상매매 통계도 10초마다 갱신
             setInterval(refreshMonitorEvolution, 10000);  // 진화 알고리즘 모니터링 10초마다
+
+            // Live Monitor periodic refresh
+            setInterval(() => {
+                const activeTab = document.querySelector('.tab-content.active');
+                if (activeTab && activeTab.id === 'live-monitor') {
+                    refreshLiveMonitorStats();
+                    updateLiveStrategies();
+                    updateLiveTrades();
+                }
+            }, 10000);  // Every 10 seconds
         });
     </script>
 
