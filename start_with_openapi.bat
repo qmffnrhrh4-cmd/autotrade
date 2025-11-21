@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal enabledelayedexpansion
 REM AutoTrade with OpenAPI - Automatic Startup Script
 REM This script starts OpenAPI server in a separate console and then starts the main application
