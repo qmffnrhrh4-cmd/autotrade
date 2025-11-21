@@ -67,7 +67,9 @@ realtime_chart_manager = None
 from .routes import (
     account_bp, trading_bp, market_bp,
     portfolio_bp, smart_rebalance_bp, system_bp, pages_bp, alerts_bp, backtest_bp, virtual_trading_bp, program_manager_bp,
-    evolution_bp  # Fix: 전략 진화 API 추가
+    evolution_bp,  # Fix: 전략 진화 API 추가
+    backtest_analysis_bp,  # 백테스팅 결과 분석
+    live_trading_bp  # 실전 투자 전환
 )
 
 # Import automation routes (v5.5: 고급 자동화 시스템)
@@ -90,6 +92,8 @@ from .routes.system import (
 from .routes.backtest import set_bot_instance as backtest_set_bot
 from .routes.virtual_trading import init_virtual_trading_manager
 from .routes.program_manager import set_bot_instance as program_manager_set_bot
+from .routes.backtest_analysis import set_bot_instance as backtest_analysis_set_bot
+from .routes.live_trading import set_bot_instance as live_trading_set_bot, set_live_trading_bridge
 
 # Register all blueprints
 app.register_blueprint(account_bp)
@@ -106,6 +110,8 @@ app.register_blueprint(virtual_trading_bp)  # 가상매매 시스템
 app.register_blueprint(automation_bp)  # v5.5: 고급 자동화 시스템
 app.register_blueprint(program_manager_bp)  # 프로그램 매니저
 app.register_blueprint(evolution_bp)  # Fix: 전략 진화 시스템
+app.register_blueprint(backtest_analysis_bp)  # 백테스팅 결과 분석
+app.register_blueprint(live_trading_bp)  # 실전 투자 전환
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
@@ -184,6 +190,8 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
         system_set_bot(bot_instance)
         backtest_set_bot(bot_instance)
         program_manager_set_bot(bot_instance)
+        backtest_analysis_set_bot(bot_instance)
+        live_trading_set_bot(bot_instance)
 
         # Set config manager and unified settings for system routes
         if config_manager:
@@ -204,6 +212,30 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
         print("✅ Automation routes initialized")
     except Exception as e:
         print(f"⚠️ Failed to initialize automation routes: {e}")
+
+    # Initialize live trading bridge
+    try:
+        if bot_instance and hasattr(bot_instance, 'virtual_trader'):
+            from virtual_trading import VirtualTradingManager, get_live_trading_bridge, LiveTradingConfig
+
+            # 가상 매매 매니저 가져오기
+            virtual_manager = bot_instance.virtual_trader if hasattr(bot_instance, 'virtual_trader') else None
+
+            # 실전 거래 API 가져오기
+            trading_api = bot_instance.trading_api if hasattr(bot_instance, 'trading_api') else None
+
+            if virtual_manager and trading_api:
+                live_bridge = get_live_trading_bridge(
+                    virtual_manager=virtual_manager,
+                    trading_api=trading_api,
+                    config=LiveTradingConfig()
+                )
+                set_live_trading_bridge(live_bridge)
+                print("✅ Live trading bridge initialized")
+            else:
+                print("⚠️ Virtual manager or trading API not available")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize live trading bridge: {e}")
 
     # Initialize real-time minute chart manager if WebSocket is available
     if bot_instance and hasattr(bot_instance, 'websocket_manager') and bot_instance.websocket_manager:
