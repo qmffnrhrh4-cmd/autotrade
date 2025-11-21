@@ -268,12 +268,15 @@ class VirtualTradingDB:
 
         strategies = []
         for row in rows:
+            # ID 추출 (row factory에 관계없이 동작)
+            strategy_id = row['id'] if isinstance(row, dict) else row[0]
+
             # 활성 포지션 수 계산 (새로운 cursor 사용)
             position_cursor = self.conn.cursor()
             position_cursor.execute("""
                 SELECT COUNT(*) as cnt FROM virtual_positions
                 WHERE strategy_id = ? AND is_closed = 0
-            """, (row['id'],))
+            """, (strategy_id,))
             result = position_cursor.fetchone()
             position_count = result['cnt'] if result else 0
 
