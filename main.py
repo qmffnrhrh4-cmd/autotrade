@@ -267,7 +267,7 @@ class AutoTradingBot:
                                 logger.warning("REST API로 계속 진행합니다.")
                                 logger.warning("OpenAPI 기능을 사용하려면 수동으로 시작하세요:")
                                 logger.warning("  conda activate kiwoom32")
-                                logger.warning("  python openapi_server.py")
+                                logger.warning("  python openapi_server_v2.py")
                                 logger.warning("="*80)
                                 logger.warning("")
                                 self.openapi_client = None
@@ -622,14 +622,14 @@ class AutoTradingBot:
 
             if platform.system() != 'Windows':
                 logger.warning("OpenAPI 서버 자동 시작은 Windows에서만 지원됩니다")
-                logger.info("수동으로 시작하세요: conda activate kiwoom32 && python openapi_server.py")
+                logger.info("수동으로 시작하세요: conda activate kiwoom32 && python openapi_server_v2.py")
                 return False
 
             logger.info("="*80)
             logger.info("OpenAPI 서버 시작 시도")
             logger.info("="*80)
 
-            server_script = os.path.join(os.path.dirname(__file__), 'openapi_server.py')
+            server_script = os.path.join(os.path.dirname(__file__), 'openapi_server_v2.py')
             if not os.path.exists(server_script):
                 logger.error(f"OpenAPI 서버 스크립트를 찾을 수 없습니다: {server_script}")
                 return False
@@ -657,7 +657,7 @@ class AutoTradingBot:
                 logger.info("수동으로 실행하세요:")
                 logger.info("  1. 새 터미널을 엽니다")
                 logger.info("  2. conda activate kiwoom32")
-                logger.info("  3. python openapi_server.py")
+                logger.info("  3. python openapi_server_v2.py")
                 logger.info("")
                 return False
 
