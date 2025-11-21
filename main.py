@@ -1890,6 +1890,18 @@ def signal_handler(signum, frame):
 
 
 def main():
+    import argparse
+
+    # Command line arguments
+    parser = argparse.ArgumentParser(description='AutoTrade Pro - AI Trading Bot')
+    parser.add_argument('--virtual-trading', action='store_true',
+                       help='가상매매 모드로 시작 (실제 거래 안 함)')
+    parser.add_argument('--auto-start', action='store_true',
+                       help='가상매매 전략 자동 시작')
+    parser.add_argument('--skip-test', action='store_true',
+                       help='자체 테스트 건너뛰기')
+    args = parser.parse_args()
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
 
@@ -1897,17 +1909,70 @@ def main():
 
     # Fix: 자체 테스트 실행 (시스템 검증)
     print("\n" + "="*80)
-    print("매매 봇 시작 (자체 테스트 실행)")
+    if args.virtual_trading:
+        print("매매 봇 시작 (가상매매 모드)")
+    else:
+        print("매매 봇 시작 (자체 테스트 실행)")
     print("="*80)
 
-    # 자체 테스트 실행
-    test_passed = bot.run_self_test()
-    if not test_passed:
-        logger.error("❌ 자체 테스트 실패 - 봇 시작을 중단합니다")
-        print("\n자체 테스트 실패. 로그를 확인하세요.")
-        return
+    # 자체 테스트 실행 (건너뛰기 옵션이 없으면)
+    if not args.skip_test:
+        test_passed = bot.run_self_test()
+        if not test_passed:
+            logger.error("❌ 자체 테스트 실패 - 봇 시작을 중단합니다")
+            print("\n자체 테스트 실패. 로그를 확인하세요.")
+            return
 
-    logger.info("✅ 자체 테스트 통과 - 봇을 시작합니다")
+        logger.info("✅ 자체 테스트 통과 - 봇을 시작합니다")
+
+    # 가상매매 모드 활성화
+    if args.virtual_trading:
+        logger.info("="*80)
+        logger.info("🎮 가상매매 모드 활성화")
+        logger.info("="*80)
+
+        try:
+            # Virtual Trading Manager 초기화
+            if bot.virtual_trading_manager is None:
+                from virtual_trading import VirtualTradingManager
+                bot.virtual_trading_manager = VirtualTradingManager(db_path="data/virtual_trading.db")
+                logger.info("✅ 가상매매 매니저 초기화 완료")
+
+            # 자동 시작 옵션이 활성화되어 있으면
+            if args.auto_start:
+                strategies = bot.virtual_trading_manager.get_strategy_summary()
+                logger.info(f"📊 전략 개수: {len(strategies)}개")
+
+                # 전략이 없으면 자동 생성
+                if len(strategies) == 0:
+                    logger.info("⚠️  전략이 없습니다. 자동 생성 중...")
+                    from virtual_trading.diverse_strategies import create_all_diverse_strategies
+
+                    diverse_strategies = create_all_diverse_strategies()
+                    for strategy in diverse_strategies:
+                        strategy_id = bot.virtual_trading_manager.create_strategy(
+                            name=strategy.name,
+                            description=strategy.description,
+                            initial_capital=10_000_000
+                        )
+                        logger.info(f"   ✅ {strategy.name} (ID: {strategy_id})")
+
+                    logger.info(f"✅ {len(diverse_strategies)}개 전략 생성 완료")
+
+                logger.info("🚀 모든 가상매매 전략을 활성화합니다...")
+
+                # Virtual Trader 시작
+                if bot.virtual_trader is None:
+                    from virtual_trading import VirtualTrader
+                    bot.virtual_trader = VirtualTrader(
+                        manager=bot.virtual_trading_manager,
+                        data_fetcher=bot.data_fetcher
+                    )
+                    logger.info("✅ 가상 트레이더 시작")
+
+        except Exception as e:
+            logger.error(f"❌ 가상매매 초기화 실패: {e}", exc_info=True)
+
     bot.start()
 
 
