@@ -12,6 +12,8 @@ from datetime import datetime, timedelta
 import threading
 import time
 
+from utils.trading_date import is_nxt_hours
+
 logger = logging.getLogger(__name__)
 
 
@@ -354,6 +356,11 @@ class EmergencyManager:
             return "OrderAPI not available"
 
         try:
+            # Fix: NXT 시간대 체크
+            is_nxt = is_nxt_hours()
+            exchange = 'NXT' if is_nxt else 'KRX'
+            logger.info(f"거래소 선택: {exchange} (NXT 시간대: {is_nxt})")
+
             # Fix v6.1.3: account_api에서 직접 holdings 조회
             if hasattr(bot_instance, 'account_api'):
                 holdings = bot_instance.account_api.get_holdings()
@@ -383,7 +390,8 @@ class EmergencyManager:
                         stock_code=stock_code,
                         quantity=quantity,
                         price=0,
-                        order_type='01'  # 시장가
+                        order_type='01',  # 시장가
+                        exchange=exchange  # Fix: NXT/KRX 거래소 선택
                     )
 
                     if result and result.get('success'):
@@ -410,6 +418,10 @@ class EmergencyManager:
             return "OrderAPI not available"
 
         try:
+            # Fix: NXT 시간대 체크
+            is_nxt = is_nxt_hours()
+            exchange = 'NXT' if is_nxt else 'KRX'
+
             # 포지션 조회
             if hasattr(bot_instance, 'portfolio_manager'):
                 position = bot_instance.portfolio_manager.get_position(stock_code)
@@ -422,7 +434,8 @@ class EmergencyManager:
                         stock_code=stock_code,
                         quantity=quantity,
                         price=0,
-                        order_type='01'
+                        order_type='01',
+                        exchange=exchange  # Fix: NXT/KRX 거래소 선택
                     )
 
                     if result and result.get('success'):
@@ -446,6 +459,10 @@ class EmergencyManager:
         liquidated_count = 0
 
         try:
+            # Fix: NXT 시간대 체크
+            is_nxt = is_nxt_hours()
+            exchange = 'NXT' if is_nxt else 'KRX'
+
             if hasattr(bot_instance, 'portfolio_manager'):
                 positions = bot_instance.portfolio_manager.get_positions()
 
@@ -459,7 +476,8 @@ class EmergencyManager:
                             stock_code=stock_code,
                             quantity=liquidate_quantity,
                             price=0,
-                            order_type='01'
+                            order_type='01',
+                            exchange=exchange  # Fix: NXT/KRX 거래소 선택
                         )
 
                         if result and result.get('success'):

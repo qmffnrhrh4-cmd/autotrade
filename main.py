@@ -1603,11 +1603,14 @@ class AutoTradingBot:
                 )
             else:
                 # Fallback: 일반 매도
+                # Fix: NXT 시간대면 exchange 파라미터 전달
+                exchange = 'NXT' if is_nxt_hours() else 'KRX'
                 order_result = self.order_api.sell(
                     stock_code=stock_code,
                     quantity=quantity,
                     price=optimal_price,
-                    order_type=order_type
+                    order_type=order_type,
+                    exchange=exchange
                 )
 
             # Fix v6.1.3: 가상매매 포지션 찾아서 동시 매도

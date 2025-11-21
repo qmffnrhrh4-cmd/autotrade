@@ -17,6 +17,7 @@ from .split_order_manager import (
     SplitType,
     get_split_order_manager
 )
+from utils.trading_date import is_nxt_hours, is_market_hours
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +98,11 @@ class SplitOrderExecutor:
 
         logger.info(f"🔵 분할 매수 시작: {stock_name}({stock_code}) {total_quantity}주를 {num_splits}회 분할")
 
+        # Fix: NXT 시간대 체크
+        is_nxt = is_nxt_hours()
+        exchange = 'NXT' if is_nxt else 'KRX'
+        logger.info(f"거래소 선택: {exchange} (NXT 시간대: {is_nxt})")
+
         # 각 분할 주문 실행
         for idx, entry in enumerate(group.entries):
             try:
@@ -109,7 +115,8 @@ class SplitOrderExecutor:
                     quantity=entry.quantity,
                     price=int(entry.price),
                     order_type=order_type,
-                    account_number=account_number
+                    account_number=account_number,
+                    exchange=exchange  # Fix: NXT/KRX 거래소 선택
                 )
 
                 # Fix: 성공 여부 판단 로직 수정
@@ -213,6 +220,11 @@ class SplitOrderExecutor:
 
         logger.info(f"🔴 분할 매도 시작: {stock_name}({stock_code}) {total_quantity}주를 {num_splits}회 분할")
 
+        # Fix: NXT 시간대 체크
+        is_nxt = is_nxt_hours()
+        exchange = 'NXT' if is_nxt else 'KRX'
+        logger.info(f"거래소 선택: {exchange} (NXT 시간대: {is_nxt})")
+
         # 각 분할 주문 실행
         for idx, entry in enumerate(group.entries):
             try:
@@ -224,7 +236,8 @@ class SplitOrderExecutor:
                     quantity=entry.quantity,
                     price=int(entry.price),
                     order_type='02',  # 지정가
-                    account_number=account_number
+                    account_number=account_number,
+                    exchange=exchange  # Fix: NXT/KRX 거래소 선택
                 )
 
                 # Fix: 성공 여부 판단 로직 수정
