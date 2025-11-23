@@ -32,6 +32,7 @@ class VirtualTradingScheduler:
         self.trading_thread = None  # Fix v6.1.4: 자동 매매 스레드
         self.ai_management_thread = None  # Fix v6.3: AI 전략 자동 관리 스레드
         self.evolution_thread = None  # Fix v6.4: 진화 알고리즘 스레드 (YOLO-style)
+        self.cleanup_thread = None  # 전략 정리 스레드 (매일 자정)
 
         # 진화 엔진
         self.evolution_engine = None
@@ -87,7 +88,15 @@ class VirtualTradingScheduler:
             self.evolution_thread.start()
             logger.info("✅ 진화 알고리즘 스레드 시작 (YOLO-style 연속 학습)")
 
-        logger.info("가상매매 스케줄러 시작 (24시간 실행, 5개 스레드)")
+        # 전략 정리 스레드 (매일 자정)
+        self.cleanup_thread = threading.Thread(
+            target=self._cleanup_loop,
+            daemon=True
+        )
+        self.cleanup_thread.start()
+        logger.info("✅ 전략 자동 정리 스레드 시작 (매일 자정)")
+
+        logger.info("가상매매 스케줄러 시작 (24시간 실행, 6개 스레드)")
 
     def stop(self):
         """스케줄러 중지"""
@@ -648,3 +657,154 @@ class VirtualTradingScheduler:
                 }
 
         return status
+
+    def _cleanup_loop(self):
+        """전략 자동 정리 루프 (매일 자정)"""
+        logger.info("전략 자동 정리 루프 시작")
+
+        from datetime import datetime, timedelta
+
+        MAX_ACTIVE_STRATEGIES = 40
+        MIN_DAYS_TO_KEEP = 7
+        PERFORMANCE_THRESHOLD = -20.0
+
+        last_cleanup_date = None
+
+        while self.is_running:
+            try:
+                now = datetime.now()
+                current_date = now.date()
+
+                # 자정(00:00~00:30) 사이에 한 번만 실행
+                if (last_cleanup_date != current_date and
+                    0 <= now.hour < 1):
+
+                    logger.info("=" * 60)
+                    logger.info("🧹 전략 자동 정리 시작 (매일)")
+                    logger.info("=" * 60)
+
+                    all_strategies = self.virtual_manager.db.get_all_strategies()
+                    active_strategies = [s for s in all_strategies if s.get('is_active', 1) == 1]
+
+                    logger.info(f"현재 활성 전략: {len(active_strategies)}개 (목표: {MAX_ACTIVE_STRATEGIES}개)")
+
+                    if len(active_strategies) > MAX_ACTIVE_STRATEGIES:
+                        cutoff_date = now - timedelta(days=MIN_DAYS_TO_KEEP)
+                        cleanup_count = 0
+                        strategies_to_remove = []
+
+                        for strategy in active_strategies:
+                            strategy_id = strategy['id']
+                            name = strategy['name']
+                            current_capital = strategy.get('current_capital', 0)
+                            initial_capital = strategy.get('initial_capital', 1)
+                            created_at = strategy.get('created_at')
+
+                            # 수익률 계산
+                            profit_rate = ((current_capital - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
+
+                            # 생성일 체크
+                            try:
+                                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                                days_old = (now - created_date).days
+                            except:
+                                days_old = 0
+
+                            should_remove = False
+                            reason = ""
+
+                            # 제거 조건 1: 오래되고 수익 나쁨
+                            if days_old >= MIN_DAYS_TO_KEEP and profit_rate <= PERFORMANCE_THRESHOLD:
+                                should_remove = True
+                                reason = f"{days_old}일 경과, 수익률 {profit_rate:.1f}%"
+
+                            # 제거 조건 2: 진화 전략 - 오래된 세대
+                            elif '진화-G' in name:
+                                try:
+                                    gen_num = int(name.split('G')[1].split('-')[0])
+                                    max_gen = max(
+                                        int(s['name'].split('G')[1].split('-')[0])
+                                        for s in active_strategies
+                                        if '진화-G' in s['name']
+                                    )
+                                    # 최근 50세대만 유지
+                                    if gen_num < (max_gen - 50):
+                                        should_remove = True
+                                        reason = f"오래된 세대 (G{gen_num}, 최신: G{max_gen})"
+                                except:
+                                    pass
+
+                            if should_remove:
+                                strategies_to_remove.append({
+                                    'id': strategy_id,
+                                    'name': name,
+                                    'reason': reason,
+                                    'profit_rate': profit_rate
+                                })
+
+                        # 수익률 낮은 순으로 정렬
+                        strategies_to_remove.sort(key=lambda x: x['profit_rate'])
+
+                        # 목표 개수만큼만 제거
+                        max_to_remove = len(active_strategies) - MAX_ACTIVE_STRATEGIES
+                        strategies_to_remove = strategies_to_remove[:max_to_remove]
+
+                        logger.info(f"제거 대상: {len(strategies_to_remove)}개")
+
+                        for strategy in strategies_to_remove:
+                            try:
+                                self.virtual_manager.db.execute(
+                                    "UPDATE strategies SET is_active = 0, updated_at = ? WHERE id = ?",
+                                    (now.isoformat(), strategy['id'])
+                                )
+                                cleanup_count += 1
+                                logger.info(f"  ✓ {strategy['name']}: {strategy['reason']}")
+                            except Exception as e:
+                                logger.error(f"  ✗ {strategy['name']} 실패: {e}")
+
+                        self.virtual_manager.db.conn.commit()
+
+                        logger.info(f"✅ 정리 완료: {cleanup_count}개 비활성화")
+                    else:
+                        logger.info("✅ 정리 불필요 (활성 전략 수 적정)")
+
+                    # 오래된 포지션 정리 (30일 이상)
+                    old_position_cutoff = (now - timedelta(days=30)).isoformat()
+                    old_positions = self.virtual_manager.db.query(
+                        """
+                        SELECT * FROM positions
+                        WHERE status IN ('open', 'holding')
+                        AND entry_time < ?
+                        """,
+                        (old_position_cutoff,)
+                    )
+
+                    if old_positions:
+                        logger.info(f"오래된 포지션 정리: {len(old_positions)}개")
+                        for pos in old_positions[:20]:  # 최대 20개
+                            try:
+                                self.virtual_manager.db.execute(
+                                    """
+                                    UPDATE positions
+                                    SET status = 'closed',
+                                        exit_time = ?,
+                                        exit_reason = 'Auto cleanup - 30 days'
+                                    WHERE id = ?
+                                    """,
+                                    (now.isoformat(), pos['id'])
+                                )
+                            except Exception as e:
+                                logger.error(f"포지션 정리 실패: {e}")
+
+                        self.virtual_manager.db.conn.commit()
+                        logger.info(f"✅ 오래된 포지션 정리 완료")
+
+                    logger.info("=" * 60)
+                    last_cleanup_date = current_date
+
+                # 30분마다 체크
+                time.sleep(1800)
+
+            except Exception as e:
+                logger.error(f"전략 정리 중 오류: {e}", exc_info=True)
+                time.sleep(3600)  # 에러 시 1시간 대기
