@@ -182,6 +182,14 @@ class EmergencyManager:
                 logger.debug("Empty stock_code in position, skipping emergency check")
                 continue
 
+            # Fix: 현재가 유효성 체크 (0이거나 None이면 스킵)
+            current_price = position.get('current_price', 0)
+            purchase_price = position.get('purchase_price', 0)
+
+            if current_price <= 0 or purchase_price <= 0:
+                logger.debug(f"Invalid price data for {stock_code} (현재가: {current_price}, 매입가: {purchase_price}) - 긴급청산 스킵")
+                continue
+
             profit_loss_rate = position.get('profit_loss_rate', 0)
 
             if profit_loss_rate <= -self.position_emergency_threshold:
@@ -411,6 +419,14 @@ class EmergencyManager:
         if not stock_code or stock_code == '':
             logger.warning("⚠️ 긴급 청산: stock_code가 비어있음 - 청산 불가")
             return "Invalid stock_code"
+
+        # Fix: 장 시간 체크 (장 시작 전/후에는 긴급청산 불가)
+        from datetime import datetime
+        now = datetime.now()
+        # 장 시작 전 (09:00 이전) 또는 장 마감 후 (15:30 이후)
+        if now.hour < 9 or (now.hour == 15 and now.minute >= 30) or now.hour > 15:
+            logger.warning(f"⚠️ 장 시간 외 긴급청산 시도 차단: {stock_code} (현재 {now.strftime('%H:%M')})")
+            return "Market closed - emergency sell blocked"
 
         logger.warning(f"🔴 긴급 청산: {stock_code}")
 
