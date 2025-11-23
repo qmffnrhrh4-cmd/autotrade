@@ -644,7 +644,10 @@ class AutomatedTradingBot:
             'num_positions': len(self.positions)
         })
 
-        # Calculate daily return
+        MAX_EQUITY_POINTS = 1000
+        if len(self.equity_curve) > MAX_EQUITY_POINTS:
+            self.equity_curve.pop(0)
+
         if len(self.equity_curve) > 1:
             prev_equity = self.equity_curve[-2]['equity']
             daily_return = (current_equity - prev_equity) / prev_equity

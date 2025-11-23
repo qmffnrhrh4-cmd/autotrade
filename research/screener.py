@@ -47,37 +47,27 @@ class Screener:
             필터링된 종목 리스트 (일반 주식만)
         """
         # 제외할 키워드 (대소문자 구분 안함)
-        exclude_keywords = [
-            # ETF 관련
+        exclude_keywords_upper = {
             'ETF', 'KODEX', 'TIGER', 'KINDEX', 'ARIRANG', 'HANARO',
             'KBSTAR', 'KOSEF', 'TIMEFOLIO', 'SOL',
-            # 레버리지/인버스
             '레버리지', '인버스', '레버', '인버',
             'LEVERAGE', 'INVERSE',
-            # 지수
             '지수', 'INDEX', 'KOSPI200', 'KOSDAQ150', 'KRX',
-            # SPAC
             'SPAC', '스팩',
-            # 기타
             '리츠', 'REIT',
-        ]
+        }
 
         filtered = []
         excluded_count = 0
 
         for stock in stocks:
-            name = stock.get('name', '').upper()
+            name_upper = stock.get('name', '').upper()
 
-            # 제외 키워드 체크
-            should_exclude = False
-            for keyword in exclude_keywords:
-                if keyword.upper() in name:
-                    should_exclude = True
-                    excluded_count += 1
-                    logger.debug(f"제외: {stock.get('name')} (키워드: {keyword})")
-                    break
+            should_exclude = any(keyword in name_upper for keyword in exclude_keywords_upper)
 
-            if not should_exclude:
+            if should_exclude:
+                excluded_count += 1
+            else:
                 filtered.append(stock)
 
         logger.info(f"ETF/레버리지/SPAC 필터링 완료: {excluded_count}개 제외, {len(filtered)}개 남음")
@@ -461,17 +451,14 @@ class Screener:
             price = int(float(stock.get('current_price', 0)))
             change_rate = float(stock.get('change_rate', 0))
 
-            # 변환된 값을 딕셔너리에 저장
-            stock['volume'] = volume
-            stock['current_price'] = price
-            stock['price'] = price  # scanner_pipeline 호환
-            stock['change_rate'] = change_rate
-            stock['rate'] = change_rate  # scanner_pipeline 호환
-
-            # 모든 조건 만족 체크
             if (volume >= min_volume and
                 min_price <= price <= max_price and
                 min_rate <= change_rate <= max_rate):
+                stock['volume'] = volume
+                stock['current_price'] = price
+                stock['price'] = price
+                stock['change_rate'] = change_rate
+                stock['rate'] = change_rate
                 filtered.append(stock)
         
         logger.info(f"복합 조건 스크리닝 완료: {len(filtered)}개 종목")

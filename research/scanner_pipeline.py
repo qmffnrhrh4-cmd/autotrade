@@ -8,6 +8,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime, time as dt_time
 from pathlib import Path
+from collections import deque
 import json
 
 from utils.logger_new import get_logger
@@ -144,9 +145,9 @@ class ScannerPipeline:
         self.last_ai_scan = 0
 
         # 후보 캐시
-        self.fast_scan_results: List[StockCandidate] = []
-        self.deep_scan_results: List[StockCandidate] = []
-        self.ai_scan_results: List[StockCandidate] = []
+        self.fast_scan_results = deque(maxlen=500)
+        self.deep_scan_results = deque(maxlen=200)
+        self.ai_scan_results = deque(maxlen=100)
 
         self.best_strategy_cache = {}
         self.market_condition_cache = None
