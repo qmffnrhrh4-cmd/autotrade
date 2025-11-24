@@ -239,6 +239,66 @@ def get_generation_detail(generation: int):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@evolution_bp.route('/top-strategies', methods=['GET'])
+def get_top_strategies():
+    """현재 최고 성과 전략 Top 10 조회"""
+    try:
+        # Fix: 데이터베이스 파일 존재 여부 확인
+        import os
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
+            return jsonify({
+                'success': True,
+                'strategies': [],
+                'total': 0,
+                'message': '전략 진화 엔진이 실행되지 않았습니다'
+            })
+
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+
+        # 최고 성과 전략 Top 10
+        cursor.execute("""
+            SELECT es.id, es.generation, es.genes,
+                   fr.fitness_score, fr.total_return_pct, fr.win_rate,
+                   fr.sharpe_ratio, fr.max_drawdown_pct, fr.total_trades,
+                   es.created_at
+            FROM evolved_strategies es
+            JOIN fitness_results fr ON es.id = fr.strategy_id
+            ORDER BY fr.fitness_score DESC
+            LIMIT 10
+        """)
+
+        strategies = []
+        for row in cursor.fetchall():
+            genes = json.loads(row['genes'])
+            strategies.append({
+                'id': row['id'],
+                'name': f"전략 G{row['generation']}-{row['id']}",
+                'generation': row['generation'],
+                'fitness_score': round(row['fitness_score'], 2),
+                'return_rate': round(row['total_return_pct'] or 0, 2),
+                'win_rate': round(row['win_rate'] or 0, 2),
+                'sharpe_ratio': round(row['sharpe_ratio'] or 0, 2),
+                'max_drawdown': round(row['max_drawdown_pct'] or 0, 2),
+                'total_trades': row['total_trades'] or 0,
+                'created_at': row['created_at']
+            })
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'strategies': strategies,
+            'total': len(strategies)
+        })
+
+    except Exception as e:
+        logger.error(f"Top 전략 조회 실패: {e}")
+        return jsonify({'success': False, 'strategies': [], 'total': 0, 'error': str(e)})
+
+
 @evolution_bp.route('/deployment-status', methods=['GET'])
 def get_deployment_status():
     """배포된 전략 현황 조회"""

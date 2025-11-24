@@ -392,7 +392,8 @@
             if (!performanceChart) return;
 
             performanceChart.data.labels = generationData.map(d => `G${d.generation}`);
-            performanceChart.data.datasets[0].data = generationData.map(d => d.avg_return);
+            // Use best_fitness from evolution history
+            performanceChart.data.datasets[0].data = generationData.map(d => d.best_fitness || d.avg_fitness || 0);
             performanceChart.update();
         }
 
@@ -479,6 +480,11 @@
                         best_fitness: data.best_fitness,
                         population: data.population_size
                     });
+
+                    // 진화 히스토리로 차트 업데이트
+                    if (data.evolution_history && data.evolution_history.length > 0) {
+                        updateChart(data.evolution_history);
+                    }
                 }
             } catch (error) {
                 console.error('진화 상태 조회 실패:', error);
@@ -487,14 +493,17 @@
 
         async function fetchStrategies() {
             try {
-                const response = await fetch('/api/backtest/analysis/summary');
+                const response = await fetch('/api/evolution/top-strategies');
                 const data = await response.json();
-                if (data.success && data.strategies) {
+                if (data.success && data.strategies && data.strategies.length > 0) {
                     updateStrategyList(data.strategies);
 
                     // 평균 승률 계산
                     const avgWinRate = data.strategies.reduce((sum, s) => sum + s.win_rate, 0) / data.strategies.length;
                     document.getElementById('win-rate').textContent = avgWinRate.toFixed(1) + '%';
+                } else {
+                    // 데이터가 없으면 기본 메시지 표시
+                    document.getElementById('strategy-list').innerHTML = '<p class="text-muted text-center">진화 중... 잠시 후 전략이 표시됩니다</p>';
                 }
             } catch (error) {
                 console.error('전략 조회 실패:', error);
