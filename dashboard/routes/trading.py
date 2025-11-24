@@ -572,3 +572,220 @@ def quick_buy():
     except Exception as e:
         logger.error(f"Quick buy error: {e}", exc_info=True)
         return error_response(str(e), status=500)
+
+
+# ============================================================================
+# Split Order Management Routes
+# ============================================================================
+
+@trading_bp.route('/api/split_orders/active', methods=['GET'])
+def get_active_split_orders():
+    """
+    활성 분할 주문 목록 조회 (미체결 포함)
+
+    Returns:
+        JSON: {
+            'success': bool,
+            'active_groups': [
+                {
+                    'group_id': str,
+                    'stock_code': str,
+                    'stock_name': str,
+                    'split_type': 'buy' | 'sell',
+                    'total_quantity': int,
+                    'filled_quantity': int,
+                    'average_price': float,
+                    'completion_ratio': float,
+                    'is_completed': bool,
+                    'created_at': str,
+                    'entries': [
+                        {
+                            'entry_id': str,
+                            'order_number': str,
+                            'quantity': int,
+                            'price': float,
+                            'filled_quantity': int,
+                            'filled_price': float,
+                            'status': 'pending' | 'partial' | 'filled' | 'cancelled',
+                            'fill_ratio': float
+                        }
+                    ]
+                }
+            ]
+        }
+    """
+    try:
+        from strategy.split_order_manager import get_split_order_manager
+
+        manager = get_split_order_manager()
+
+        # 모든 활성 그룹 조회
+        active_groups = []
+        for group_id in list(manager.active_groups.keys()):
+            group_status = manager.get_group_status(group_id)
+            if group_status:
+                # created_at을 ISO format string으로 변환
+                group_status['created_at'] = manager.active_groups[group_id].created_at.isoformat()
+                active_groups.append(group_status)
+
+        # 생성 시간 기준 내림차순 정렬 (최신순)
+        active_groups.sort(key=lambda x: x['created_at'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'active_groups': active_groups,
+            'total_count': len(active_groups)
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to get active split orders: {e}", exc_info=True)
+        return error_response(str(e), status=500)
+
+
+@trading_bp.route('/api/split_orders/<group_id>', methods=['GET'])
+def get_split_order_detail(group_id: str):
+    """
+    특정 분할 주문 그룹의 상세 정보 조회
+
+    Args:
+        group_id: 그룹 ID (예: BUY_005930_20250124100530)
+
+    Returns:
+        JSON: 그룹 상세 정보
+    """
+    try:
+        from strategy.split_order_manager import get_split_order_manager
+
+        manager = get_split_order_manager()
+        group_status = manager.get_group_status(group_id)
+
+        if not group_status:
+            return error_response(f'그룹 ID {group_id}를 찾을 수 없습니다', status=404)
+
+        # created_at 변환
+        if group_id in manager.active_groups:
+            group_status['created_at'] = manager.active_groups[group_id].created_at.isoformat()
+
+        return jsonify({
+            'success': True,
+            'group': group_status
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to get split order detail: {e}", exc_info=True)
+        return error_response(str(e), status=500)
+
+
+@trading_bp.route('/api/split_orders/<group_id>/cancel', methods=['POST'])
+def cancel_split_order_group(group_id: str):
+    """
+    특정 분할 주문 그룹의 미체결 주문 취소
+
+    Args:
+        group_id: 그룹 ID
+
+    Returns:
+        JSON: {
+            'success': bool,
+            'message': str,
+            'cancelled_count': int
+        }
+    """
+    try:
+        from strategy.split_order_manager import get_split_order_manager
+
+        manager = get_split_order_manager()
+
+        # 그룹 확인
+        if group_id not in manager.active_groups:
+            return error_response(f'그룹 ID {group_id}를 찾을 수 없습니다', status=404)
+
+        group = manager.active_groups[group_id]
+
+        # 미체결 주문 개수 확인
+        pending_entries = group.get_pending_entries()
+        pending_count = len(pending_entries)
+
+        if pending_count == 0:
+            return jsonify({
+                'success': True,
+                'message': '취소할 미체결 주문이 없습니다',
+                'cancelled_count': 0
+            })
+
+        # bot_instance에서 split_order_executor 가져오기
+        if not _bot_instance:
+            return error_response('Trading bot이 연결되지 않았습니다', status=503)
+
+        # SplitOrderExecutor 인스턴스 가져오기
+        # bot_instance에서 직접 접근하거나, 새로 생성
+        from strategy.split_order_executor import SplitOrderExecutor
+
+        order_api = getattr(_bot_instance, 'order_api', None)
+        data_fetcher = getattr(_bot_instance, 'data_fetcher', None)
+
+        if not order_api:
+            return error_response('OrderAPI가 연결되지 않았습니다', status=503)
+
+        executor = SplitOrderExecutor(order_api=order_api, data_fetcher=data_fetcher)
+
+        # 그룹 취소 실행
+        success = executor.cancel_group(group_id)
+
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'{pending_count}개의 미체결 주문을 취소했습니다',
+                'cancelled_count': pending_count,
+                'group_id': group_id
+            })
+        else:
+            return error_response('주문 취소에 실패했습니다', status=500)
+
+    except Exception as e:
+        logger.error(f"Failed to cancel split order group: {e}", exc_info=True)
+        return error_response(str(e), status=500)
+
+
+@trading_bp.route('/api/split_orders/completed', methods=['GET'])
+def get_completed_split_orders():
+    """
+    완료된 분할 주문 목록 조회
+
+    Query Params:
+        limit: 조회할 최대 개수 (기본값: 50)
+
+    Returns:
+        JSON: 완료된 그룹 목록
+    """
+    try:
+        from strategy.split_order_manager import get_split_order_manager
+
+        limit = int(request.args.get('limit', 50))
+        manager = get_split_order_manager()
+
+        # 완료된 그룹 조회 (최근순)
+        completed_groups = []
+        for group in reversed(manager.completed_groups[-limit:]):
+            completed_groups.append({
+                'group_id': group.group_id,
+                'stock_code': group.stock_code,
+                'stock_name': group.stock_name,
+                'split_type': group.split_type.value,
+                'total_quantity': group.total_quantity,
+                'filled_quantity': group.get_filled_quantity(),
+                'average_price': group.get_average_price(),
+                'created_at': group.created_at.isoformat(),
+                'completed_at': group.completed_at.isoformat() if group.completed_at else None,
+                'entries_count': len(group.entries)
+            })
+
+        return jsonify({
+            'success': True,
+            'completed_groups': completed_groups,
+            'total_count': len(completed_groups)
+        })
+
+    except Exception as e:
+        logger.error(f"Failed to get completed split orders: {e}", exc_info=True)
+        return error_response(str(e), status=500)
