@@ -799,7 +799,7 @@ def get_pending_orders():
             })
 
         # Get pending orders from API
-        pending_orders = _bot_instance.account_api.get_pending_orders()
+        pending_orders = _bot_instance.account_api.get_outstanding_orders()
 
         if not pending_orders:
             return jsonify({
