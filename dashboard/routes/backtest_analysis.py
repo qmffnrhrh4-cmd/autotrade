@@ -210,31 +210,86 @@ def get_evolution_progress():
         세대별 성과 개선 현황
     """
     try:
-        from virtual_trading import get_evolution_engine
+        import sqlite3
+        import os
 
-        engine = get_evolution_engine()
+        DB_PATH = "data/strategy_evolution.db"
 
-        if not engine:
+        # Check if database exists
+        if not os.path.exists(DB_PATH):
+            logger.warning(f"진화 데이터베이스 없음: {DB_PATH}")
             return jsonify({
-                'success': False,
-                'error': '진화 엔진을 찾을 수 없습니다'
-            }), 404
+                'success': True,
+                'current_generation': 0,
+                'population_size': 20,
+                'best_fitness': 0,
+                'evolution_history': [],
+                'message': '진화 알고리즘이 아직 시작되지 않았습니다'
+            })
 
-        # 세대별 최고 전략 성과
-        generation_data = []
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-        for generation in range(engine.generation + 1):
-            # 해당 세대의 전략들 조회
-            # (실제로는 DB에서 generation 필드로 필터링)
-            # 여기서는 간단히 현재 세대 정보만 반환
-            pass
+        # Get latest generation info
+        cursor.execute("""
+            SELECT generation, best_fitness, avg_fitness, worst_fitness, created_at
+            FROM generation_stats
+            ORDER BY generation DESC
+            LIMIT 1
+        """)
+        latest = cursor.fetchone()
+
+        if not latest:
+            conn.close()
+            return jsonify({
+                'success': True,
+                'current_generation': 0,
+                'population_size': 20,
+                'best_fitness': 0,
+                'evolution_history': [],
+                'message': '진화 데이터가 없습니다'
+            })
+
+        # Get total generations count
+        cursor.execute("SELECT COUNT(*) as count FROM generation_stats")
+        total_generations = cursor.fetchone()['count']
+
+        # Get evolution history
+        cursor.execute("""
+            SELECT generation, best_fitness, avg_fitness, worst_fitness, created_at
+            FROM generation_stats
+            ORDER BY generation ASC
+        """)
+
+        evolution_history = []
+        for row in cursor.fetchall():
+            evolution_history.append({
+                'generation': row['generation'],
+                'best_fitness': round(row['best_fitness'], 2),
+                'avg_fitness': round(row['avg_fitness'], 2),
+                'worst_fitness': round(row['worst_fitness'], 2),
+                'created_at': row['created_at']
+            })
+
+        # Get population size from evolved_strategies table
+        cursor.execute("""
+            SELECT COUNT(*) as count
+            FROM evolved_strategies
+            WHERE generation = ?
+        """, (latest['generation'],))
+        population_size = cursor.fetchone()['count']
+
+        conn.close()
 
         return jsonify({
             'success': True,
-            'current_generation': engine.generation,
-            'population_size': engine.population_size,
-            'best_fitness': getattr(engine, 'best_fitness', None),
-            'evolution_history': generation_data
+            'current_generation': latest['generation'],
+            'population_size': population_size or 20,
+            'best_fitness': round(latest['best_fitness'], 2),
+            'evolution_history': evolution_history,
+            'total_generations': total_generations,
+            'last_update': latest['created_at']
         })
 
     except Exception as e:
