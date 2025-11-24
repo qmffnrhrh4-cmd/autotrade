@@ -383,8 +383,11 @@
         <div class="row">
             <!-- Left: Active Strategies -->
             <div class="col-md-4">
-                <div class="card-header-custom">
-                    <i class="fas fa-robot"></i> 활성 전략 현황
+                <div class="card-header-custom" style="display: flex; justify-content: space-between; align-items: center;">
+                    <span><i class="fas fa-robot"></i> 활성 전략 현황</span>
+                    <button id="cleanup-strategies-btn" class="btn btn-sm btn-warning" style="font-size: 12px; padding: 4px 12px;" title="99개 → 40개로 자동 정리">
+                        <i class="fas fa-broom"></i> 전략 정리
+                    </button>
                 </div>
                 <div id="active-strategies-list" style="max-height: 600px; overflow-y: auto; background: #1a1f3a; padding: 15px; border-radius: 0 0 10px 10px;">
                     <p class="text-center text-muted">활성 전략이 없습니다</p>
@@ -700,11 +703,54 @@
             }
         }
 
+        // 전략 정리 버튼
+        async function cleanupStrategies() {
+            const btn = document.getElementById('cleanup-strategies-btn');
+            const originalText = btn.innerHTML;
+
+            try {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 정리 중...';
+                addLog('[시스템] 전략 정리를 시작합니다...', 'info');
+
+                const response = await fetch('/api/virtual-trading/cleanup-strategies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addLog(`[성공] ${data.message}`, 'success');
+                    addLog(`[정보] ${data.before_count}개 → ${data.after_count}개`, 'success');
+
+                    // 통계 새로고침
+                    refreshStats();
+
+                    alert(`✅ 전략 정리 완료!\n\n이전: ${data.before_count}개\n현재: ${data.after_count}개\n정리: ${data.cleaned_count}개`);
+                } else {
+                    addLog(`[오류] ${data.error || '정리 실패'}`, 'error');
+                    alert('❌ 전략 정리 실패');
+                }
+            } catch (error) {
+                addLog(`[오류] 정리 중 오류 발생: ${error.message}`, 'error');
+                alert('❌ 오류 발생: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
         // 초기 로드
         document.addEventListener('DOMContentLoaded', () => {
             addLog('[시스템] 실시간 모니터링이 시작되었습니다.', 'success');
             updateActivityMonitor('✅ 시스템 초기화 완료 - 대기 중...', 'idle');
             refreshStats();
+
+            // 전략 정리 버튼 이벤트
+            document.getElementById('cleanup-strategies-btn').addEventListener('click', cleanupStrategies);
 
             // 5초마다 자동 갱신
             setInterval(refreshStats, 5000);
