@@ -20,6 +20,7 @@ market_bp = Blueprint('market', __name__)
 # Module-level variables
 _bot_instance = None
 _realtime_chart_manager = None
+_quote_cache = {}  # Simple cache: {stock_code: {'data': ..., 'timestamp': ...}}
 
 
 def set_bot_instance(bot):
@@ -57,6 +58,15 @@ def get_quote_api(stock_code: str):
         if not _bot_instance:
             return error_response('Bot not initialized')
 
+        # Check cache (10 second TTL)
+        global _quote_cache
+        now = datetime.now()
+        if stock_code in _quote_cache:
+            cache_entry = _quote_cache[stock_code]
+            cache_age = (now - cache_entry['timestamp']).total_seconds()
+            if cache_age < 10:  # Cache valid for 10 seconds
+                return jsonify(cache_entry['data'])
+
         # DataFetcher 가져오기
         data_fetcher = None
         if hasattr(_bot_instance, 'data_fetcher'):
@@ -91,7 +101,7 @@ def get_quote_api(stock_code: str):
         except:
             volume = 0
 
-        return jsonify({
+        result = {
             'success': True,
             'data': {
                 'stock_code': stock_code,
@@ -100,7 +110,15 @@ def get_quote_api(stock_code: str):
                 'foreign_net_buy': foreign_net_buy,
                 'institution_net_buy': institution_net_buy
             }
-        })
+        }
+
+        # Update cache
+        _quote_cache[stock_code] = {
+            'data': result,
+            'timestamp': now
+        }
+
+        return jsonify(result)
 
     except Exception as e:
         return error_response(str(e))

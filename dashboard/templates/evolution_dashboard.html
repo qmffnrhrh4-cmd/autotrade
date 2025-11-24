@@ -620,13 +620,17 @@
             fetchTradeHistory();
             updateOpenAPIData();
 
-            // 5초마다 갱신
+            // 진화 데이터: 5초마다 갱신
             setInterval(() => {
                 fetchEvolutionStatus();
-                updateOpenAPIData();
                 fetchStrategies();
                 fetchTradeHistory();
             }, 5000);
+
+            // OpenAPI 데이터: 30초마다 갱신 (API 부하 감소)
+            setInterval(() => {
+                updateOpenAPIData();
+            }, 30000);
         });
     </script>
 </body>
