@@ -153,8 +153,11 @@
                                 <button class="btn btn-success control-btn me-2" onclick="startEvolution()">
                                     <i class="fas fa-play"></i> 진화 시작
                                 </button>
-                                <button class="btn btn-danger control-btn" onclick="stopEvolution()">
+                                <button class="btn btn-danger control-btn me-2" onclick="stopEvolution()">
                                     <i class="fas fa-stop"></i> 중지
+                                </button>
+                                <button class="btn btn-info control-btn" onclick="checkDBStatus()">
+                                    <i class="fas fa-database"></i> DB 상태
                                 </button>
                             </div>
                         </div>
@@ -572,6 +575,29 @@
                     addLog('✅ 진화 알고리즘 중지됨', 'success');
                 } else {
                     addLog(`❌ 중지 실패: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ 오류: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkDBStatus() {
+            addLog('📊 DB 상태 확인 중...', 'info');
+            try {
+                const response = await fetch('/api/evolution/db-status');
+                const data = await response.json();
+
+                if (data.success) {
+                    const stats = data.stats;
+                    addLog('=== 데이터베이스 상태 ===', 'success');
+                    addLog(`📁 경로: ${stats.db_path}`, 'info');
+                    addLog(`🔢 evolved_strategies: ${stats.tables.evolved_strategies}개`, 'info');
+                    addLog(`📈 fitness_results: ${stats.tables.fitness_results}개`, 'info');
+                    addLog(`📊 generation_stats: ${stats.tables.generation_stats}개`, 'info');
+                    addLog(`🎯 최신 세대: ${stats.latest_generation || 'N/A'}`, 'info');
+                    addLog('======================', 'success');
+                } else {
+                    addLog(`❌ DB 상태 확인 실패: ${data.message || data.error}`, 'error');
                 }
             } catch (error) {
                 addLog(`❌ 오류: ${error.message}`, 'error');
