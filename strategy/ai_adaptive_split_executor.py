@@ -782,6 +782,7 @@ class AIAdaptiveSplitExecutor:
         try:
             start_time = datetime.now()
             check_interval = 2  # 2초마다 체크
+            order_seen_in_pending = False  # CRITICAL FIX: 주문이 미체결 목록에 한 번이라도 나타났는지 추적
 
             logger.info(f"   🔍 체결 확인 시작: 주문번호={order_number}")
 
@@ -790,9 +791,33 @@ class AIAdaptiveSplitExecutor:
                     # CRITICAL: 실제 API로 미체결 주문 조회
                     pending_orders = self.account_api.get_pending_orders(stock_code=stock_code)
 
-                    if not pending_orders:
-                        # 미체결 목록에 없음 = 체결 완료!
-                        logger.info(f"   ✅ 체결 완료 확인 (미체결 목록에서 사라짐)")
+                    # 미체결 목록에서 해당 주문 찾기
+                    found_order = None
+                    if pending_orders:
+                        for order in pending_orders:
+                            if order.get('order_no') == order_number or order.get('odno') == order_number:
+                                found_order = order
+                                break
+
+                    if found_order:
+                        # 주문이 미체결 목록에 있음
+                        order_seen_in_pending = True
+
+                        # 미체결 상태 확인
+                        remaining_qty = int(found_order.get('psbl_qty') or found_order.get('remaining_quantity', expected_quantity))
+                        filled_qty = expected_quantity - remaining_qty
+
+                        if filled_qty > 0 and filled_qty < expected_quantity:
+                            # 부분 체결
+                            logger.info(f"   📊 부분 체결: {filled_qty}/{expected_quantity}주")
+                        else:
+                            # 아직 미체결
+                            elapsed = (datetime.now() - start_time).seconds
+                            logger.debug(f"   ⏳ 미체결 ({elapsed}/{max_wait_seconds}초)")
+
+                    elif order_seen_in_pending:
+                        # CRITICAL FIX: 주문이 이전에 미체결 목록에 있었는데 지금은 없음 = 체결됨!
+                        logger.info(f"   ✅ 체결 완료 (미체결 목록에서 사라짐)")
 
                         # 체결 내역에서 실제 체결가 조회
                         try:
@@ -814,40 +839,16 @@ class AIAdaptiveSplitExecutor:
                         except Exception as e:
                             logger.warning(f"   체결 내역 조회 실패: {e}")
 
-                        # 체결 내역 조회 실패해도 미체결에 없으면 체결된 것
+                        # 체결 내역 조회 실패해도 미체결에서 사라졌으면 체결된 것
                         return {
                             'filled': True,
                             'filled_quantity': expected_quantity,
                             'filled_price': None  # 가격은 모름
                         }
-
-                    # 미체결 목록에서 해당 주문 찾기
-                    found_order = None
-                    for order in pending_orders:
-                        if order.get('order_no') == order_number or order.get('odno') == order_number:
-                            found_order = order
-                            break
-
-                    if not found_order:
-                        # 미체결에 없음 = 체결됨
-                        logger.info(f"   ✅ 체결 완료 (미체결 목록에 없음)")
-                        return {
-                            'filled': True,
-                            'filled_quantity': expected_quantity,
-                            'filled_price': None
-                        }
-
-                    # 미체결 상태 확인
-                    remaining_qty = int(found_order.get('psbl_qty') or found_order.get('remaining_quantity', expected_quantity))
-                    filled_qty = expected_quantity - remaining_qty
-
-                    if filled_qty > 0 and filled_qty < expected_quantity:
-                        # 부분 체결
-                        logger.info(f"   📊 부분 체결: {filled_qty}/{expected_quantity}주")
                     else:
-                        # 아직 미체결
+                        # 아직 주문이 미체결 목록에 나타나지 않음 (시스템 등록 대기)
                         elapsed = (datetime.now() - start_time).seconds
-                        logger.debug(f"   ⏳ 미체결 ({elapsed}/{max_wait_seconds}초)")
+                        logger.debug(f"   ⏳ 주문 등록 대기 중... ({elapsed}/{max_wait_seconds}초)")
 
                 except Exception as e:
                     logger.warning(f"   체결 확인 오류: {e}")
