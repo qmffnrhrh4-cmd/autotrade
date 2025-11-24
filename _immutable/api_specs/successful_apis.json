@@ -5258,13 +5258,30 @@
       "api_id": "ka10075",
       "api_name": "미체결주문조회",
       "category": "account",
-      "total_variants": 1,
+      "total_variants": 2,
       "calls": [
         {
           "variant_idx": 1,
           "path": "acnt",
-          "body": {},
-          "status": "success"
+          "body": {
+            "all_stk_tp": "0",
+            "trde_tp": "0",
+            "stex_tp": "0"
+          },
+          "status": "success",
+          "description": "전체 미체결 주문 조회"
+        },
+        {
+          "variant_idx": 2,
+          "path": "acnt",
+          "body": {
+            "all_stk_tp": "1",
+            "trde_tp": "0",
+            "stk_cd": "",
+            "stex_tp": "0"
+          },
+          "status": "success",
+          "description": "종목별 미체결 주문 조회"
         }
       ]
     },
@@ -5272,13 +5289,30 @@
       "api_id": "ka10076",
       "api_name": "체결주문조회",
       "category": "account",
-      "total_variants": 1,
+      "total_variants": 2,
       "calls": [
         {
           "variant_idx": 1,
           "path": "acnt",
-          "body": {},
-          "status": "success"
+          "body": {
+            "qry_tp": "0",
+            "sell_tp": "0",
+            "stex_tp": "0"
+          },
+          "status": "success",
+          "description": "전체 체결 주문 조회"
+        },
+        {
+          "variant_idx": 2,
+          "path": "acnt",
+          "body": {
+            "qry_tp": "1",
+            "sell_tp": "0",
+            "stk_cd": "",
+            "stex_tp": "0"
+          },
+          "status": "success",
+          "description": "종목별 체결 주문 조회"
         }
       ]
     }
