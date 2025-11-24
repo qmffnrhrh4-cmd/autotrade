@@ -33,3 +33,9 @@ def evolution_dashboard():
 def live_monitor():
     """실시간 활동 모니터"""
     return render_template('live_monitor.html')
+
+
+@pages_bp.route('/split-orders')
+def split_orders():
+    """분할 주문 관리"""
+    return render_template('split_orders.html')
