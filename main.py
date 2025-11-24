@@ -1468,8 +1468,25 @@ class AutoTradingBot:
                 logger.info(f"테스트 모드: AI 검토 완료 -> 실제 매수 API 호출")
                 logger.info(f"   Stock: {stock_name}, AI score: {candidate.ai_score}, Total score: {scoring_result.total_score}")
 
-            # Fix v6.1.3: 분할 매수 사용
-            if self.split_order_executor:
+            # Fix v6.1.3: AI 기반 적응형 분할 매수 사용
+            if self.ai_adaptive_split_executor:
+                logger.info(f"🤖 AI 기반 적응형 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원")
+
+                # Fix: NXT 시간대 체크
+                exchange = 'NXT' if is_nxt_hours() else 'KRX'
+
+                order_result = self.ai_adaptive_split_executor.execute_adaptive_split_buy(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    total_quantity=quantity,
+                    target_budget=optimal_price * quantity,
+                    num_splits=3,
+                    max_wait_seconds=30,  # 30초 대기 (빠른 진행)
+                    account_number=None,
+                    exchange=exchange
+                )
+            elif self.split_order_executor:
+                # Fallback: 기존 분할 매수
                 logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원 (주문유형: {order_type})")
                 # Fix v6.1.5: order_type 전달 (장 종료 후 시간외 주문 지원)
                 order_result = self.split_order_executor.execute_split_buy(
@@ -1658,7 +1675,7 @@ class AutoTradingBot:
                     total_quantity=quantity,
                     entry_price=avg_price,
                     num_splits=3,
-                    max_wait_seconds=300,  # 5분 대기
+                    max_wait_seconds=30,  # 30초 대기 (빠른 진행)
                     account_number=None,
                     exchange=exchange
                 )
