@@ -582,7 +582,14 @@
         async function updateOpenAPIData() {
             try {
                 // 삼성전자(005930) 실시간 데이터 가져오기
-                const response = await fetch('/api/quote/005930');
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000); // 3초 타임아웃
+
+                const response = await fetch('/api/quote/005930', {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
                 const data = await response.json();
 
                 if (data.success && data.data) {
@@ -591,13 +598,14 @@
                         (quote.current_price || 0).toLocaleString() + '원';
                     document.getElementById('volume').textContent =
                         (quote.volume || 0).toLocaleString() + '주';
-                    document.getElementById('foreign-buy').textContent =
+                    document.getElementById('foreign-net').textContent =
                         ((quote.foreign_net_buy || 0) / 1000000).toFixed(0) + 'M';
-                    document.getElementById('institution-buy').textContent =
+                    document.getElementById('inst-net').textContent =
                         ((quote.institution_net_buy || 0) / 1000000).toFixed(0) + 'M';
                 }
             } catch (error) {
-                console.error('OpenAPI 데이터 갱신 실패:', error);
+                // OpenAPI 에러는 조용히 무시 (진화 대시보드에서는 필수가 아님)
+                console.debug('OpenAPI 데이터 갱신 실패 (무시됨):', error.message);
             }
         }
 
