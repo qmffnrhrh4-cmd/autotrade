@@ -261,6 +261,27 @@ class OrderAPI:
             else:
                 # 나머지는 가격 지정 - 호가 단위에 맞게 조정
                 adjusted_price = adjust_price_to_tick_size(price)
+
+                # 상한가 체크 (현재가 기준 약 30% 상승 제한)
+                # 정확한 기준가를 모르므로 현재가 조회
+                try:
+                    # 현재가 조회
+                    from research import DataFetcher
+                    if hasattr(self, 'client'):
+                        data_fetcher = DataFetcher(self.client)
+                        price_data = data_fetcher.get_current_price(stock_code)
+                        current_price = price_data.get('current_price', 0)
+
+                        if current_price > 0:
+                            # 상한가는 대략 현재가의 1.29배 (30% 상승에서 약간 여유)
+                            max_sell_price = int(current_price * 1.29)
+
+                            if adjusted_price > max_sell_price:
+                                logger.warning(f"⚠️ 상한가 제한: {adjusted_price:,}원 → {max_sell_price:,}원 (현재가: {current_price:,}원)")
+                                adjusted_price = adjust_price_to_tick_size(max_sell_price)
+                except Exception as e:
+                    logger.debug(f"상한가 체크 실패 (무시): {e}")
+
                 ord_uv_value = str(adjusted_price)
                 if adjusted_price != price:
                     logger.warning(f"⚠️ 매도가 조정: {price:,}원 → {adjusted_price:,}원 (호가 단위 준수)")
