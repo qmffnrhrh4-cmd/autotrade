@@ -265,6 +265,24 @@ class LiveTradingBridge:
                     'message': '포지션 크기 한도 초과'
                 }
 
+            # CRITICAL FIX: 매도 시 비정상 가격 검증
+            if action == 'sell':
+                # 현재가 조회하여 비정상 가격 필터링
+                try:
+                    from research import DataFetcher
+                    if hasattr(self.trading_api, 'client'):
+                        data_fetcher = DataFetcher(self.trading_api.client)
+                        current_price_data = data_fetcher.get_current_price(stock_code)
+                        current_price = current_price_data.get('current_price', 0)
+
+                        if current_price > 0 and price > current_price * 1.3:
+                            logger.warning(f"⚠️ 비정상 매도가 감지: {price:,}원 (현재가: {current_price:,}원)")
+                            logger.warning(f"   현재가 대비 {((price/current_price - 1) * 100):.1f}% 높음 → 현재가 +2%로 조정")
+                            price = int(current_price * 1.02)  # 현재가 +2%로 조정
+                            logger.info(f"✅ 조정된 매도가: {price:,}원")
+                except Exception as e:
+                    logger.warning(f"현재가 조회 실패, 원본 가격 사용: {e}")
+
             # 실전 주문 실행
             if action == 'buy':
                 result = self.trading_api.buy_stock(
