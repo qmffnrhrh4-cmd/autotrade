@@ -975,6 +975,15 @@ class AutoTradingBot:
                     take_profit_pct = evolved_strategy.sell_take_profit  # 예: 0.10 = 10%
                     stop_loss_pct = evolved_strategy.sell_stop_loss      # 예: -0.05 = -5%
 
+                    # CRITICAL FIX: 비정상적인 값 필터링 (정상 범위: 익절 2~30%, 손절 -15~-2%)
+                    if not (0.02 <= take_profit_pct <= 0.30):
+                        logger.warning(f"⚠️ 비정상적인 익절 비율 감지: {take_profit_pct*100:.1f}% → 기본값 15% 사용")
+                        take_profit_pct = 0.15  # 기본 15%
+
+                    if not (-0.15 <= stop_loss_pct <= -0.02):
+                        logger.warning(f"⚠️ 비정상적인 손절 비율 감지: {stop_loss_pct*100:.1f}% → 기본값 -5% 사용")
+                        stop_loss_pct = -0.05  # 기본 -5%
+
                     take_profit_price = int(buy_price * (1 + take_profit_pct))
                     stop_loss_price = int(buy_price * (1 + stop_loss_pct))
 
