@@ -573,7 +573,7 @@
         async function updateOpenAPIData() {
             try {
                 // 삼성전자(005930) 실시간 데이터 가져오기
-                const response = await fetch('/api/market-data/quote/005930');
+                const response = await fetch('/api/quote/005930');
                 const data = await response.json();
 
                 if (data.success && data.data) {

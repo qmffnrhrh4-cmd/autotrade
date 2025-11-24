@@ -50,6 +50,62 @@ def get_orderbook_api(stock_code: str):
         return error_response(str(e))
 
 
+@market_bp.route('/api/quote/<stock_code>')
+def get_quote_api(stock_code: str):
+    """Get real-time quote (price, volume, investor data) for stock"""
+    try:
+        if not _bot_instance:
+            return error_response('Bot not initialized')
+
+        # DataFetcher 가져오기
+        data_fetcher = None
+        if hasattr(_bot_instance, 'data_fetcher'):
+            data_fetcher = _bot_instance.data_fetcher
+        elif hasattr(_bot_instance, 'client'):
+            from research import DataFetcher
+            data_fetcher = DataFetcher(_bot_instance.client)
+
+        if not data_fetcher:
+            return error_response('DataFetcher not available')
+
+        # 현재가 조회
+        try:
+            current_price_data = data_fetcher.get_current_price(stock_code)
+            current_price = current_price_data.get('current_price', 0)
+        except:
+            current_price = 0
+
+        # 투자자별 매매동향 조회
+        try:
+            investor_data = data_fetcher.get_investor_trading(stock_code, days=1)
+            foreign_net_buy = investor_data.get('foreign', {}).get('net_buy', 0)
+            institution_net_buy = investor_data.get('institution', {}).get('net_buy', 0)
+        except:
+            foreign_net_buy = 0
+            institution_net_buy = 0
+
+        # 거래량 조회 (호가 데이터에서)
+        try:
+            orderbook = data_fetcher.get_orderbook(stock_code)
+            volume = orderbook.get('total_ask_volume', 0) + orderbook.get('total_bid_volume', 0)
+        except:
+            volume = 0
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'stock_code': stock_code,
+                'current_price': current_price,
+                'volume': volume,
+                'foreign_net_buy': foreign_net_buy,
+                'institution_net_buy': institution_net_buy
+            }
+        })
+
+    except Exception as e:
+        return error_response(str(e))
+
+
 @market_bp.route('/api/news/<stock_code>')
 def get_news_api(stock_code: str):
     """Get news feed for stock with sentiment analysis"""
