@@ -786,3 +786,158 @@ def get_optimization_summary():
             'success': False,
             'error': str(e)
         })
+
+
+@account_bp.route('/api/account/pending-orders')
+def get_pending_orders():
+    """Get pending (unfilled) orders"""
+    try:
+        if not _bot_instance or not hasattr(_bot_instance, 'account_api'):
+            return jsonify({
+                'success': False,
+                'error': 'Bot instance not available'
+            })
+
+        # Get pending orders from API
+        pending_orders = _bot_instance.account_api.get_pending_orders()
+
+        if not pending_orders:
+            return jsonify({
+                'success': True,
+                'orders': []
+            })
+
+        # Normalize order data
+        normalized_orders = []
+        for order in pending_orders:
+            normalized_orders.append({
+                'order_no': order.get('odno') or order.get('order_no', ''),
+                'stock_code': order.get('pdno') or order.get('stock_code', ''),
+                'stock_name': order.get('prdt_name') or order.get('stock_name', ''),
+                'order_type': order.get('sll_buy_dvsn_cd') or order.get('order_type', ''),
+                'order_price': int(float(str(order.get('ord_unpr', 0)).replace(',', ''))),
+                'order_quantity': int(float(str(order.get('ord_qty', 0)).replace(',', ''))),
+                'remaining_quantity': int(float(str(order.get('psbl_qty', 0)).replace(',', ''))),
+                'order_time': order.get('ord_tmd') or order.get('order_time', ''),
+                'sll_buy_dvsn_cd': order.get('sll_buy_dvsn_cd', ''),
+                'ord_unpr': order.get('ord_unpr', ''),
+                'ord_qty': order.get('ord_qty', ''),
+                'psbl_qty': order.get('psbl_qty', ''),
+                'ord_tmd': order.get('ord_tmd', ''),
+                'pdno': order.get('pdno', ''),
+                'prdt_name': order.get('prdt_name', '')
+            })
+
+        return jsonify({
+            'success': True,
+            'orders': normalized_orders
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting pending orders: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'orders': []
+        })
+
+
+@account_bp.route('/api/order/cancel', methods=['POST'])
+def cancel_order():
+    """Cancel an order"""
+    try:
+        if not _bot_instance or not hasattr(_bot_instance, 'order_api'):
+            return jsonify({
+                'success': False,
+                'error': 'Bot instance not available'
+            })
+
+        from flask import request
+        data = request.get_json()
+
+        order_no = data.get('order_no')
+        stock_code = data.get('stock_code')
+        quantity = data.get('quantity', 0)
+
+        if not order_no or not stock_code:
+            return jsonify({
+                'success': False,
+                'error': 'Missing required parameters: order_no, stock_code'
+            })
+
+        # Call cancel API
+        result = _bot_instance.order_api.cancel(
+            order_no=order_no,
+            stock_code=stock_code,
+            quantity=quantity
+        )
+
+        if result and result.get('success'):
+            return jsonify({
+                'success': True,
+                'message': '주문이 취소되었습니다'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', '주문 취소 실패') if result else '주문 취소 실패'
+            })
+
+    except Exception as e:
+        logger.error(f"Error canceling order: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@account_bp.route('/api/account/executed-orders')
+def get_executed_orders():
+    """Get executed (filled) orders"""
+    try:
+        if not _bot_instance or not hasattr(_bot_instance, 'account_api'):
+            return jsonify({
+                'success': False,
+                'error': 'Bot instance not available'
+            })
+
+        # Get executed orders from API
+        executed_orders = _bot_instance.account_api.get_executed_orders()
+
+        if not executed_orders:
+            return jsonify({
+                'success': True,
+                'orders': []
+            })
+
+        # Normalize order data
+        normalized_orders = []
+        for order in executed_orders:
+            normalized_orders.append({
+                'order_no': order.get('odno') or order.get('order_no', ''),
+                'stock_code': order.get('pdno') or order.get('stock_code', ''),
+                'stock_name': order.get('prdt_name') or order.get('stock_name', ''),
+                'order_type': order.get('sll_buy_dvsn_cd') or order.get('order_type', ''),
+                'executed_price': int(float(str(order.get('avg_prc', 0)).replace(',', ''))),
+                'executed_quantity': int(float(str(order.get('tot_ccld_qty', 0)).replace(',', ''))),
+                'executed_time': order.get('ord_tmd') or order.get('executed_time', ''),
+                'sll_buy_dvsn_cd': order.get('sll_buy_dvsn_cd', ''),
+                'avg_prc': order.get('avg_prc', ''),
+                'tot_ccld_qty': order.get('tot_ccld_qty', ''),
+                'ord_tmd': order.get('ord_tmd', ''),
+                'pdno': order.get('pdno', ''),
+                'prdt_name': order.get('prdt_name', '')
+            })
+
+        return jsonify({
+            'success': True,
+            'orders': normalized_orders
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting executed orders: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'orders': []
+        })
