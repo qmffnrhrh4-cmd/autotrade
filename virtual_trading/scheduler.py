@@ -416,10 +416,8 @@ class VirtualTradingScheduler:
             positions = [p for p in self.virtual_manager.get_positions()
                         if p.get('strategy_id') == strategy_id]
 
-            # 최대 8개 포지션까지 (다양성 확보)
-            if len(positions) >= 8:
-                logger.debug(f"가상매매 ({strategy_name}): 포지션 가득참 ({len(positions)}/8)")
-                return
+            # 포지션 제한 없음 (무제한 매수로 승률 극대화)
+            # 잔고만 확인
 
             # 전략의 잔고 확인
             strategy_info = self.virtual_manager.get_performance_metrics(strategy_id)
@@ -437,8 +435,8 @@ class VirtualTradingScheduler:
                 logger.debug(f"가상매매 ({strategy_name}): 매수 가능한 종목 없음")
                 return
 
-            # 한 번에 최대 3개까지 매수 (다양성 확보 & 승률 향상)
-            max_buys_per_cycle = min(3, 8 - len(positions), len(available_candidates))
+            # 한 번에 최대 5개까지 매수 (더 많이 분산 투자)
+            max_buys_per_cycle = min(5, len(available_candidates))
             buy_count = 0
 
             for candidate in available_candidates[:max_buys_per_cycle]:
@@ -457,8 +455,8 @@ class VirtualTradingScheduler:
                     logger.warning(f"가상매매: 현재가 조회 실패 ({stock_code})")
                     continue  # return → continue로 변경 (다음 종목 시도)
 
-                # 매수 수량 계산 (자본의 15% - 여러 종목 분산)
-                target_amount = min(available_cash / max_buys_per_cycle, strategy_info.get('current_capital', 1000000) * 0.15)
+                # 매수 수량 계산 (자본의 10% - 더 많은 종목 분산 투자)
+                target_amount = min(available_cash / max_buys_per_cycle, strategy_info.get('current_capital', 1000000) * 0.10)
                 quantity = int(target_amount // current_price)
 
                 if quantity < 1:
@@ -466,7 +464,7 @@ class VirtualTradingScheduler:
                     continue
 
                 # 가상 매수 실행
-                logger.info(f"🎯 가상매매 ({strategy_name}): {stock_name} {quantity}주 매수 시도 @ {current_price:,}원 ({buy_count+1}/{max_buys_per_cycle})")
+                logger.info(f"🎯 가상매매 ({strategy_name}): {stock_name} {quantity}주 매수 시도 @ {current_price:,}원 ({buy_count+1}/{max_buys_per_cycle}) [현재 {len(positions)}개 보유]")
 
                 # Fix v6.2: AI 기반 분할 매수 활성화
                 # 시장 데이터 준비 (AI 분석용)
@@ -695,10 +693,10 @@ class VirtualTradingScheduler:
             logger.info(f"현재 활성 전략: {len(active_strategies)}개 (목표: {MAX_ACTIVE_STRATEGIES}개)")
 
             if len(active_strategies) > MAX_ACTIVE_STRATEGIES:
-                cutoff_date = now - timedelta(days=MIN_DAYS_TO_KEEP)
                 cleanup_count = 0
-                strategies_to_remove = []
 
+                # 모든 전략의 성과 계산
+                strategy_scores = []
                 for strategy in active_strategies:
                     strategy_id = strategy['id']
                     name = strategy['name']
@@ -716,46 +714,35 @@ class VirtualTradingScheduler:
                     except:
                         days_old = 0
 
-                    should_remove = False
-                    reason = ""
+                    # 우선순위 점수 계산 (낮을수록 제거 우선)
+                    # 1. 수익률이 낮을수록 점수 낮음
+                    # 2. 오래될수록 점수 낮음 (단, 최근 3일은 보호)
+                    priority_score = profit_rate
+                    if days_old >= 3:
+                        priority_score -= (days_old - 3) * 0.5  # 3일 이후부터 하루당 -0.5점
 
-                    # 제거 조건 1: 오래되고 수익 나쁨
-                    if days_old >= MIN_DAYS_TO_KEEP and profit_rate <= PERFORMANCE_THRESHOLD:
-                        should_remove = True
-                        reason = f"{days_old}일 경과, 수익률 {profit_rate:.1f}%"
+                    strategy_scores.append({
+                        'id': strategy_id,
+                        'name': name,
+                        'profit_rate': profit_rate,
+                        'days_old': days_old,
+                        'priority_score': priority_score
+                    })
 
-                    # 제거 조건 2: 진화 전략 - 오래된 세대
-                    elif '진화-G' in name:
-                        try:
-                            gen_num = int(name.split('G')[1].split('-')[0])
-                            max_gen = max(
-                                int(s['name'].split('G')[1].split('-')[0])
-                                for s in active_strategies
-                                if '진화-G' in s['name']
-                            )
-                            # 최근 50세대만 유지
-                            if gen_num < (max_gen - 50):
-                                should_remove = True
-                                reason = f"오래된 세대 (G{gen_num}, 최신: G{max_gen})"
-                        except:
-                            pass
+                # 우선순위 점수 낮은 순으로 정렬 (성과 나쁜 것부터)
+                strategy_scores.sort(key=lambda x: x['priority_score'])
 
-                    if should_remove:
-                        strategies_to_remove.append({
-                            'id': strategy_id,
-                            'name': name,
-                            'reason': reason,
-                            'profit_rate': profit_rate
-                        })
-
-                # 수익률 낮은 순으로 정렬
-                strategies_to_remove.sort(key=lambda x: x['profit_rate'])
-
-                # 목표 개수만큼만 제거
+                # 목표 개수만큼 제거 (무조건 하위 전략 제거)
                 max_to_remove = len(active_strategies) - MAX_ACTIVE_STRATEGIES
-                strategies_to_remove = strategies_to_remove[:max_to_remove]
+                strategies_to_remove = strategy_scores[:max_to_remove]
 
                 logger.info(f"제거 대상: {len(strategies_to_remove)}개")
+
+                for strategy in strategies_to_remove[:10]:  # 처음 10개만 로그
+                    logger.info(f"  - {strategy['name']}: 수익률 {strategy['profit_rate']:.1f}%, {strategy['days_old']}일 경과, 점수 {strategy['priority_score']:.1f}")
+
+                if len(strategies_to_remove) > 10:
+                    logger.info(f"  ... 외 {len(strategies_to_remove) - 10}개")
 
                 for strategy in strategies_to_remove:
                     try:
@@ -764,7 +751,6 @@ class VirtualTradingScheduler:
                             (now.isoformat(), strategy['id'])
                         )
                         cleanup_count += 1
-                        logger.info(f"  ✓ {strategy['name']}: {strategy['reason']}")
                     except Exception as e:
                         logger.error(f"  ✗ {strategy['name']} 실패: {e}")
 
