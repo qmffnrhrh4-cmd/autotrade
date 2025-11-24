@@ -942,11 +942,20 @@ class AutoTradingBot:
                     stock_code = stock_code[1:]
 
                 stock_name = holding.get('stk_nm')
-                current_price = int(holding.get('cur_prc', 0))
                 quantity = int(holding.get('rmnd_qty', 0))
                 buy_price = int(holding.get('avg_prc', 0))
 
-                logger.info(f"보유: {stock_name}({stock_code}) {quantity}주@{current_price:,}원")
+                # FIX: 계좌 API의 cur_prc는 부정확할 수 있음. 실시간 현재가 조회
+                try:
+                    current_price_data = self.data_fetcher.get_current_price(stock_code)
+                    current_price = int(current_price_data.get('current_price', 0))
+                    logger.debug(f"실시간 현재가 조회: {stock_name} = {current_price:,}원")
+                except Exception as e:
+                    # 실시간 조회 실패 시 계좌 API 값 사용 (fallback)
+                    current_price = int(holding.get('cur_prc', 0))
+                    logger.warning(f"실시간 현재가 조회 실패, 계좌 값 사용: {stock_name} = {current_price:,}원")
+
+                logger.info(f"보유: {stock_name}({stock_code}) {quantity}주@{current_price:,}원 (매수가:{buy_price:,}원)")
 
                 profit_loss = (current_price - buy_price) * quantity
                 profit_loss_rate = ((current_price - buy_price) / buy_price) * 100 if buy_price > 0 else 0
