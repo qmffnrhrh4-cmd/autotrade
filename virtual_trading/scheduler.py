@@ -744,9 +744,10 @@ class VirtualTradingScheduler:
                 if len(strategies_to_remove) > 10:
                     logger.info(f"  ... 외 {len(strategies_to_remove) - 10}개")
 
+                cursor = self.virtual_manager.db.conn.cursor()
                 for strategy in strategies_to_remove:
                     try:
-                        self.virtual_manager.db.execute(
+                        cursor.execute(
                             "UPDATE virtual_strategies SET is_active = 0, updated_at = ? WHERE id = ?",
                             (now.isoformat(), strategy['id'])
                         )
@@ -760,36 +761,41 @@ class VirtualTradingScheduler:
             else:
                 logger.info("✅ 정리 불필요 (활성 전략 수 적정)")
 
-            # 오래된 포지션 정리 (30일 이상)
+            # 오래된 포지션 정리 (30일 이상) - 스킵 (virtual_positions에 status 컬럼 없음)
+            # 대신 is_closed=0인 오래된 포지션 정리
             old_position_cutoff = (now - timedelta(days=30)).isoformat()
-            old_positions = self.virtual_manager.db.query(
-                """
-                SELECT * FROM virtual_positions
-                WHERE status IN ('open', 'holding')
-                AND entry_time < ?
-                """,
-                (old_position_cutoff,)
-            )
+            try:
+                cursor = self.virtual_manager.db.conn.cursor()
+                cursor.execute(
+                    """
+                    SELECT * FROM virtual_positions
+                    WHERE is_closed = 0
+                    AND created_at < ?
+                    """,
+                    (old_position_cutoff,)
+                )
+                old_positions = cursor.fetchall()
 
-            if old_positions:
-                logger.info(f"오래된 포지션 정리: {len(old_positions)}개")
-                for pos in old_positions[:20]:  # 최대 20개
-                    try:
-                        self.virtual_manager.db.execute(
-                            """
-                            UPDATE virtual_positions
-                            SET status = 'closed',
-                                exit_time = ?,
-                                exit_reason = 'Auto cleanup - 30 days'
-                            WHERE id = ?
-                            """,
-                            (now.isoformat(), pos['id'])
-                        )
-                    except Exception as e:
-                        logger.error(f"포지션 정리 실패: {e}")
+                if old_positions:
+                    logger.info(f"오래된 포지션 정리: {len(old_positions)}개")
+                    for pos in old_positions[:20]:  # 최대 20개
+                        try:
+                            cursor.execute(
+                                """
+                                UPDATE virtual_positions
+                                SET is_closed = 1,
+                                    updated_at = ?
+                                WHERE id = ?
+                                """,
+                                (now.isoformat(), pos['id'])
+                            )
+                        except Exception as e:
+                            logger.error(f"포지션 정리 실패: {e}")
 
-                self.virtual_manager.db.conn.commit()
-                logger.info(f"✅ 오래된 포지션 정리 완료")
+                    self.virtual_manager.db.conn.commit()
+                    logger.info(f"✅ 오래된 포지션 정리 완료")
+            except Exception as e:
+                logger.warning(f"포지션 정리 스킵: {e}")
 
             logger.info("=" * 60)
 

@@ -880,7 +880,8 @@ def cleanup_strategies():
 
         for strategy in strategies_to_remove:
             try:
-                virtual_manager.db.execute(
+                cursor = virtual_manager.db.conn.cursor()
+                cursor.execute(
                     "UPDATE virtual_strategies SET is_active = 0, updated_at = ? WHERE id = ?",
                     (datetime.now().isoformat(), strategy['id'])
                 )
