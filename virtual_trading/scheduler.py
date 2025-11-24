@@ -96,9 +96,13 @@ class VirtualTradingScheduler:
         self.cleanup_thread.start()
         logger.info("✅ 전략 자동 정리 스레드 시작 (1시간마다)")
 
-        # 즉시 전략 정리 실행 (시작 시)
+        # 즉시 전략 정리 실행 (시작 시) - 동기적으로 실행하여 완료 보장
         logger.info("🧹 시작 시 전략 정리 즉시 실행...")
-        threading.Thread(target=self._execute_cleanup, daemon=True).start()
+        try:
+            self._execute_cleanup()
+            logger.info("✅ 시작 시 전략 정리 완료")
+        except Exception as e:
+            logger.error(f"❌ 시작 시 전략 정리 실패: {e}", exc_info=True)
 
         logger.info("가상매매 스케줄러 시작 (24시간 실행, 6개 스레드)")
 
@@ -374,7 +378,7 @@ class VirtualTradingScheduler:
                     scoring_result = scoring_system.calculate_score(stock_data, scan_type='default')
                     score = scoring_result.total_score
 
-                    if score >= 100:  # 100점 이상 (가상매매는 더 적극적으로 매수)
+                    if score >= 70:  # 70점 이상 (가상매매는 적극적으로 매수하여 다양성 확보)
                         scored_candidates.append({
                             'stock_code': candidate.code,
                             'stock_name': candidate.name,
@@ -392,9 +396,9 @@ class VirtualTradingScheduler:
             # 점수 높은 순으로 정렬
             scored_candidates.sort(key=lambda x: x['score'], reverse=True)
 
-            logger.debug(f"가상매매: 스코어링 결과 {len(scored_candidates)}개 (150점 이상)")
+            logger.debug(f"가상매매: 스코어링 결과 {len(scored_candidates)}개 (70점 이상)")
 
-            return scored_candidates[:5]  # 상위 5개만
+            return scored_candidates[:15]  # 상위 15개 (다양성 확보)
 
         except Exception as e:
             logger.error(f"시장 스캔 실패: {e}", exc_info=True)
@@ -412,9 +416,9 @@ class VirtualTradingScheduler:
             positions = [p for p in self.virtual_manager.get_positions()
                         if p.get('strategy_id') == strategy_id]
 
-            # 최대 3개 포지션까지
-            if len(positions) >= 3:
-                logger.debug(f"가상매매 ({strategy_name}): 포지션 가득참 ({len(positions)}/3)")
+            # 최대 8개 포지션까지 (다양성 확보)
+            if len(positions) >= 8:
+                logger.debug(f"가상매매 ({strategy_name}): 포지션 가득참 ({len(positions)}/8)")
                 return
 
             # 전략의 잔고 확인
@@ -433,65 +437,73 @@ class VirtualTradingScheduler:
                 logger.debug(f"가상매매 ({strategy_name}): 매수 가능한 종목 없음")
                 return
 
-            # 첫 번째 후보 매수
-            candidate = available_candidates[0]
-            stock_code = candidate['stock_code']
-            stock_name = candidate.get('stock_name', stock_code)
-            current_price = candidate.get('current_price', 0)
+            # 한 번에 최대 3개까지 매수 (다양성 확보 & 승률 향상)
+            max_buys_per_cycle = min(3, 8 - len(positions), len(available_candidates))
+            buy_count = 0
 
-            if current_price <= 0:
-                # 현재가 조회
-                if self.data_fetcher:
-                    price_info = self.data_fetcher.get_current_price(stock_code)
-                    if price_info:
-                        current_price = price_info.get('current_price', 0)
+            for candidate in available_candidates[:max_buys_per_cycle]:
+                stock_code = candidate['stock_code']
+                stock_name = candidate.get('stock_name', stock_code)
+                current_price = candidate.get('current_price', 0)
 
-            if current_price <= 0:
-                logger.warning(f"가상매매: 현재가 조회 실패 ({stock_code})")
-                return
+                if current_price <= 0:
+                    # 현재가 조회
+                    if self.data_fetcher:
+                        price_info = self.data_fetcher.get_current_price(stock_code)
+                        if price_info:
+                            current_price = price_info.get('current_price', 0)
 
-            # 매수 수량 계산 (자본의 30% 또는 사용 가능 금액 중 작은 값)
-            target_amount = min(available_cash, strategy_info.get('current_capital', 1000000) * 0.3)
-            quantity = int(target_amount // current_price)
+                if current_price <= 0:
+                    logger.warning(f"가상매매: 현재가 조회 실패 ({stock_code})")
+                    continue  # return → continue로 변경 (다음 종목 시도)
 
-            if quantity < 1:
-                logger.debug(f"가상매매 ({strategy_name}): 수량 부족 (금액: {target_amount:,}원, 가격: {current_price:,}원)")
-                return
+                # 매수 수량 계산 (자본의 15% - 여러 종목 분산)
+                target_amount = min(available_cash / max_buys_per_cycle, strategy_info.get('current_capital', 1000000) * 0.15)
+                quantity = int(target_amount // current_price)
 
-            # 가상 매수 실행
-            logger.info(f"🎯 가상매매 ({strategy_name}): {stock_name} {quantity}주 매수 시도 @ {current_price:,}원")
+                if quantity < 1:
+                    logger.debug(f"가상매매 ({strategy_name}): 수량 부족 (금액: {target_amount:,}원, 가격: {current_price:,}원)")
+                    continue
 
-            # Fix v6.2: AI 기반 분할 매수 활성화
-            # 시장 데이터 준비 (AI 분석용)
-            market_data = {
-                'current_price': current_price,
-                'volume': candidate.get('volume', 0),
-                'volume_ratio': candidate.get('volume_ratio', 1.0),
-                'price_change_pct': candidate.get('change_rate', 0) / 100,
-                'volatility': 0.02,  # 기본값 (실제로는 계산 필요)
-                'avg_volume': candidate.get('volume', 0) / max(candidate.get('volume_ratio', 1), 0.1),
-                'rsi': candidate.get('rsi', 50),
-                'kospi_change_pct': 0.0,  # TODO: 실제 코스피 등락률
-                'kosdaq_change_pct': 0.0  # TODO: 실제 코스닥 등락률
-            }
+                # 가상 매수 실행
+                logger.info(f"🎯 가상매매 ({strategy_name}): {stock_name} {quantity}주 매수 시도 @ {current_price:,}원 ({buy_count+1}/{max_buys_per_cycle})")
 
-            result = self.virtual_manager.execute_buy(
-                strategy_id=strategy_id,
-                stock_code=stock_code,
-                stock_name=stock_name,
-                quantity=quantity,
-                price=float(current_price),
-                stop_loss_percent=5.0,
-                take_profit_percent=10.0,
-                use_split=True,  # 분할 매수 활성화
-                use_ai_split=True,  # AI 기반 분할 전략 사용
-                market_data=market_data  # 시장 데이터 전달
-            )
+                # Fix v6.2: AI 기반 분할 매수 활성화
+                # 시장 데이터 준비 (AI 분석용)
+                market_data = {
+                    'current_price': current_price,
+                    'volume': candidate.get('volume', 0),
+                    'volume_ratio': candidate.get('volume_ratio', 1.0),
+                    'price_change_pct': candidate.get('change_rate', 0) / 100,
+                    'volatility': 0.02,  # 기본값 (실제로는 계산 필요)
+                    'avg_volume': candidate.get('volume', 0) / max(candidate.get('volume_ratio', 1), 0.1),
+                    'rsi': candidate.get('rsi', 50),
+                    'kospi_change_pct': 0.0,  # TODO: 실제 코스피 등락률
+                    'kosdaq_change_pct': 0.0  # TODO: 실제 코스닥 등락률
+                }
 
-            if result:
-                logger.info(f"✅ 가상매매 ({strategy_name}): {stock_name} 매수 성공!")
-            else:
-                logger.warning(f"⚠️ 가상매매 ({strategy_name}): {stock_name} 매수 실패")
+                result = self.virtual_manager.execute_buy(
+                    strategy_id=strategy_id,
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    quantity=quantity,
+                    price=float(current_price),
+                    stop_loss_percent=5.0,
+                    take_profit_percent=10.0,
+                    use_split=True,  # 분할 매수 활성화
+                    use_ai_split=True,  # AI 기반 분할 전략 사용
+                    market_data=market_data  # 시장 데이터 전달
+                )
+
+                if result:
+                    logger.info(f"✅ 가상매매 ({strategy_name}): {stock_name} 매수 성공!")
+                    buy_count += 1
+                    available_cash -= target_amount  # 잔고 차감
+                else:
+                    logger.warning(f"⚠️ 가상매매 ({strategy_name}): {stock_name} 매수 실패")
+
+            if buy_count > 0:
+                logger.info(f"📊 가상매매 ({strategy_name}): 총 {buy_count}개 종목 매수 완료")
 
         except Exception as e:
             logger.error(f"가상매매 ({strategy_name}) 매수 시도 실패: {e}", exc_info=True)
