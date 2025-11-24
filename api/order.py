@@ -213,6 +213,24 @@ class OrderAPI:
         # 실제 매도 주문 API 호출 (kt10001: 주식매도주문)
         logger.info(f"🔴 실제 매도 주문 실행: {stock_code} {quantity}주 @ {price:,}원")
 
+        # CRITICAL FIX: 비정상 가격 검증 (모든 매도 주문에 적용)
+        if price > 0:  # 시장가(0)가 아닌 경우에만
+            try:
+                from research import DataFetcher
+                data_fetcher = DataFetcher(self.client)
+                current_price_data = data_fetcher.get_current_price(stock_code)
+                current_price = current_price_data.get('current_price', 0)
+
+                if current_price > 0 and price > current_price * 1.3:
+                    original_price = price
+                    price = int(current_price * 1.02)  # 현재가 +2%로 조정
+                    logger.warning(f"🚨 [PRICE FIX] 비정상 매도가 감지 및 자동 조정!")
+                    logger.warning(f"   원본 가격: {original_price:,}원 (현재가 대비 +{((original_price/current_price - 1) * 100):.1f}%)")
+                    logger.warning(f"   현재가: {current_price:,}원")
+                    logger.warning(f"   조정 가격: {price:,}원 (현재가 +2%)")
+            except Exception as e:
+                logger.warning(f"가격 검증 실패 (원본 가격 사용): {e}")
+
         try:
             # 주문 파라미터 구성
             # trde_tp: 거래유형 (키움 API 문서 참조)
