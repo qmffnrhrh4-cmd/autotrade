@@ -2,7 +2,7 @@
 Account-related API routes
 Handles account balance, positions, and detailed holdings
 """
-from flask import Blueprint, jsonify
+from flask import Blueprint, jsonify, request
 from typing import Dict, Any
 from datetime import datetime
 from research.data_fetcher import is_nxt_hours
@@ -852,7 +852,6 @@ def cancel_order():
                 'error': 'Bot instance not available'
             })
 
-        from flask import request
         data = request.get_json()
 
         order_no = data.get('order_no')
