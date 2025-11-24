@@ -798,3 +798,122 @@ def get_recent_trades():
     except Exception as e:
         logger.error(f"최근 거래 내역 조회 실패: {e}", exc_info=True)
         return error_response(str(e), status=500)
+
+
+@virtual_trading_bp.route('/api/virtual-trading/cleanup-strategies', methods=['POST'])
+def cleanup_strategies():
+    """
+    가상매매 전략 정리 (수동 실행)
+    - 99개 → 40개로 줄이기
+    - 성과 낮은 전략 비활성화
+    """
+    try:
+        if not virtual_manager:
+            return error_response('가상매매 매니저가 초기화되지 않았습니다', status=500)
+
+        from datetime import datetime, timedelta
+
+        MAX_ACTIVE_STRATEGIES = 40
+
+        # 모든 전략 조회
+        all_strategies = virtual_manager.db.get_all_strategies()
+        active_strategies = [s for s in all_strategies if s.get('is_active', 1) == 1]
+
+        logger.info(f"📊 현재 상태: 전체 {len(all_strategies)}개, 활성 {len(active_strategies)}개")
+
+        if len(active_strategies) <= MAX_ACTIVE_STRATEGIES:
+            return jsonify({
+                'success': True,
+                'message': '정리 불필요 - 전략 수가 적정 범위입니다',
+                'current_count': len(active_strategies),
+                'target_count': MAX_ACTIVE_STRATEGIES,
+                'cleaned_count': 0
+            })
+
+        # 우선순위 점수 계산
+        now = datetime.now()
+        strategy_scores = []
+
+        for strategy in active_strategies:
+            strategy_id = strategy['id']
+            name = strategy['name']
+            created_at = strategy.get('created_at')
+            current_capital = strategy.get('current_capital', 0)
+            initial_capital = strategy.get('initial_capital', 1)
+
+            # 수익률 계산
+            profit_rate = ((current_capital - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
+
+            # 생성일 파싱
+            try:
+                created_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                days_old = (now - created_date).days
+            except:
+                days_old = 0
+
+            # 우선순위 점수 (낮을수록 제거 우선)
+            # 기본은 수익률, 오래된 전략은 감점
+            priority_score = profit_rate
+            if days_old >= 3:
+                priority_score -= (days_old - 3) * 0.5  # 3일 이후부터 하루당 -0.5점
+
+            strategy_scores.append({
+                'id': strategy_id,
+                'name': name,
+                'profit_rate': profit_rate,
+                'days_old': days_old,
+                'priority_score': priority_score
+            })
+
+        # 우선순위 점수 낮은 순으로 정렬
+        strategy_scores.sort(key=lambda x: x['priority_score'])
+
+        # 목표 개수만큼 제거
+        max_to_remove = len(active_strategies) - MAX_ACTIVE_STRATEGIES
+        strategies_to_remove = strategy_scores[:max_to_remove]
+
+        logger.info(f"🗑️  제거 대상: {len(strategies_to_remove)}개")
+
+        # 전략 비활성화
+        cleanup_count = 0
+        removed_strategies = []
+
+        for strategy in strategies_to_remove:
+            try:
+                virtual_manager.db.execute(
+                    "UPDATE virtual_strategies SET is_active = 0, updated_at = ? WHERE id = ?",
+                    (datetime.now().isoformat(), strategy['id'])
+                )
+                cleanup_count += 1
+                removed_strategies.append({
+                    'id': strategy['id'],
+                    'name': strategy['name'],
+                    'profit_rate': round(strategy['profit_rate'], 2),
+                    'days_old': strategy['days_old']
+                })
+                logger.info(f"  ✓ {strategy['name']} 비활성화 (수익률: {strategy['profit_rate']:.1f}%, {strategy['days_old']}일)")
+            except Exception as e:
+                logger.error(f"  ✗ {strategy['name']} 실패: {e}")
+
+        # 커밋
+        virtual_manager.db.conn.commit()
+
+        # 최종 상태
+        final_all = virtual_manager.db.get_all_strategies()
+        final_active = [s for s in final_all if s.get('is_active', 1) == 1]
+
+        logger.info(f"✅ 정리 완료: {len(active_strategies)}개 → {len(final_active)}개")
+
+        return jsonify({
+            'success': True,
+            'message': f'{cleanup_count}개 전략을 비활성화했습니다',
+            'before_count': len(active_strategies),
+            'after_count': len(final_active),
+            'cleaned_count': cleanup_count,
+            'target_count': MAX_ACTIVE_STRATEGIES,
+            'removed_strategies': removed_strategies[:10]  # 처음 10개만 반환
+        })
+
+    except Exception as e:
+        logger.error(f"전략 정리 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)

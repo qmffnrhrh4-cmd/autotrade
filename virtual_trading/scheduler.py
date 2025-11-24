@@ -747,7 +747,7 @@ class VirtualTradingScheduler:
                 for strategy in strategies_to_remove:
                     try:
                         self.virtual_manager.db.execute(
-                            "UPDATE strategies SET is_active = 0, updated_at = ? WHERE id = ?",
+                            "UPDATE virtual_strategies SET is_active = 0, updated_at = ? WHERE id = ?",
                             (now.isoformat(), strategy['id'])
                         )
                         cleanup_count += 1
@@ -764,7 +764,7 @@ class VirtualTradingScheduler:
             old_position_cutoff = (now - timedelta(days=30)).isoformat()
             old_positions = self.virtual_manager.db.query(
                 """
-                SELECT * FROM positions
+                SELECT * FROM virtual_positions
                 WHERE status IN ('open', 'holding')
                 AND entry_time < ?
                 """,
@@ -777,7 +777,7 @@ class VirtualTradingScheduler:
                     try:
                         self.virtual_manager.db.execute(
                             """
-                            UPDATE positions
+                            UPDATE virtual_positions
                             SET status = 'closed',
                                 exit_time = ?,
                                 exit_reason = 'Auto cleanup - 30 days'
