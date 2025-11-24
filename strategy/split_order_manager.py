@@ -232,15 +232,18 @@ class SplitOrderManager:
                 continue
 
             # CRITICAL FIX: 손실 상황에서는 현재가 기준으로 계산
+            print(f"\n🔍 [PRICE CALC] 현재가={current_price:.0f}, 매수가={entry_price:.0f}, 손실?={current_price < entry_price}")
             if current_price < entry_price:
                 # 손실 중: 현재가에서 조금씩 위로 (빠른 탈출)
                 # 1차: 현재가+0.5%, 2차: 현재가+1%, 3차: 현재가+1.5%
                 gap = 0.005 + (i * 0.005)  # 0.5%, 1.0%, 1.5%
                 price = current_price * (1 + gap)
+                print(f"✅ 손실 모드: {i+1}차 = 현재가({current_price:,.0f}원) × {1+gap:.3f} = {price:,.0f}원")
                 logger.info(f"  손실 중 분할매도: {i+1}차 = 현재가({current_price:,.0f}원) + {gap*100:.1f}% = {price:,.0f}원")
             else:
                 # 이익 중: 매수가 기준 익절 목표
                 price = entry_price * (1 + profit_targets[i])
+                print(f"✅ 이익 모드: {i+1}차 = 매수가({entry_price:,.0f}원) × {1+profit_targets[i]:.3f} = {price:,.0f}원")
                 logger.info(f"  이익 중 분할매도: {i+1}차 = 매수가({entry_price:,.0f}원) + {profit_targets[i]*100:.1f}% = {price:,.0f}원")
 
             entry = SplitOrderEntry(
