@@ -756,7 +756,7 @@ class AIAdaptiveSplitExecutor:
         max_wait_seconds: int
     ) -> Optional[Dict]:
         """
-        체결 대기 및 확인
+        체결 대기 및 확인 (REAL - 실제 API 확인)
 
         Args:
             stock_code: 종목코드
@@ -771,32 +771,80 @@ class AIAdaptiveSplitExecutor:
             start_time = datetime.now()
             check_interval = 2  # 2초마다 체크
 
+            logger.info(f"   🔍 체결 확인 시작: 주문번호={order_number}")
+
             while (datetime.now() - start_time).seconds < max_wait_seconds:
-                # 계좌 잔고 조회로 체결 확인
-                # (실제로는 미체결 주문 조회 API를 사용하는 것이 더 정확)
+                try:
+                    # CRITICAL: 실제 API로 미체결 주문 조회
+                    pending_orders = self.account_api.get_pending_orders(stock_code=stock_code)
 
-                # TODO: 실제 체결 확인 로직 구현
-                # orders = self.account_api.get_pending_orders()
-                # for order in orders:
-                #     if order['order_no'] == order_number:
-                #         if order['status'] == 'FILLED':
-                #             return {
-                #                 'filled': True,
-                #                 'filled_quantity': order['filled_quantity'],
-                #                 'filled_price': order['filled_price']
-                #             }
+                    if not pending_orders:
+                        # 미체결 목록에 없음 = 체결 완료!
+                        logger.info(f"   ✅ 체결 완료 확인 (미체결 목록에서 사라짐)")
 
-                # 임시: 일정 시간 후 체결로 간주
-                if (datetime.now() - start_time).seconds > 10:
-                    return {
-                        'filled': True,
-                        'filled_quantity': expected_quantity,
-                        'filled_price': None  # 가격 정보 없음
-                    }
+                        # 체결 내역에서 실제 체결가 조회
+                        try:
+                            executed_orders = self.account_api.get_executed_orders(stock_code=stock_code)
+                            if executed_orders:
+                                for order in executed_orders:
+                                    if order.get('order_no') == order_number or order.get('odno') == order_number:
+                                        filled_price = float(order.get('avg_prc') or order.get('executed_price', 0))
+                                        filled_qty = int(order.get('tot_ccld_qty') or order.get('executed_quantity', expected_quantity))
 
+                                        logger.info(f"   💰 체결가: {filled_price:,.0f}원")
+                                        logger.info(f"   📦 체결량: {filled_qty}주")
+
+                                        return {
+                                            'filled': True,
+                                            'filled_quantity': filled_qty,
+                                            'filled_price': filled_price
+                                        }
+                        except Exception as e:
+                            logger.warning(f"   체결 내역 조회 실패: {e}")
+
+                        # 체결 내역 조회 실패해도 미체결에 없으면 체결된 것
+                        return {
+                            'filled': True,
+                            'filled_quantity': expected_quantity,
+                            'filled_price': None  # 가격은 모름
+                        }
+
+                    # 미체결 목록에서 해당 주문 찾기
+                    found_order = None
+                    for order in pending_orders:
+                        if order.get('order_no') == order_number or order.get('odno') == order_number:
+                            found_order = order
+                            break
+
+                    if not found_order:
+                        # 미체결에 없음 = 체결됨
+                        logger.info(f"   ✅ 체결 완료 (미체결 목록에 없음)")
+                        return {
+                            'filled': True,
+                            'filled_quantity': expected_quantity,
+                            'filled_price': None
+                        }
+
+                    # 미체결 상태 확인
+                    remaining_qty = int(found_order.get('psbl_qty') or found_order.get('remaining_quantity', expected_quantity))
+                    filled_qty = expected_quantity - remaining_qty
+
+                    if filled_qty > 0 and filled_qty < expected_quantity:
+                        # 부분 체결
+                        logger.info(f"   📊 부분 체결: {filled_qty}/{expected_quantity}주")
+                    else:
+                        # 아직 미체결
+                        elapsed = (datetime.now() - start_time).seconds
+                        logger.debug(f"   ⏳ 미체결 ({elapsed}/{max_wait_seconds}초)")
+
+                except Exception as e:
+                    logger.warning(f"   체결 확인 오류: {e}")
+
+                # 대기
                 time.sleep(check_interval)
 
             # 시간 초과
+            logger.warning(f"   ⚠️ 체결 대기 시간 초과 ({max_wait_seconds}초)")
             return {
                 'filled': False,
                 'note': '체결 대기 시간 초과'
