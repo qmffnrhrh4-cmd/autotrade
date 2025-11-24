@@ -413,8 +413,59 @@ class OrderAPI:
         Returns:
             취소 결과
         """
-        logger.warning("주문 취소 API가 아직 구현되지 않았습니다")
-        return None
+        if not self.client:
+            logger.error("Client가 초기화되지 않았습니다")
+            return {'success': False, 'error': 'Client not initialized'}
+
+        try:
+            logger.info(f"주문 취소 요청: {stock_code}, 주문번호={order_no}, 수량={quantity}")
+
+            # 계좌번호 확인
+            if account_number is None:
+                account_number = self.account_number
+
+            if not account_number:
+                logger.error("계좌번호가 설정되지 않았습니다")
+                return {'success': False, 'error': 'Account number not set'}
+
+            # API 호출: 정정취소주문 (JTTT1006U)
+            # 취소인 경우 취소수량만 지정하고 정정가격은 0
+            result = self.client.hashkey_request(
+                'JTTT1006U',
+                override={
+                    'CANO': account_number[:8],  # 계좌번호 앞 8자리
+                    'ACNT_PRDT_CD': account_number[8:],  # 계좌번호 뒤 2자리
+                    'PDNO': stock_code,  # 종목코드
+                    'ORGN_ODNO': order_no,  # 원주문번호
+                    'QTY_ALL_ORD_YN': 'Y' if quantity == 0 else 'N',  # 전량취소 여부
+                    'ORD_QTY': str(quantity) if quantity > 0 else '0',  # 취소수량
+                    'RVSE_CNCL_DVSN_CD': '02',  # 정정취소구분 (01:정정, 02:취소)
+                    'ORD_DVSN': '00',  # 주문구분 (00:지정가)
+                    'ORD_UNPR': '0'  # 주문단가 (취소시 0)
+                }
+            )
+
+            if result and result.get('return_code') == 0:
+                logger.info(f"✅ 주문 취소 성공: {order_no}")
+                return {
+                    'success': True,
+                    'order_no': order_no,
+                    'cancelled_quantity': quantity,
+                    'message': '주문이 취소되었습니다',
+                    'result': result
+                }
+            else:
+                error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
+                logger.error(f"❌ 주문 취소 실패: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'result': result
+                }
+
+        except Exception as e:
+            logger.error(f"주문 취소 중 오류: {e}", exc_info=True)
+            return {'success': False, 'error': str(e)}
 
     def get_order_status(
         self,

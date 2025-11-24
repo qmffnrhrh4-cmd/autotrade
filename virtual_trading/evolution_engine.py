@@ -203,6 +203,15 @@ class StrategyEvolutionEngine:
         # 최고 성과 전략
         self.best_strategy: Optional[Tuple[int, StrategyGene, StrategyFitness]] = None
 
+        # CRITICAL: HistoricalDataCollector 초기화
+        from .historical_data_collector import get_historical_data_collector
+        self.historical_collector = get_historical_data_collector(data_fetcher)
+
+        if not self.historical_collector:
+            logger.warning("⚠️ HistoricalDataCollector 초기화 실패 - 실제 데이터 백테스팅 불가")
+        else:
+            logger.info("✅ HistoricalDataCollector 초기화 완료 - OPEN API 데이터 사용 가능")
+
         logger.info(f"진화 엔진 초기화: 모집단={population_size}, 엘리트={elite_ratio*100}%, 돌연변이={mutation_rate*100}%")
 
     def initialize_population(self) -> List[int]:
