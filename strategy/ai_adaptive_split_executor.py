@@ -175,19 +175,25 @@ class AIAdaptiveSplitExecutor:
                     logger.info(f"🔍 시장 변화 관찰 중... (2초 대기)")
                     time.sleep(2)
                 else:
-                    logger.warning(f"⚠️ [{split_idx + 1}차] 체결 대기 시간 초과 ({max_wait_seconds}초)")
-                    logger.info(f"   주문은 유효하므로 다음 단계 진행")
+                    # CRITICAL: 체결 안 되면 다음 주문 실행하지 않음!
+                    logger.error(f"")
+                    logger.error(f"❌ [{split_idx + 1}차] 체결 실패 - 분할 매수 중단")
+                    logger.error(f"   {max_wait_seconds}초 동안 체결되지 않았습니다")
+                    logger.error(f"   주문은 유효 상태로 남아있습니다 (주문번호: {order_number})")
+                    logger.error(f"   미체결 목록에서 확인하거나 취소할 수 있습니다")
 
                     results.append({
                         'split': split_idx + 1,
                         'quantity': qty,
                         'target_price': target_price,
-                        'success': True,
+                        'success': False,
                         'filled': False,
-                        'note': '체결 대기 중'
+                        'note': f'체결 대기 시간 초과 ({max_wait_seconds}초) - 중단',
+                        'order_number': order_number
                     })
 
-                    remaining_qty -= qty
+                    # 다음 주문 실행하지 않고 종료!
+                    break
             else:
                 # 마지막 주문은 체결 대기 안 함
                 logger.info(f"📝 [{split_idx + 1}차] 마지막 주문 - 체결 대기 생략")
@@ -356,19 +362,25 @@ class AIAdaptiveSplitExecutor:
                     logger.info(f"🔍 시장 변화 관찰 중... (3초 대기)")
                     time.sleep(3)
                 else:
-                    logger.warning(f"⚠️ [{split_idx + 1}차] 체결 대기 시간 초과")
-                    logger.info(f"   주문은 유효하므로 다음 단계 진행")
+                    # CRITICAL: 체결 안 되면 다음 주문 실행하지 않음!
+                    logger.error(f"")
+                    logger.error(f"❌ [{split_idx + 1}차] 체결 실패 - 분할 매도 중단")
+                    logger.error(f"   {max_wait_seconds}초 동안 체결되지 않았습니다")
+                    logger.error(f"   주문은 유효 상태로 남아있습니다")
+                    logger.error(f"   미체결 목록에서 확인하거나 취소할 수 있습니다")
 
                     results.append({
                         'split': split_idx + 1,
                         'quantity': qty,
                         'target_price': target_price,
-                        'success': True,
+                        'success': False,
                         'filled': False,
-                        'note': '체결 대기 중'
+                        'note': f'체결 대기 시간 초과 ({max_wait_seconds}초) - 중단',
+                        'order_number': order_number
                     })
 
-                    remaining_qty -= qty
+                    # 다음 주문 실행하지 않고 종료!
+                    break
             else:
                 # 마지막 주문은 체결 대기 안 함
                 logger.info(f"📝 [{split_idx + 1}차] 마지막 주문 - 체결 대기 생략")
