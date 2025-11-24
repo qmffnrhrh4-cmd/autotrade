@@ -2,7 +2,7 @@
   "metadata": {
     "created_at": "2025-11-01 04:31:29",
     "description": "계좌 API 파라미터 제대로 수정 (2주 기간)",
-    "verified_apis": 132,
+    "verified_apis": 134,
     "verified_variants": 347,
     "corrected_apis": 12,
     "corrections_made": 23,
@@ -10,10 +10,10 @@
     "categorization_date": "2025-11-01",
     "total_categories": 7,
     "stats": {
-      "total_apis": 133,
+      "total_apis": 135,
       "total_variants": 352,
       "by_category": {
-        "account": 31,
+        "account": 33,
         "other": 45,
         "info": 1,
         "market": 13,
@@ -5254,5 +5254,33 @@
       "original_status": "total_fail",
       "corrections_applied": true
     }
+  },
+  "ka10075": {
+    "api_id": "ka10075",
+    "api_name": "미체결주문조회",
+    "category": "account",
+    "total_variants": 1,
+    "calls": [
+      {
+        "variant_idx": 1,
+        "path": "acnt",
+        "body": {},
+        "status": "success"
+      }
+    ]
+  },
+  "ka10076": {
+    "api_id": "ka10076",
+    "api_name": "체결주문조회",
+    "category": "account",
+    "total_variants": 1,
+    "calls": [
+      {
+        "variant_idx": 1,
+        "path": "acnt",
+        "body": {},
+        "status": "success"
+      }
+    ]
   }
 }
