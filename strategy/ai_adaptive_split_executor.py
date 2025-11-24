@@ -64,8 +64,11 @@ class AIAdaptiveSplitExecutor:
             실행 결과 딕셔너리
         """
         logger.info(f"")
-        logger.info(f"🤖 AI 기반 적응형 분할 매수 시작")
+        logger.info(f"=" * 80)
+        logger.info(f"🤖 AI 기반 적응형 분할 매수 시작 (**순차 실행 모드**)")
+        logger.info(f"=" * 80)
         logger.info(f"   종목: {stock_name}({stock_code})")
+        logger.info(f"   ⚠️  주의: 1차 체결 완료 후 2차 실행됩니다!")
         logger.info(f"   수량: {total_quantity}주 → {num_splits}회 분할")
         logger.info(f"   목표 금액: {target_budget:,.0f}원")
         logger.info(f"")
@@ -246,8 +249,11 @@ class AIAdaptiveSplitExecutor:
             실행 결과 딕셔너리
         """
         logger.info(f"")
-        logger.info(f"🤖 AI 기반 적응형 분할 매도 시작")
+        logger.info(f"=" * 80)
+        logger.info(f"🤖 AI 기반 적응형 분할 매도 시작 (**순차 실행 모드**)")
+        logger.info(f"=" * 80)
         logger.info(f"   종목: {stock_name}({stock_code})")
+        logger.info(f"   ⚠️  주의: 1차 체결 완료 후 2차 실행됩니다!")
         logger.info(f"   수량: {total_quantity}주 → {num_splits}회 분할")
         logger.info(f"   평균 매수가: {entry_price:,.0f}원")
         logger.info(f"")
