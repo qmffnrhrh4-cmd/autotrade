@@ -951,11 +951,10 @@
                     <i class="fas fa-briefcase"></i>
                     <span>포트폴리오</span>
                 </div>
-                <a href="/split-orders" target="_blank" class="nav-tab" style="text-decoration: none; color: inherit;">
+                <div class="nav-tab" data-tab="pending-orders">
                     <i class="fas fa-list-ul"></i>
                     <span>미체결 주문</span>
-                    <i class="fas fa-external-link-alt" style="font-size: 0.7rem; margin-left: auto; opacity: 0.6;"></i>
-                </a>
+                </div>
                 <div class="nav-tab" data-tab="virtual-trading">
                     <i class="fas fa-flask"></i>
                     <span>가상매매</span>
@@ -1309,6 +1308,89 @@
                                 <!-- Rebalancing recommendations will be populated by API -->
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Pending Orders Tab -->
+                <div class="tab-content" id="pending-orders">
+                    <h2 style="margin-bottom: 2rem; font-size: 2rem; font-weight: 700;">
+                        <i class="fas fa-list-ul" style="color: var(--color-primary);"></i>
+                        미체결 주문
+                    </h2>
+
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-clock"></i>
+                                미체결 주문 목록
+                            </h3>
+                            <div style="display: flex; gap: 1rem;">
+                                <span id="pending-orders-last-update" style="color: var(--text-muted); font-size: 0.9rem;">
+                                    마지막 업데이트: -
+                                </span>
+                                <button class="btn btn-outline btn-sm" onclick="refreshPendingOrders()">
+                                    <i class="fas fa-sync"></i>
+                                    새로고침
+                                </button>
+                            </div>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>종목명</th>
+                                    <th>종목코드</th>
+                                    <th>구분</th>
+                                    <th>주문가격</th>
+                                    <th>주문수량</th>
+                                    <th>미체결수량</th>
+                                    <th>주문시간</th>
+                                    <th>주문번호</th>
+                                    <th>액션</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pending-orders-table-body">
+                                <tr>
+                                    <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                        <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                        미체결 주문이 없습니다
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="glass-card" style="margin-top: 2rem;">
+                        <div class="card-header">
+                            <h3 class="card-title">
+                                <i class="fas fa-check-circle"></i>
+                                최근 체결 내역
+                            </h3>
+                            <button class="btn btn-outline btn-sm" onclick="refreshExecutedOrders()">
+                                <i class="fas fa-sync"></i>
+                                새로고침
+                            </button>
+                        </div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>종목명</th>
+                                    <th>종목코드</th>
+                                    <th>구분</th>
+                                    <th>체결가격</th>
+                                    <th>체결수량</th>
+                                    <th>체결시간</th>
+                                    <th>주문번호</th>
+                                </tr>
+                            </thead>
+                            <tbody id="executed-orders-table-body">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                        <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                        체결 내역이 없습니다
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -4501,6 +4583,168 @@
                 alert('매도 처리 중 오류가 발생했습니다.');
             }
         }
+
+        // ==================== Pending Orders ====================
+        async function refreshPendingOrders() {
+            try {
+                const response = await fetch('/api/account/pending-orders');
+                const data = await response.json();
+
+                const tbody = document.getElementById('pending-orders-table-body');
+                const lastUpdate = document.getElementById('pending-orders-last-update');
+
+                if (!data.success || !data.orders || data.orders.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                미체결 주문이 없습니다
+                            </td>
+                        </tr>
+                    `;
+                    if (lastUpdate) lastUpdate.textContent = `마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`;
+                    return;
+                }
+
+                let html = '';
+                data.orders.forEach(order => {
+                    const orderType = order.order_type || order.sll_buy_dvsn_cd;
+                    const orderTypeText = (orderType === '01' || orderType === 'buy') ? '매수' : '매도';
+                    const orderTypeColor = (orderType === '01' || orderType === 'buy') ? 'var(--color-success)' : 'var(--color-danger)';
+
+                    html += `
+                        <tr>
+                            <td>${order.stock_name || order.prdt_name || '-'}</td>
+                            <td>${order.stock_code || order.pdno || '-'}</td>
+                            <td style="color: ${orderTypeColor}; font-weight: 600;">${orderTypeText}</td>
+                            <td>${Number(order.order_price || order.ord_unpr || 0).toLocaleString()}원</td>
+                            <td>${Number(order.order_quantity || order.ord_qty || 0).toLocaleString()}주</td>
+                            <td>${Number(order.remaining_quantity || order.psbl_qty || 0).toLocaleString()}주</td>
+                            <td>${order.order_time || order.ord_tmd || '-'}</td>
+                            <td style="font-size: 0.85rem; font-family: monospace;">${order.order_no || order.odno || '-'}</td>
+                            <td>
+                                <button class="btn btn-sm" style="background: var(--color-danger); color: white; padding: 0.3rem 0.8rem; font-size: 0.85rem;"
+                                        onclick="cancelOrder('${order.order_no || order.odno}', '${order.stock_code || order.pdno}', ${order.remaining_quantity || order.psbl_qty || 0})">
+                                    <i class="fas fa-times"></i> 취소
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+                if (lastUpdate) lastUpdate.textContent = `마지막 업데이트: ${new Date().toLocaleTimeString('ko-KR')}`;
+
+            } catch (error) {
+                console.error('미체결 주문 조회 실패:', error);
+                document.getElementById('pending-orders-table-body').innerHTML = `
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 3rem; color: var(--color-danger);">
+                            <i class="fas fa-exclamation-triangle" style="font-size: 3rem; display: block; margin-bottom: 1rem;"></i>
+                            미체결 주문을 불러오는 중 오류가 발생했습니다
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        async function refreshExecutedOrders() {
+            try {
+                const response = await fetch('/api/account/executed-orders');
+                const data = await response.json();
+
+                const tbody = document.getElementById('executed-orders-table-body');
+
+                if (!data.success || !data.orders || data.orders.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                <i class="fas fa-inbox" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                체결 내역이 없습니다
+                            </td>
+                        </tr>
+                    `;
+                    return;
+                }
+
+                let html = '';
+                data.orders.slice(0, 20).forEach(order => {  // 최근 20개만
+                    const orderType = order.order_type || order.sll_buy_dvsn_cd;
+                    const orderTypeText = (orderType === '01' || orderType === 'buy') ? '매수' : '매도';
+                    const orderTypeColor = (orderType === '01' || orderType === 'buy') ? 'var(--color-success)' : 'var(--color-danger)';
+
+                    html += `
+                        <tr>
+                            <td>${order.stock_name || order.prdt_name || '-'}</td>
+                            <td>${order.stock_code || order.pdno || '-'}</td>
+                            <td style="color: ${orderTypeColor}; font-weight: 600;">${orderTypeText}</td>
+                            <td>${Number(order.executed_price || order.avg_prc || 0).toLocaleString()}원</td>
+                            <td>${Number(order.executed_quantity || order.tot_ccld_qty || 0).toLocaleString()}주</td>
+                            <td>${order.executed_time || order.ord_tmd || '-'}</td>
+                            <td style="font-size: 0.85rem; font-family: monospace;">${order.order_no || order.odno || '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                tbody.innerHTML = html;
+
+            } catch (error) {
+                console.error('체결 내역 조회 실패:', error);
+            }
+        }
+
+        async function cancelOrder(orderNo, stockCode, quantity) {
+            if (!confirm(`주문번호 ${orderNo}를 취소하시겠습니까?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/order/cancel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_no: orderNo,
+                        stock_code: stockCode,
+                        quantity: quantity
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ 주문이 취소되었습니다.');
+                    refreshPendingOrders();  // 목록 새로고침
+                } else {
+                    alert(`❌ 주문 취소 실패: ${result.message || '알 수 없는 오류'}`);
+                }
+
+            } catch (error) {
+                console.error('주문 취소 오류:', error);
+                alert('주문 취소 중 오류가 발생했습니다.');
+            }
+        }
+
+        // Auto-refresh pending orders when tab is active
+        let pendingOrdersInterval = null;
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                if (this.dataset.tab === 'pending-orders') {
+                    refreshPendingOrders();
+                    refreshExecutedOrders();
+                    // Auto-refresh every 5 seconds
+                    if (pendingOrdersInterval) clearInterval(pendingOrdersInterval);
+                    pendingOrdersInterval = setInterval(() => {
+                        refreshPendingOrders();
+                    }, 5000);
+                } else {
+                    // Stop auto-refresh when leaving tab
+                    if (pendingOrdersInterval) {
+                        clearInterval(pendingOrdersInterval);
+                        pendingOrdersInterval = null;
+                    }
+                }
+            });
+        });
 
         // ==================== Performance Metrics ====================
         async function loadPerformanceMetrics() {
