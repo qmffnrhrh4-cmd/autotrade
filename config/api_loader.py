@@ -5,6 +5,7 @@ config/api_loader.py
 _immutable/api_specs/ 폴더의 검증된 API 목록을 로드하고 제공합니다.
 """
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from functools import lru_cache
@@ -17,12 +18,24 @@ APIS_BY_CATEGORY_FILE = API_SPECS_DIR / 'apis_by_category.json'
 
 
 class APILoader:
-    """검증된 API 사양 로더"""
+    """검증된 API 사양 로더 (자동 리로드 지원)"""
 
     def __init__(self):
         self._successful_apis: Optional[Dict] = None
         self._apis_by_category: Optional[Dict] = None
+        self._file_mtime: Optional[float] = None  # 파일 수정 시간 추적
         self._load_apis()
+
+    def _check_and_reload(self):
+        """파일이 변경되었으면 자동 리로드"""
+        try:
+            if SUCCESSFUL_APIS_FILE.exists():
+                current_mtime = os.path.getmtime(SUCCESSFUL_APIS_FILE)
+                if self._file_mtime is None or current_mtime > self._file_mtime:
+                    # 파일이 변경됨 - 리로드
+                    self._load_apis()
+        except Exception:
+            pass  # 파일 체크 실패시 무시
 
     def _load_apis(self):
         """API 사양 파일 로드"""
@@ -31,6 +44,8 @@ class APILoader:
             if SUCCESSFUL_APIS_FILE.exists():
                 with open(SUCCESSFUL_APIS_FILE, 'r', encoding='utf-8') as f:
                     self._successful_apis = json.load(f)
+                # 파일 수정 시간 저장
+                self._file_mtime = os.path.getmtime(SUCCESSFUL_APIS_FILE)
             else:
                 raise FileNotFoundError(
                     f"API 사양 파일을 찾을 수 없습니다: {SUCCESSFUL_APIS_FILE}\n"
@@ -49,6 +64,7 @@ class APILoader:
 
     def get_all_apis(self) -> Dict[str, Any]:
         """모든 성공한 API 반환"""
+        self._check_and_reload()  # 파일 변경 확인 및 자동 리로드
         if self._successful_apis is None:
             self._load_apis()
         return self._successful_apis.get('apis', {})
@@ -117,6 +133,7 @@ class APILoader:
 
     def is_api_available(self, api_id: str) -> bool:
         """API 사용 가능 여부 확인"""
+        self._check_and_reload()  # 파일 변경 확인 및 자동 리로드
         return self.get_api(api_id) is not None
 
     def get_account_apis(self) -> List[Dict[str, Any]]:
