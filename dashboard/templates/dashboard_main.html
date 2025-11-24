@@ -1093,10 +1093,16 @@
                                 <i class="fas fa-flask"></i>
                                 가상매매 전략 현황
                             </h3>
-                            <button class="btn btn-outline btn-sm" onclick="refreshVirtualTradingSummary()">
-                                <i class="fas fa-sync"></i>
-                                새로고침
-                            </button>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn btn-warning btn-sm" onclick="cleanupStrategiesMain()" title="99개 → 40개로 자동 정리">
+                                    <i class="fas fa-broom"></i>
+                                    전략 정리
+                                </button>
+                                <button class="btn btn-outline btn-sm" onclick="refreshVirtualTradingSummary()">
+                                    <i class="fas fa-sync"></i>
+                                    새로고침
+                                </button>
+                            </div>
                         </div>
                         <div id="virtualTradingSummary">
                             <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
@@ -2277,6 +2283,36 @@
                         `;
                     }
                 });
+        }
+
+        // 전략 정리 함수 (개요 탭)
+        async function cleanupStrategiesMain() {
+            if (!confirm('⚠️ 성과가 낮은 전략을 자동으로 정리합니다.\n\n99개 → 40개로 줄어듭니다.\n\n계속하시겠습니까?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/virtual-trading/cleanup-strategies', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert(`✅ 전략 정리 완료!\n\n이전: ${data.before_count}개\n현재: ${data.after_count}개\n정리: ${data.cleaned_count}개`);
+
+                    // 통계 새로고침
+                    refreshVirtualTradingSummary();
+                    refreshStats();
+                } else {
+                    alert('❌ 전략 정리 실패: ' + (data.error || '알 수 없는 오류'));
+                }
+            } catch (error) {
+                alert('❌ 오류 발생: ' + error.message);
+            }
         }
 
         // 개요 탭의 가상매매 통계 새로고침
