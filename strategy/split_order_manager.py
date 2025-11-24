@@ -8,6 +8,9 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from datetime import datetime
 from enum import Enum
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OrderStatus(Enum):
@@ -228,7 +231,17 @@ class SplitOrderManager:
             if qty <= 0:
                 continue
 
-            price = entry_price * (1 + profit_targets[i])
+            # CRITICAL FIX: 손실 상황에서는 현재가 기준으로 계산
+            if current_price < entry_price:
+                # 손실 중: 현재가에서 조금씩 위로 (빠른 탈출)
+                # 1차: 현재가+0.5%, 2차: 현재가+1%, 3차: 현재가+1.5%
+                gap = 0.005 + (i * 0.005)  # 0.5%, 1.0%, 1.5%
+                price = current_price * (1 + gap)
+                logger.info(f"  손실 중 분할매도: {i+1}차 = 현재가({current_price:,.0f}원) + {gap*100:.1f}% = {price:,.0f}원")
+            else:
+                # 이익 중: 매수가 기준 익절 목표
+                price = entry_price * (1 + profit_targets[i])
+                logger.info(f"  이익 중 분할매도: {i+1}차 = 매수가({entry_price:,.0f}원) + {profit_targets[i]*100:.1f}% = {price:,.0f}원")
 
             entry = SplitOrderEntry(
                 entry_id=f"{group_id}_ENTRY_{i+1}",

@@ -260,6 +260,11 @@ class OrderAPI:
                 logger.info(f"⚠️ 시간외종가 주문: 장 마감 종가로 자동 체결")
             else:
                 # 나머지는 가격 지정 - 호가 단위에 맞게 조정
+                logger.warning(f"🔍 [ORDER DEBUG] 매도 주문 원본 가격: {price:,}원 (종목: {stock_code})")
+                import traceback
+                caller_info = traceback.extract_stack(limit=5)
+                for frame in caller_info:
+                    logger.debug(f"  호출 경로: {frame.filename}:{frame.lineno} in {frame.name}")
                 adjusted_price = adjust_price_to_tick_size(price)
 
                 # 상한가 체크 (현재가 기준 약 30% 상승 제한)
