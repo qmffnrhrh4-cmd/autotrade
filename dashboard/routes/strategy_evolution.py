@@ -239,6 +239,53 @@ def get_generation_detail(generation: int):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@evolution_bp.route('/db-status', methods=['GET'])
+def get_db_status():
+    """데이터베이스 상태 확인 (디버깅용)"""
+    try:
+        import os
+        if not os.path.exists(DB_PATH):
+            return jsonify({
+                'success': False,
+                'message': '데이터베이스 파일이 없습니다',
+                'db_path': DB_PATH
+            })
+
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # 테이블별 레코드 수 확인
+        tables = ['evolved_strategies', 'fitness_results', 'generation_stats']
+        stats = {'db_path': DB_PATH, 'tables': {}}
+
+        for table in tables:
+            try:
+                cursor.execute(f"SELECT COUNT(*) as count FROM {table}")
+                count = cursor.fetchone()[0]
+                stats['tables'][table] = count
+            except Exception as e:
+                stats['tables'][table] = f"ERROR: {str(e)}"
+
+        # 최신 세대 정보
+        try:
+            cursor.execute("SELECT MAX(generation) as max_gen FROM generation_stats")
+            max_gen = cursor.fetchone()[0]
+            stats['latest_generation'] = max_gen
+        except:
+            stats['latest_generation'] = None
+
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'stats': stats
+        })
+
+    except Exception as e:
+        logger.error(f"DB 상태 조회 실패: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @evolution_bp.route('/top-strategies', methods=['GET'])
 def get_top_strategies():
     """현재 최고 성과 전략 Top 10 조회"""
