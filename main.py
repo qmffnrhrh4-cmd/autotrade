@@ -100,6 +100,7 @@ class AutoTradingBot:
         self.analyzer = None
 
         self.split_order_executor = None
+        self.ai_adaptive_split_executor = None  # AI 기반 적응형 분할 매도
         self.smart_money_manager = None
         self.emergency_manager = None
         self.liquidity_splitter = None
@@ -382,6 +383,7 @@ class AutoTradingBot:
             logger.info("자동화 시스템 초기화 중...")
             try:
                 from strategy.split_order_executor import SplitOrderExecutor
+                from strategy.ai_adaptive_split_executor import AIAdaptiveSplitExecutor
                 from strategy.smart_money_manager import get_smart_money_manager
                 from strategy.emergency_manager import get_emergency_manager
                 from strategy.liquidity_splitter import get_liquidity_splitter
@@ -394,6 +396,15 @@ class AutoTradingBot:
                     data_fetcher=self.data_fetcher
                 )
                 logger.info("  ✅ Split order executor")
+
+                # AI 기반 적응형 분할 매도 실행기
+                self.ai_adaptive_split_executor = AIAdaptiveSplitExecutor(
+                    order_api=self.order_api,
+                    data_fetcher=self.data_fetcher,
+                    account_api=self.account_api,
+                    ai_analyzer=self.analyzer if hasattr(self, 'analyzer') else None
+                )
+                logger.info("  ✅ AI 적응형 분할 매도 시스템")
 
                 # Smart money manager
                 # Fix: Pydantic BaseModel을 dict로 변환
@@ -1457,8 +1468,25 @@ class AutoTradingBot:
                 logger.info(f"테스트 모드: AI 검토 완료 -> 실제 매수 API 호출")
                 logger.info(f"   Stock: {stock_name}, AI score: {candidate.ai_score}, Total score: {scoring_result.total_score}")
 
-            # Fix v6.1.3: 분할 매수 사용
-            if self.split_order_executor:
+            # Fix v6.1.3: AI 기반 적응형 분할 매수 사용
+            if self.ai_adaptive_split_executor:
+                logger.info(f"🤖 AI 기반 적응형 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원")
+
+                # Fix: NXT 시간대 체크
+                exchange = 'NXT' if is_nxt_hours() else 'KRX'
+
+                order_result = self.ai_adaptive_split_executor.execute_adaptive_split_buy(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    total_quantity=quantity,
+                    target_budget=optimal_price * quantity,
+                    num_splits=3,
+                    max_wait_seconds=30,  # 30초 대기 (빠른 진행)
+                    account_number=None,
+                    exchange=exchange
+                )
+            elif self.split_order_executor:
+                # Fallback: 기존 분할 매수
                 logger.info(f"🔀 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원 (주문유형: {order_type})")
                 # Fix v6.1.5: order_type 전달 (장 종료 후 시간외 주문 지원)
                 order_result = self.split_order_executor.execute_split_buy(
@@ -1622,8 +1650,37 @@ class AutoTradingBot:
                 logger.info(f"테스트 모드: 매도 조건 충족 -> 실제 매도 API 호출")
                 logger.info(f"   Stock: {stock_name}, Reason: {reason}, P/L: {profit_loss:+,} ({profit_loss_rate:+.2f}%)")
 
-            # Fix v6.1.3: 분할 매도 사용
-            if self.split_order_executor:
+            # Fix v6.1.3: AI 기반 적응형 분할 매도 사용
+            if self.ai_adaptive_split_executor:
+                logger.info(f"🤖 AI 기반 적응형 분할 매도 실행: {stock_name} {quantity}주")
+
+                # 평균 매수가 조회
+                avg_price = 0
+                holdings = self.account_api.get_holdings()
+                for h in holdings:
+                    if h.get('stk_cd', '').replace('A', '').replace('_NX', '') == stock_code:
+                        avg_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+                        break
+
+                if avg_price == 0:
+                    logger.warning(f"평균 매수가를 찾을 수 없음, 현재가를 진입가로 사용: {optimal_price}")
+                    avg_price = optimal_price
+
+                # Fix: NXT 시간대 체크
+                exchange = 'NXT' if is_nxt_hours() else 'KRX'
+
+                order_result = self.ai_adaptive_split_executor.execute_adaptive_split_sell(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    total_quantity=quantity,
+                    entry_price=avg_price,
+                    num_splits=3,
+                    max_wait_seconds=30,  # 30초 대기 (빠른 진행)
+                    account_number=None,
+                    exchange=exchange
+                )
+            elif self.split_order_executor:
+                # Fallback: 기존 분할 매도
                 logger.info(f"🔀 분할 매도 실행: {stock_name} {quantity}주")
 
                 # 평균 매수가 조회
