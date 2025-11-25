@@ -124,6 +124,7 @@ class AutoTradingBot:
         self.db_session = None
 
         self.ai_approved_candidates = []
+        self.recent_orders = {}  # {stock_code: order_time} - 최근 주문 추적 (중복 주문 방지)
         self.scan_progress = {
             'current_strategy': '',
             'total_candidates': 0,
@@ -1108,15 +1109,24 @@ class AutoTradingBot:
 
             portfolio_info = "No positions"
 
-            # 이미 보유한 종목 제외하고 분석 대상 확대 (최대 10개 중 미보유 종목만)
+            # 최근 주문 목록 정리 (5분 지난 것 제거)
+            now = datetime.now()
+            self.recent_orders = {
+                code: order_time
+                for code, order_time in self.recent_orders.items()
+                if (now - order_time).total_seconds() < 300  # 5분
+            }
+
+            # 이미 보유한 종목 + 최근 주문한 종목 제외 (최대 10개 중)
             top10 = candidates[:10]
             analysis_candidates = [
                 c for c in top10
                 if not self.portfolio_manager.has_position(c.code)
-            ][:5]  # 미보유 종목 중 상위 5개만 분석
+                and c.code not in self.recent_orders  # 최근 5분 내 주문한 종목 제외
+            ][:5]  # 미보유+미주문 종목 중 상위 5개만 분석
 
             if not analysis_candidates:
-                print("⚠️  분석할 새 종목 없음 (상위 10개 모두 보유 중)")
+                print("⚠️  분석할 새 종목 없음 (상위 10개 모두 보유/주문 중)")
                 return
 
             # 매수 카운터 추가 (한 스캔당 최대 매수 개수 제한)
@@ -1264,6 +1274,7 @@ class AutoTradingBot:
 
                     self._execute_buy(candidate, scoring_result)
                     bought_count += 1  # 매수 카운터 증가
+                    self.recent_orders[candidate.code] = datetime.now()  # 중복 주문 방지용 기록
 
                     if self.virtual_trader:
                         try:
