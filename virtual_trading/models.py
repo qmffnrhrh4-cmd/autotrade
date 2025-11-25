@@ -185,6 +185,7 @@ class VirtualTradingDB:
         # 기본 전략 보장 및 고아 포지션 정리
         self._ensure_default_strategy()
         self._cleanup_orphan_positions()
+        self._cleanup_excess_strategies()  # 과도한 전략 정리
 
     def _ensure_default_strategy(self):
         """기본 전략이 없으면 생성"""
@@ -231,6 +232,49 @@ class VirtualTradingDB:
                 logger.info(f"✅ 고아 포지션 {orphan_count}개를 기본 전략으로 이전 완료")
             else:
                 logger.warning(f"⚠️ 기본 전략 없음 - 고아 포지션 {orphan_count}개 미처리")
+
+    def _cleanup_excess_strategies(self):
+        """과도한 전략 정리 - 상위 20개만 유지"""
+        cursor = self.conn.cursor()
+        MAX_STRATEGIES = 20
+
+        # 현재 활성 전략 수 확인
+        cursor.execute("SELECT COUNT(*) FROM virtual_strategies WHERE is_active = 1")
+        active_count = cursor.fetchone()[0]
+
+        if active_count <= MAX_STRATEGIES:
+            return
+
+        logger.info(f"📊 전략 정리 시작: 현재 {active_count}개 → 목표 {MAX_STRATEGIES}개")
+
+        # 보존할 전략: default + 수익률 상위
+        cursor.execute("""
+            SELECT id, name,
+                   CASE WHEN initial_capital > 0
+                        THEN (current_capital - initial_capital) / initial_capital * 100
+                        ELSE 0 END as profit_rate
+            FROM virtual_strategies
+            WHERE is_active = 1
+            ORDER BY
+                CASE WHEN name = 'default' THEN 0 ELSE 1 END,  -- default 우선
+                profit_rate DESC
+            LIMIT ?
+        """, (MAX_STRATEGIES,))
+
+        keep_ids = [row[0] for row in cursor.fetchall()]
+
+        if keep_ids:
+            # 보존 목록에 없는 전략 비활성화
+            placeholders = ','.join('?' * len(keep_ids))
+            cursor.execute(f"""
+                UPDATE virtual_strategies
+                SET is_active = 0
+                WHERE is_active = 1 AND id NOT IN ({placeholders})
+            """, keep_ids)
+
+            deactivated = cursor.rowcount
+            self.conn.commit()
+            logger.info(f"✅ 전략 정리 완료: {deactivated}개 비활성화 (상위 {MAX_STRATEGIES}개 유지)")
 
     def create_strategy(
         self,
