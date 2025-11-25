@@ -37,6 +37,9 @@ from .trading_types import (
     MarketSnapshot,
 )
 
+# v6.3 AutoPilot (완전 자동화)
+from .autopilot import AutoPilot, init_autopilot, get_autopilot, AutoPilotMode
+
 __all__ = [
     # REST Client
     'KiwoomRESTClient',
@@ -67,4 +70,10 @@ __all__ = [
     'Position',
     'Trade',
     'MarketSnapshot',
+
+    # v6.3 AutoPilot
+    'AutoPilot',
+    'init_autopilot',
+    'get_autopilot',
+    'AutoPilotMode',
 ]

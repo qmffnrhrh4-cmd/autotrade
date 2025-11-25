@@ -878,3 +878,96 @@ def get_strategy_status():
     except Exception as e:
         logger.error(f"전략 현황 조회 실패: {e}", exc_info=True)
         return error_response(str(e), status=500)
+
+
+# ============================================================================
+# AutoPilot Status API (v6.3 - 완전 자동화)
+# ============================================================================
+
+@system_bp.route('/api/autopilot/status')
+def get_autopilot_status():
+    """
+    AutoPilot 완전 자동화 시스템 상태 조회
+
+    Returns:
+        AutoPilot 운영 상태, 시장 상황, 활성 전략 등
+    """
+    try:
+        if not _bot_instance:
+            return error_response('Bot not initialized')
+
+        # AutoPilot 인스턴스 확인
+        if not hasattr(_bot_instance, 'autopilot') or not _bot_instance.autopilot:
+            return jsonify({
+                'success': True,
+                'enabled': False,
+                'message': 'AutoPilot 비활성화 상태',
+                'status': {
+                    'mode': 'disabled',
+                    'running': False
+                }
+            })
+
+        # AutoPilot 상태 조회
+        status = _bot_instance.autopilot.get_status()
+
+        return jsonify({
+            'success': True,
+            'enabled': True,
+            'status': status
+        })
+
+    except Exception as e:
+        logger.error(f"AutoPilot 상태 조회 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)
+
+
+@system_bp.route('/api/autopilot/control', methods=['POST'])
+def control_autopilot():
+    """
+    AutoPilot 제어 (시작/중지/모드 변경)
+
+    Request body:
+        {
+            "action": "start" | "stop" | "pause" | "resume",
+            "mode": "active" | "cautious" | "defensive" | "learning" (optional)
+        }
+    """
+    try:
+        if not _bot_instance:
+            return error_response('Bot not initialized')
+
+        if not hasattr(_bot_instance, 'autopilot') or not _bot_instance.autopilot:
+            return error_response('AutoPilot not initialized')
+
+        data = request.get_json() or {}
+        action = data.get('action', '')
+
+        autopilot = _bot_instance.autopilot
+
+        if action == 'start':
+            autopilot.start()
+            message = 'AutoPilot 시작됨'
+        elif action == 'stop':
+            autopilot.stop()
+            message = 'AutoPilot 중지됨'
+        elif action == 'pause':
+            from core.autopilot import AutoPilotMode
+            autopilot.state.mode = AutoPilotMode.PAUSED
+            message = 'AutoPilot 일시 중지됨'
+        elif action == 'resume':
+            from core.autopilot import AutoPilotMode
+            autopilot.state.mode = AutoPilotMode.ACTIVE
+            message = 'AutoPilot 재개됨'
+        else:
+            return error_response(f'Unknown action: {action}')
+
+        return jsonify({
+            'success': True,
+            'message': message,
+            'status': autopilot.get_status()
+        })
+
+    except Exception as e:
+        logger.error(f"AutoPilot 제어 실패: {e}", exc_info=True)
+        return error_response(str(e), status=500)
