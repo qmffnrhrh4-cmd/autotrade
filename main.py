@@ -1108,12 +1108,23 @@ class AutoTradingBot:
 
             portfolio_info = "No positions"
 
+            # 이미 보유한 종목 제외하고 분석 대상 확대 (최대 10개 중 미보유 종목만)
+            top10 = candidates[:10]
+            analysis_candidates = [
+                c for c in top10
+                if not self.portfolio_manager.has_position(c.code)
+            ][:5]  # 미보유 종목 중 상위 5개만 분석
+
+            if not analysis_candidates:
+                print("⚠️  분석할 새 종목 없음 (상위 10개 모두 보유 중)")
+                return
+
             # 매수 카운터 추가 (한 스캔당 최대 매수 개수 제한)
             bought_count = 0
             max_buys_per_scan = 3  # 한 번 스캔에 최대 3개 매수 (적극적 매수)
 
-            for idx, candidate in enumerate(top5[:3], 1):
-                print(f"\n[{idx}/3] {candidate.name} ({candidate.code})")
+            for idx, candidate in enumerate(analysis_candidates, 1):
+                print(f"\n[{idx}/{len(analysis_candidates)}] {candidate.name} ({candidate.code})")
 
                 scoring_result = candidate_scores[candidate.code]
 
