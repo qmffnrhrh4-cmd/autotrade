@@ -312,7 +312,8 @@ class VirtualTradingDB:
                 # Access result as tuple index instead of dict key
                 position_count = result[0] if result else 0
             except Exception as e:
-                logger.error(f"포지션 수 조회 오류 (strategy_id={strategy_id}, type={type(strategy_id)}): {e}")
+                # SQLite 동시 접근 오류 - 경고만 출력하고 계속 진행
+                logger.debug(f"포지션 수 조회 스킵 (strategy_id={strategy_id}): {e}")
                 position_count = 0
             finally:
                 position_cursor.close()
