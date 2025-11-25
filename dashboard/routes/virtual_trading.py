@@ -143,9 +143,13 @@ def get_strategies():
             current_capital = metrics.get('current_capital', strategy.get('current_capital', initial_capital))
             total_assets = metrics.get('total_assets', current_capital)  # 포지션 평가액 포함
             position_value = metrics.get('position_value', 0)
-            total_profit = metrics.get('realized_profit', 0)
+            realized_profit = metrics.get('realized_profit', 0)
             unrealized_profit = metrics.get('unrealized_profit', 0)
+            # Fix: 총 수익 = 실현 손익 + 미실현 손익
+            total_profit = realized_profit + unrealized_profit
             return_rate = ((total_assets - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
+            trade_count = metrics.get('trade_count', strategy.get('trade_count', 0))
+            position_count = metrics.get('position_count', 0)
 
             strategies_output.append({
                 'id': strategy_id,
@@ -155,12 +159,13 @@ def get_strategies():
                 'current_capital': current_capital,
                 'total_assets': total_assets,  # Fix: 포지션 평가액 포함
                 'position_value': position_value,  # 추가: 포지션 평가액
-                'total_profit': total_profit,
+                'total_profit': total_profit,  # Fix: 실현+미실현 손익
+                'realized_profit': realized_profit,
                 'unrealized_profit': unrealized_profit,  # 추가: 미실현 손익
                 'return_rate': round(return_rate, 2),
                 'win_rate': metrics.get('win_rate', strategy.get('win_rate', 0)),
-                'trade_count': metrics.get('trade_count', strategy.get('trade_count', 0)),
-                'position_count': metrics.get('position_count', 0),  # 추가: 포지션 개수
+                'trade_count': trade_count,
+                'position_count': position_count,  # 추가: 포지션 개수
                 'is_active': strategy.get('is_active', True)
             })
 
