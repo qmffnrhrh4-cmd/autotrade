@@ -5,6 +5,7 @@ virtual_trading/virtual_account.py
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
+from collections import deque
 import json
 from pathlib import Path
 
@@ -77,9 +78,7 @@ class VirtualAccount:
         self.initial_cash = initial_cash
         self.cash = initial_cash
         self.positions: Dict[str, VirtualPosition] = {}
-
-        # 거래 기록
-        self.trade_history: List[Dict] = []
+        self.trade_history: deque = deque(maxlen=1000)
 
         # 성과 추적
         self.total_trades = 0
@@ -292,7 +291,7 @@ class VirtualAccount:
         state = {
             'account': self.get_summary(),
             'positions': [pos.to_dict() for pos in self.positions.values()],
-            'trade_history': self.trade_history[-100:],  # 최근 100건
+            'trade_history': list(self.trade_history)[-100:],
         }
 
         Path(filepath).parent.mkdir(parents=True, exist_ok=True)
@@ -333,8 +332,7 @@ class VirtualAccount:
             pos.unrealized_pnl_rate = pos_dict.get('unrealized_pnl_rate', 0.0)
             self.positions[pos.stock_code] = pos
 
-        # 거래 기록 복원
-        self.trade_history = state.get('trade_history', [])
+        self.trade_history = deque(state.get('trade_history', []), maxlen=1000)
 
 
 __all__ = ['VirtualAccount', 'VirtualPosition']

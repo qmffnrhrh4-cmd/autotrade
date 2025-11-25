@@ -15,6 +15,7 @@ import copy
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta
+from collections import deque
 
 logger = logging.getLogger(__name__)
 
@@ -197,8 +198,7 @@ class StrategyEvolutionEngine:
         # 유전자 풀 (활성 전략)
         self.gene_pool: List[Tuple[int, StrategyGene]] = []  # [(strategy_id, gene), ...]
 
-        # 적합도 히스토리
-        self.fitness_history: List[StrategyFitness] = []
+        self.fitness_history: deque = deque(maxlen=500)
 
         # 최고 성과 전략
         self.best_strategy: Optional[Tuple[int, StrategyGene, StrategyFitness]] = None

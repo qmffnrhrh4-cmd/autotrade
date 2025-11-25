@@ -135,6 +135,13 @@ THRESHOLDS = {
     'min_market_cap': 100_000_000_000
 }
 
+BUY_SCORE_THRESHOLDS = {
+    'ai_buy': 150,
+    'ai_hold': 220,
+    'max_score': 440,
+    'max_buys_per_scan': 3
+}
+
 RETRY_CONFIG = {
     'max_retries': 3,
     'backoff_factor': 2.0,

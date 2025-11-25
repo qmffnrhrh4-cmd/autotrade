@@ -349,83 +349,53 @@ class VirtualTradingDB:
             raise  # 여전히 찾을 수 없으면 에러 발생
 
     def get_all_strategies(self) -> List[Dict[str, Any]]:
-        """모든 가상매매 전략 조회"""
+        """모든 가상매매 전략 조회 (N+1 쿼리 최적화)"""
         cursor = self.conn.cursor()
         cursor.execute("""
-            SELECT * FROM virtual_strategies
-            WHERE is_active = 1
-            ORDER BY created_at DESC
+            SELECT s.*,
+                   COALESCE(p.position_count, 0) as position_count,
+                   COALESCE(p.total_value, 0) as holdings_value
+            FROM virtual_strategies s
+            LEFT JOIN (
+                SELECT strategy_id,
+                       COUNT(*) as position_count,
+                       SUM(quantity * current_price) as total_value
+                FROM virtual_positions
+                WHERE is_closed = 0
+                GROUP BY strategy_id
+            ) p ON s.id = p.strategy_id
+            WHERE s.is_active = 1
+            ORDER BY s.created_at DESC
         """)
 
-        # 모든 결과를 먼저 가져옴 (cursor 재사용 문제 방지)
         rows = cursor.fetchall()
-
         strategies = []
-        seen_names = set()  # Fix: 중복 전략 이름 제거 (DB에 중복 데이터 방지)
+        seen_names = set()
 
         for row in rows:
-            # ID 추출 (SQLite Row 객체는 dict-like이므로 row['id']로 접근)
-            try:
-                strategy_id = row['id']
-            except (KeyError, TypeError):
-                # Fallback: tuple 형태인 경우
-                strategy_id = row[0]
-
-            # strategy_id가 None이면 스킵
-            if strategy_id is None:
-                logger.warning(f"전략 ID가 None입니다. 스킵합니다: {row}")
+            strategy_name = row['name']
+            if strategy_name in seen_names:
                 continue
+            seen_names.add(strategy_name)
 
-            # Fix: 중복 이름 체크 (같은 이름은 최신 것만 유지, DB 정리 전까지 임시 조치)
-            try:
-                strategy_name = row['name']
-                if strategy_name in seen_names:
-                    logger.debug(f"중복 전략 스킵: {strategy_name} (ID: {strategy_id})")
-                    continue
-                seen_names.add(strategy_name)
-            except (KeyError, TypeError):
-                pass  # 이름이 없으면 계속 진행
-
-            # 활성 포지션 수 계산 (새로운 cursor 사용)
-            position_cursor = self.conn.cursor()
-            try:
-                # Ensure strategy_id is valid integer
-                if not isinstance(strategy_id, int):
-                    try:
-                        strategy_id = int(strategy_id)
-                    except (ValueError, TypeError):
-                        logger.warning(f"Invalid strategy_id type: {type(strategy_id)}, value: {strategy_id}")
-                        position_count = 0
-                        continue
-
-                position_cursor.execute("""
-                    SELECT COUNT(*) as cnt FROM virtual_positions
-                    WHERE strategy_id = ? AND is_closed = 0
-                """, (strategy_id,))
-                result = position_cursor.fetchone()
-                # Access result as tuple index instead of dict key
-                position_count = result[0] if result else 0
-            except Exception as e:
-                # SQLite 동시 접근 오류 - 경고만 출력하고 계속 진행
-                logger.debug(f"포지션 수 조회 스킵 (strategy_id={strategy_id}): {e}")
-                position_count = 0
-            finally:
-                position_cursor.close()
+            holdings_value = row['holdings_value'] or 0
+            current_capital = row['current_capital']
+            total_assets = current_capital + holdings_value
 
             strategies.append({
                 'id': row['id'],
                 'name': row['name'],
                 'description': row['description'],
                 'initial_capital': row['initial_capital'],
-                'current_capital': row['current_capital'],
-                'total_assets': row['current_capital'],  # TODO: + 주식 평가금액
+                'current_capital': current_capital,
+                'total_assets': total_assets,
                 'total_profit': row['total_profit'],
                 'return_rate': row['return_rate'],
                 'win_rate': row['win_rate'],
                 'trade_count': row['trade_count'],
                 'win_count': row['win_count'],
                 'loss_count': row['loss_count'],
-                'position_count': position_count,
+                'position_count': row['position_count'],
                 'created_at': row['created_at'],
                 'updated_at': row['updated_at']
             })
