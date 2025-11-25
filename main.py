@@ -19,7 +19,7 @@ from utils.logger_new import get_logger
 from database import get_db_session, Trade, Position, PortfolioSnapshot
 from core import KiwoomRESTClient
 from core.websocket_manager import WebSocketManager
-from api import AccountAPI, MarketAPI, OrderAPI, ExecutionAPI, OrderTracker
+from api import AccountAPI, MarketAPI, OrderAPI, ExecutionAPI, OrderTracker, OrderStatus
 from research import Screener, DataFetcher
 from research.scanner_pipeline import ScannerPipeline
 from strategy.scoring_system import ScoringSystem
@@ -1426,6 +1426,31 @@ class AutoTradingBot:
             stock_name = candidate.name
             current_price = candidate.price
 
+            # Fix: 매수 직전 중복 방지 재확인
+            # 1. 보유 종목 확인 (최신 API 데이터)
+            if self.portfolio_manager.has_position(stock_code):
+                logger.warning(f"⚠️ 중복 매수 방지: {stock_name}({stock_code}) 이미 보유 중")
+                return
+
+            # 2. 미체결 주문 확인 (강제 동기화)
+            if self.order_tracker:
+                self.order_tracker.sync_with_api(force=True)  # 강제 동기화
+                if self.order_tracker.has_pending_order(stock_code):
+                    logger.warning(f"⚠️ 중복 매수 방지: {stock_name}({stock_code}) 미체결 주문 존재")
+                    return
+
+            # 3. 실시간 보유 종목 재확인 (API 직접 호출)
+            try:
+                holdings = self.account_api.get_holdings()
+                if holdings:
+                    for holding in holdings:
+                        holding_code = holding.get('stk_cd') or holding.get('pdno', '')
+                        if holding_code == stock_code:
+                            logger.warning(f"⚠️ 중복 매수 방지: {stock_name}({stock_code}) 실시간 보유 확인")
+                            return
+            except Exception as e:
+                logger.debug(f"보유 종목 재확인 중 오류 (무시): {e}")
+
             # 호가 분석 기반 최적 매수 가격 계산
             optimal_price = self._get_optimal_buy_price(stock_code, current_price)
 
@@ -1483,6 +1508,12 @@ class AutoTradingBot:
             if self.market_status.get('is_test_mode'):
                 logger.info(f"테스트 모드: AI 검토 완료 -> 실제 매수 API 호출")
                 logger.info(f"   Stock: {stock_name}, AI score: {candidate.ai_score}, Total score: {scoring_result.total_score}")
+
+            # Fix: 매수 시작 전 임시 주문 등록 (중복 방지)
+            temp_order_no = f"pending_{stock_code}_{datetime.now().strftime('%H%M%S%f')}"
+            if self.order_tracker:
+                self.order_tracker.register_order(temp_order_no, stock_code, 'buy', quantity, optimal_price)
+                logger.info(f"📝 임시 주문 등록: {temp_order_no}")
 
             # Fix v6.1.3: AI 기반 적응형 분할 매수 사용
             if self.ai_adaptive_split_executor:
@@ -1563,9 +1594,14 @@ class AutoTradingBot:
                 else:
                     order_no = order_result.get('order_no', '') if isinstance(order_result, dict) else ''
 
-                if self.order_tracker and order_no:
-                    self.order_tracker.register_order(order_no, stock_code, 'buy', quantity, optimal_price)
-
+                # Fix: 임시 주문을 실제 주문으로 교체 또는 유지
+                if self.order_tracker:
+                    # 임시 주문 제거
+                    self.order_tracker.update_status(temp_order_no, OrderStatus.FILLED)
+                    # 실제 주문번호로 새로 등록
+                    if order_no:
+                        self.order_tracker.register_order(order_no, stock_code, 'buy', quantity, optimal_price)
+                        logger.info(f"✅ 실제 주문 등록: {order_no}")
                 trade = Trade(
                     stock_code=stock_code,
                     stock_name=stock_name,
@@ -1585,7 +1621,6 @@ class AutoTradingBot:
                 self.db_session.commit()
 
                 logger.info(f"{stock_name} 매수 성공 (주문번호: {order_no})")
-
                 # Fix: 트레일링 스탑 추가 (ATR 기반 동적 손절/익절)
                 if self.trailing_stop_manager:
                     try:
@@ -1619,6 +1654,11 @@ class AutoTradingBot:
                     f'{stock_name} buy: {quantity}@{current_price:,}',
                     level='success'
                 )
+            else:
+                # 주문 실패 시 임시 주문 취소 처리
+                if self.order_tracker:
+                    self.order_tracker.update_status(temp_order_no, OrderStatus.CANCELLED)
+                    logger.warning(f"❌ 주문 실패 - 임시 주문 취소: {temp_order_no}")
 
         except Exception as e:
             logger.error(f"매수 실행 실패: {e}", exc_info=True)

@@ -2312,10 +2312,13 @@
 
                         console.log(`가상매매 필터링: ${data.strategies.length}개 중 ${filteredStrategies.length}개 표시`);
 
-                        // 전략 목록을 객체로 변환 (기존 updateVirtualTradingDisplay 형식)
+                        // Fix: ID 기반 객체로 변환 (이름 중복 방지)
                         const strategiesObj = {};
                         filteredStrategies.forEach(s => {
-                            strategiesObj[s.name] = {
+                            const key = `strategy_${s.id}`;  // ID 기반 키 사용
+                            strategiesObj[key] = {
+                                id: s.id,
+                                name: s.name,
                                 capital: s.total_assets || s.current_capital,
                                 return: s.return_rate,
                                 trades: s.trade_count,
@@ -2326,7 +2329,8 @@
                         });
 
                         updateVirtualTradingDisplay(strategiesObj);
-                        updateVirtualStrategiesList(strategiesObj);
+                        // Fix: 배열을 직접 전달하여 정확한 개수 표시
+                        updateVirtualStrategiesList(filteredStrategies);
 
                         // 필터링 정보 표시
                         const totalCount = data.strategies.length;
@@ -3994,7 +3998,22 @@
             const listEl = document.getElementById('virtual-strategies-list');
             const titleEl = document.getElementById('virtual-strategies-title');
 
-            if (!strategies || Object.keys(strategies).length === 0) {
+            // Fix: 배열 또는 객체 모두 처리
+            let strategiesArray = [];
+
+            if (Array.isArray(strategies)) {
+                // 배열인 경우 (새로운 방식)
+                strategiesArray = strategies;
+            } else if (strategies && typeof strategies === 'object') {
+                // 객체인 경우 (이전 호환성)
+                strategiesArray = Object.entries(strategies).map(([key, stats]) => ({
+                    id: key,
+                    name: stats.name || key,
+                    ...stats
+                }));
+            }
+
+            if (!strategiesArray || strategiesArray.length === 0) {
                 listEl.innerHTML = `
                     <div class="empty-state">
                         <i class="fas fa-vial"></i>
@@ -4008,28 +4027,23 @@
                 return;
             }
 
-            const strategiesArray = Object.entries(strategies).map(([name, stats]) => ({
-                name,
-                ...stats
-            }));
-
             // Update title with count
             if (titleEl) {
                 titleEl.textContent = `가상매매 전략 (${strategiesArray.length}개)`;
             }
 
             // Sort by return rate descending
-            strategiesArray.sort((a, b) => (b.return || 0) - (a.return || 0));
+            strategiesArray.sort((a, b) => (b.return || b.return_rate || 0) - (a.return || a.return_rate || 0));
 
             let html = '<div style="display: flex; flex-direction: column; gap: 0.75rem;">';
 
             strategiesArray.forEach(strategy => {
-                const capital = strategy.capital || 0;
-                const returnPct = strategy.return || 0;
-                const trades = strategy.trades || 0;
+                const capital = strategy.capital || strategy.total_assets || strategy.current_capital || 0;
+                const returnPct = strategy.return || strategy.return_rate || 0;
+                const trades = strategy.trades || strategy.trade_count || 0;
                 const positions = strategy.position_count || 0;
                 const profit = strategy.total_profit || 0;
-                const status = strategy.status || 'inactive';
+                const status = (strategy.status || (strategy.is_active !== false ? 'active' : 'inactive'));
 
                 const profitColor = returnPct >= 0 ? 'var(--color-success)' : 'var(--color-danger)';
                 const profitSign = returnPct >= 0 ? '+' : '';
