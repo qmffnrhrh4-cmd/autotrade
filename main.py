@@ -1110,7 +1110,7 @@ class AutoTradingBot:
 
             # 매수 카운터 추가 (한 스캔당 최대 매수 개수 제한)
             bought_count = 0
-            max_buys_per_scan = 1  # 한 번 스캔에 최대 1개만 매수
+            max_buys_per_scan = 3  # 한 번 스캔에 최대 3개 매수 (적극적 매수)
 
             for idx, candidate in enumerate(top5[:3], 1):
                 print(f"\n[{idx}/3] {candidate.name} ({candidate.code})")
@@ -1219,11 +1219,11 @@ class AutoTradingBot:
                     self.ai_approved_candidates.insert(0, buy_candidate)
                     self.ai_approved_candidates = self.ai_approved_candidates[:10]
 
-                # Fix: 매수 조건 완화 (250 → 200, 300 → 280)
-                # 너무 엄격한 조건으로 인해 매수가 발생하지 않는 문제 해결
+                # Fix: 매수 조건 대폭 완화 - 적극적 매수 전략
+                # BUY: 150점(34%), HOLD: 220점(50%)으로 낮춤
                 buy_approved = (
-                    (ai_signal == 'buy' and scoring_result.total_score >= 200) or
-                    (ai_signal == 'hold' and scoring_result.total_score >= 280)
+                    (ai_signal == 'buy' and scoring_result.total_score >= 150) or
+                    (ai_signal == 'hold' and scoring_result.total_score >= 220)
                 )
 
                 # 매수 조건 평가 로깅
