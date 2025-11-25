@@ -799,9 +799,18 @@ def get_pending_orders():
             })
 
         # Get pending orders from API
-        pending_orders = _bot_instance.account_api.get_outstanding_orders()
+        pending_orders_response = _bot_instance.account_api.get_outstanding_orders()
 
-        if not pending_orders:
+        if not pending_orders_response:
+            return jsonify({
+                'success': True,
+                'orders': []
+            })
+
+        # Fix: API 응답에서 ord_list 추출 (응답은 딕셔너리, 실제 주문 목록은 ord_list 키에 있음)
+        order_list = pending_orders_response.get('ord_list', [])
+
+        if not order_list:
             return jsonify({
                 'success': True,
                 'orders': []
@@ -809,7 +818,7 @@ def get_pending_orders():
 
         # Normalize order data
         normalized_orders = []
-        for order in pending_orders:
+        for order in order_list:
             normalized_orders.append({
                 'order_no': order.get('odno') or order.get('order_no', ''),
                 'stock_code': order.get('pdno') or order.get('stock_code', ''),
