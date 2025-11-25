@@ -4,92 +4,107 @@ setlocal enabledelayedexpansion
 
 echo.
 echo ================================================================================
-echo  🤖 AutoTrade Pro - 완전 자동화 시스템 v6.3
+echo   AutoTrade Pro - Complete Automation System v6.3
 echo ================================================================================
 echo.
-echo  ✅ OpenAPI 서버 (32비트) - Kiwoom 연결
-echo  ✅ 전략 진화 엔진 - 24/7 자동 최적화
-echo  ✅ 웹 대시보드 - 실시간 모니터링
-echo  ✅ AutoPilot - AI 완전 자동 매매
+echo   [v] OpenAPI Server 32-bit - Kiwoom Connection
+echo   [v] Strategy Evolution Engine - 24/7 Auto Optimization
+echo   [v] Web Dashboard - Real-time Monitoring
+echo   [v] AutoPilot - AI Full Automation
 echo.
 echo ================================================================================
 echo.
 
 REM ======================================================================
-REM Step 1: 32-bit Python 환경 찾기
+REM Step 1: Find 32-bit Python
 REM ======================================================================
-echo [1/5] 32-bit Python 환경 확인 중...
+echo [1/5] Checking 32-bit Python...
 
 set "PYTHON32="
+
+REM Check path 1
 if exist "C:\Users\USER\anaconda3\envs\kiwoom32\python.exe" (
     set "PYTHON32=C:\Users\USER\anaconda3\envs\kiwoom32\python.exe"
-    echo    ✓ 32-bit Python 발견: kiwoom32
-) else if exist "C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe" (
-    set "PYTHON32=C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe"
-    echo    ✓ 32-bit Python 발견: kiwoom32 (ProgramData)
-) else if exist "C:\Anaconda3\envs\kiwoom32\python.exe" (
-    set "PYTHON32=C:\Anaconda3\envs\kiwoom32\python.exe"
-    echo    ✓ 32-bit Python 발견: kiwoom32 (Anaconda3)
-) else (
-    echo    ⚠️  32-bit Python을 찾을 수 없습니다
-    echo    수동 실행 필요: conda activate kiwoom32 ^&^& python openapi_server_v2.py
-    pause
-    exit /b 1
+    echo    Found: kiwoom32 - Users
+    goto FOUND_PYTHON
 )
 
-REM openapi_server_v2.py 존재 확인
+REM Check path 2
+if exist "C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe" (
+    set "PYTHON32=C:\ProgramData\Anaconda3\envs\kiwoom32\python.exe"
+    echo    Found: kiwoom32 - ProgramData
+    goto FOUND_PYTHON
+)
+
+REM Check path 3
+if exist "C:\Anaconda3\envs\kiwoom32\python.exe" (
+    set "PYTHON32=C:\Anaconda3\envs\kiwoom32\python.exe"
+    echo    Found: kiwoom32 - Anaconda3
+    goto FOUND_PYTHON
+)
+
+REM Not found
+echo    ERROR: 32-bit Python not found
+echo    Please run: conda activate kiwoom32
+pause
+exit /b 1
+
+:FOUND_PYTHON
+echo    Python32 path: %PYTHON32%
+
+REM Check openapi_server_v2.py exists
 if not exist "openapi_server_v2.py" (
-    echo    ❌ openapi_server_v2.py 파일이 없습니다
-    echo    현재 디렉토리: %CD%
+    echo    ERROR: openapi_server_v2.py not found
+    echo    Current dir: %CD%
     pause
     exit /b 1
 )
 echo.
 
 REM ======================================================================
-REM Step 2: 기존 프로세스 정리
+REM Step 2: Cleanup existing processes
 REM ======================================================================
-echo [2/5] 기존 프로세스 정리 중...
+echo [2/5] Cleaning up existing processes...
 
-REM 기존 OpenAPI 서버 확인 및 종료
+REM Check and shutdown existing OpenAPI server
 curl -s http://127.0.0.1:5001/health >nul 2>&1
 if %ERRORLEVEL% equ 0 (
-    echo    ↻ 기존 OpenAPI 서버 종료 중...
+    echo    Shutting down existing OpenAPI server...
     curl -s -X POST http://127.0.0.1:5001/shutdown >nul 2>&1
     timeout /t 2 /nobreak >nul
 )
 
-REM 포트 5001 사용 중인 프로세스 종료
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001" ^| findstr "LISTENING" 2^>nul') do (
-    echo    ↻ 포트 5001 프로세스 종료 (PID: %%a)
+REM Kill process on port 5001
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":5001" ^| findstr "LISTENING"') do (
+    echo    Killing port 5001 - PID: %%a
     taskkill /F /PID %%a >nul 2>&1
 )
 
-REM 포트 5000 사용 중인 프로세스 종료
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5000" ^| findstr "LISTENING" 2^>nul') do (
-    echo    ↻ 포트 5000 프로세스 종료 (PID: %%a)
+REM Kill process on port 5000
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":5000" ^| findstr "LISTENING"') do (
+    echo    Killing port 5000 - PID: %%a
     taskkill /F /PID %%a >nul 2>&1
 )
 
-echo    ✓ 정리 완료
+echo    Cleanup done
 echo.
 
 REM ======================================================================
-REM Step 3: OpenAPI 서버 시작 (32-bit)
+REM Step 3: Start OpenAPI Server 32-bit
 REM ======================================================================
-echo [3/5] OpenAPI 서버 시작 중 (32-bit)...
+echo [3/5] Starting OpenAPI Server 32-bit...
 echo.
-echo    ⚠️  중요: 키움증권 로그인 창이 나타나면 로그인하세요!
-echo    - Alt+Tab 으로 창을 찾거나
-echo    - 작업 표시줄에서 창을 확인하세요
+echo    IMPORTANT: Login when Kiwoom window appears!
+echo    - Use Alt+Tab to find the window
+echo    - Or check taskbar
 echo.
 
-start "Kiwoom OpenAPI Server (32-bit)" "%PYTHON32%" openapi_server_v2.py
-echo    ✓ OpenAPI 서버 창 열림
+start "Kiwoom OpenAPI Server" "%PYTHON32%" openapi_server_v2.py
+echo    OpenAPI server window opened
 
-REM OpenAPI 연결 대기 (최대 90초)
+REM Wait for OpenAPI connection - max 90 seconds
 echo.
-echo    로그인 대기 중... (최대 90초)
+echo    Waiting for login... max 90 seconds
 
 set /a RETRY_COUNT=0
 set /a MAX_RETRIES=90
@@ -98,18 +113,18 @@ set /a MAX_RETRIES=90
 set /a RETRY_COUNT+=1
 if %RETRY_COUNT% gtr %MAX_RETRIES% (
     echo.
-    echo    ⚠️  OpenAPI 연결 시간 초과 - 수동 로그인 후 계속됩니다
+    echo    WARNING: OpenAPI connection timeout - continuing anyway
     goto START_SERVICES
 )
 
-REM 서버 상태 확인
+REM Check server status
 curl -s http://127.0.0.1:5001/health > health_temp.json 2>&1
 if %ERRORLEVEL% equ 0 (
     findstr /C:"\"connection_status\": \"connected\"" health_temp.json >nul 2>&1
     if %ERRORLEVEL% equ 0 (
         del health_temp.json >nul 2>&1
         echo.
-        echo    ✅ OpenAPI 연결 성공!
+        echo    SUCCESS: OpenAPI connected!
         timeout /t 5 /nobreak >nul
         goto START_SERVICES
     )
@@ -117,11 +132,11 @@ if %ERRORLEVEL% equ 0 (
 
 if exist health_temp.json del health_temp.json >nul 2>&1
 
-REM 진행 상태 표시 (10초마다)
-set /a MOD=%RETRY_COUNT% %% 10
-if %MOD% equ 0 (
-    set /a REMAINING=%MAX_RETRIES% - %RETRY_COUNT%
-    echo    [%RETRY_COUNT%/%MAX_RETRIES%] 대기 중... (남은 시간: %REMAINING%초)
+REM Show progress every 10 seconds
+set /a MOD=!RETRY_COUNT! %% 10
+if !MOD! equ 0 (
+    set /a REMAINING=%MAX_RETRIES% - !RETRY_COUNT!
+    echo    [!RETRY_COUNT!/%MAX_RETRIES%] Waiting... !REMAINING! seconds left
 )
 
 timeout /t 1 /nobreak >nul
@@ -132,90 +147,88 @@ if exist health_temp.json del health_temp.json >nul 2>&1
 echo.
 
 REM ======================================================================
-REM Step 4: 백그라운드 서비스 시작
+REM Step 4: Start background services
 REM ======================================================================
-echo [4/5] 백그라운드 서비스 시작 중...
+echo [4/5] Starting background services...
 
-REM logs 폴더 생성
+REM Create logs folder
 if not exist "logs" mkdir logs
 
-REM 전략 최적화 엔진 시작
+REM Start strategy optimizer
 if exist "run_strategy_optimizer.py" (
     start /B python run_strategy_optimizer.py --auto-deploy > logs\strategy_optimizer.log 2>&1
-    echo    ✓ 전략 진화 엔진 시작 (logs\strategy_optimizer.log)
-) else (
-    echo    ⚠️  전략 최적화 파일 없음 - 건너뜀
+    echo    Strategy Evolution Engine started
 )
 
 timeout /t 1 /nobreak >nul
 
-REM 대시보드 서버 시작
+REM Start dashboard
 start /B python -m dashboard.app > logs\dashboard.log 2>&1
-echo    ✓ 웹 대시보드 시작 (http://localhost:5000)
+echo    Web Dashboard started - http://localhost:5000
 
 timeout /t 2 /nobreak >nul
 echo.
 
 REM ======================================================================
-REM Step 5: 메인 봇 시작 (AutoPilot 완전 자동화)
+REM Step 5: Start main bot with AutoPilot
 REM ======================================================================
-echo [5/5] AutoPilot 메인 봇 시작 중...
+echo [5/5] Starting AutoPilot Main Bot...
 echo.
 echo ================================================================================
-echo  🤖 AutoPilot 완전 자동화 모드
+echo   AutoPilot Full Automation Mode
 echo ================================================================================
 echo.
-echo  실행 중인 서비스:
-echo    [1] OpenAPI Server - Port 5001 (32-bit Kiwoom)
-echo    [2] Strategy Optimizer - 백그라운드 진화
-echo    [3] Web Dashboard - http://localhost:5000
-echo    [4] AutoTrade Bot - AutoPilot 완전 자동화
+echo   Running Services:
+echo     [1] OpenAPI Server - Port 5001 - 32bit Kiwoom
+echo     [2] Strategy Optimizer - Background evolution
+echo     [3] Web Dashboard - http://localhost:5000
+echo     [4] AutoTrade Bot - AutoPilot full automation
 echo.
-echo  로그 위치:
-echo    - logs\strategy_optimizer.log
-echo    - logs\dashboard.log
-echo    - logs\autotrade.log
+echo   Log files:
+echo     - logs\strategy_optimizer.log
+echo     - logs\dashboard.log
+echo     - logs\autotrade.log
 echo.
 echo ================================================================================
 echo.
 
-REM 브라우저 열기
+REM Open browser
 start http://localhost:5000
 
-REM 메인 봇 시작 (가상매매 + 자동시작 + 테스트 건너뛰기)
+REM Start main bot
 python main.py --virtual-trading --auto-start --skip-test
 
 REM ======================================================================
-REM 종료 시 정리
+REM Cleanup on exit
 REM ======================================================================
 echo.
 echo ================================================================================
-echo  메인 봇 종료됨 - 백그라운드 서비스 정리 중...
+echo   Main bot stopped - Cleaning up background services...
 echo ================================================================================
 echo.
 
-REM 전략 최적화 종료
-for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST ^| findstr /C:"PID:"') do (
+REM Kill strategy optimizer
+for /f "tokens=2" %%a in ('tasklist /FI "IMAGENAME eq python.exe" /FO LIST 2^>nul ^| findstr /C:"PID:"') do (
     wmic process where "ProcessId=%%a" get CommandLine 2>nul | findstr /C:"run_strategy_optimizer.py" >nul
     if !ERRORLEVEL! equ 0 (
-        echo    ↻ Strategy Optimizer 종료 (PID: %%a)
+        echo    Stopping Strategy Optimizer - PID: %%a
         taskkill /F /PID %%a >nul 2>&1
     )
 )
 
-REM 대시보드 종료
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5000" ^| findstr "LISTENING" 2^>nul') do (
-    echo    ↻ Dashboard 종료 (PID: %%a)
+REM Kill Dashboard
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":5000" ^| findstr "LISTENING"') do (
+    echo    Stopping Dashboard - PID: %%a
     taskkill /F /PID %%a >nul 2>&1
 )
 
-REM OpenAPI 서버 종료
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5001" ^| findstr "LISTENING" 2^>nul') do (
-    echo    ↻ OpenAPI Server 종료 (PID: %%a)
+REM Kill OpenAPI Server
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":5001" ^| findstr "LISTENING"') do (
+    echo    Stopping OpenAPI Server - PID: %%a
     taskkill /F /PID %%a >nul 2>&1
 )
 
 echo.
-echo    ✅ 모든 서비스 종료 완료
+echo    All services stopped
 echo.
 pause
