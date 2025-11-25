@@ -14,12 +14,12 @@ from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config.manager import get_config
-from config.constants import DELAYS, URLS, HOST, PORTS
+from config.constants import DELAYS, URLS, HOST, PORTS, BUY_SCORE_THRESHOLDS
 from utils.logger_new import get_logger
 from database import get_db_session, Trade, Position, PortfolioSnapshot
 from core import KiwoomRESTClient
 from core.websocket_manager import WebSocketManager
-from api import AccountAPI, MarketAPI, OrderAPI
+from api import AccountAPI, MarketAPI, OrderAPI, ExecutionAPI, OrderTracker
 from research import Screener, DataFetcher
 from research.scanner_pipeline import ScannerPipeline
 from strategy.scoring_system import ScoringSystem
@@ -91,6 +91,8 @@ class AutoTradingBot:
         self.account_api = None
         self.market_api = None
         self.order_api = None
+        self.execution_api = None
+        self.order_tracker = None
         self.data_fetcher = None
 
         self.scanner = None
@@ -124,7 +126,6 @@ class AutoTradingBot:
         self.db_session = None
 
         self.ai_approved_candidates = []
-        self.recent_orders = {}  # {stock_code: order_time} - 최근 주문 추적 (중복 주문 방지)
         self.scan_progress = {
             'current_strategy': '',
             'total_candidates': 0,
@@ -324,6 +325,8 @@ class AutoTradingBot:
             self.account_api = AccountAPI(self.client)
             self.market_api = MarketAPI(self.client)
             self.order_api = OrderAPI(self.client)
+            self.execution_api = ExecutionAPI(self.client)
+            self.order_tracker = OrderTracker(self.execution_api)
             self.data_fetcher = DataFetcher(self.client)
             logger.info("API 모듈 초기화 완료")
 
@@ -1109,29 +1112,23 @@ class AutoTradingBot:
 
             portfolio_info = "No positions"
 
-            # 최근 주문 목록 정리 (5분 지난 것 제거)
-            now = datetime.now()
-            self.recent_orders = {
-                code: order_time
-                for code, order_time in self.recent_orders.items()
-                if (now - order_time).total_seconds() < 300  # 5분
-            }
+            if self.order_tracker:
+                self.order_tracker.sync_with_api()
+                self.order_tracker.cleanup_expired()
 
-            # 이미 보유한 종목 + 최근 주문한 종목 제외 (최대 10개 중)
             top10 = candidates[:10]
             analysis_candidates = [
                 c for c in top10
                 if not self.portfolio_manager.has_position(c.code)
-                and c.code not in self.recent_orders  # 최근 5분 내 주문한 종목 제외
-            ][:5]  # 미보유+미주문 종목 중 상위 5개만 분석
+                and not (self.order_tracker and self.order_tracker.has_pending_order(c.code))
+            ][:5]
 
             if not analysis_candidates:
                 print("⚠️  분석할 새 종목 없음 (상위 10개 모두 보유/주문 중)")
                 return
 
-            # 매수 카운터 추가 (한 스캔당 최대 매수 개수 제한)
             bought_count = 0
-            max_buys_per_scan = 3  # 한 번 스캔에 최대 3개 매수 (적극적 매수)
+            max_buys_per_scan = BUY_SCORE_THRESHOLDS['max_buys_per_scan']
 
             for idx, candidate in enumerate(analysis_candidates, 1):
                 print(f"\n[{idx}/{len(analysis_candidates)}] {candidate.name} ({candidate.code})")
@@ -1240,11 +1237,9 @@ class AutoTradingBot:
                     self.ai_approved_candidates.insert(0, buy_candidate)
                     self.ai_approved_candidates = self.ai_approved_candidates[:10]
 
-                # Fix: 매수 조건 대폭 완화 - 적극적 매수 전략
-                # BUY: 150점(34%), HOLD: 220점(50%)으로 낮춤
                 buy_approved = (
-                    (ai_signal == 'buy' and scoring_result.total_score >= 150) or
-                    (ai_signal == 'hold' and scoring_result.total_score >= 220)
+                    (ai_signal == 'buy' and scoring_result.total_score >= BUY_SCORE_THRESHOLDS['ai_buy']) or
+                    (ai_signal == 'hold' and scoring_result.total_score >= BUY_SCORE_THRESHOLDS['ai_hold'])
                 )
 
                 # 매수 조건 평가 로깅
@@ -1273,8 +1268,7 @@ class AutoTradingBot:
                     print(f"매수 조건 충족 - 주문 실행 중")
 
                     self._execute_buy(candidate, scoring_result)
-                    bought_count += 1  # 매수 카운터 증가
-                    self.recent_orders[candidate.code] = datetime.now()  # 중복 주문 방지용 기록
+                    bought_count += 1
 
                     if self.virtual_trader:
                         try:
@@ -1558,19 +1552,19 @@ class AutoTradingBot:
                     logger.error(f"❌ 가상매매 실행 실패: {e}", exc_info=True)
 
             if order_result:
-                # Fix: SplitOrderGroup vs 딕셔너리 구분
                 from strategy.split_order_manager import SplitOrderGroup
                 if isinstance(order_result, SplitOrderGroup):
-                    # 분할 주문의 경우 group_id 또는 첫 번째 entry의 order_number 사용
                     order_no = order_result.group_id
                     if order_result.entries and len(order_result.entries) > 0:
                         first_entry = order_result.entries[0]
                         if hasattr(first_entry, 'order_number') and first_entry.order_number:
                             order_no = first_entry.order_number
-                    logger.info(f"분할 매수 완료: {len(order_result.entries)}개 주문 생성 (그룹 ID: {order_result.group_id})")
+                    logger.info(f"분할 매수 완료: {len(order_result.entries)}개 주문")
                 else:
-                    # 일반 주문의 경우
                     order_no = order_result.get('order_no', '') if isinstance(order_result, dict) else ''
+
+                if self.order_tracker and order_no:
+                    self.order_tracker.register_order(order_no, stock_code, 'buy', quantity, optimal_price)
 
                 trade = Trade(
                     stock_code=stock_code,
