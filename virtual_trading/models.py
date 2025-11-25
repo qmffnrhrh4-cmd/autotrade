@@ -182,6 +182,56 @@ class VirtualTradingDB:
         self.conn.commit()
         logger.info("✅ 가상매매 데이터베이스 초기화 및 인덱스 생성 완료")
 
+        # 기본 전략 보장 및 고아 포지션 정리
+        self._ensure_default_strategy()
+        self._cleanup_orphan_positions()
+
+    def _ensure_default_strategy(self):
+        """기본 전략이 없으면 생성"""
+        cursor = self.conn.cursor()
+        cursor.execute("SELECT id FROM virtual_strategies WHERE name = 'default' AND is_active = 1")
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT OR IGNORE INTO virtual_strategies (name, description, initial_capital, current_capital)
+                VALUES ('default', '기본 가상매매 전략', 10000000, 10000000)
+            """)
+            self.conn.commit()
+            logger.info("✅ 기본 전략 생성 완료")
+
+    def _cleanup_orphan_positions(self):
+        """고아 포지션 정리 (존재하지 않는 전략 참조)"""
+        cursor = self.conn.cursor()
+
+        # 고아 포지션 수 확인
+        cursor.execute("""
+            SELECT COUNT(*) FROM virtual_positions p
+            WHERE NOT EXISTS (
+                SELECT 1 FROM virtual_strategies s
+                WHERE s.id = p.strategy_id AND s.is_active = 1
+            )
+        """)
+        orphan_count = cursor.fetchone()[0]
+
+        if orphan_count > 0:
+            # 기본 전략 ID 조회
+            cursor.execute("SELECT id FROM virtual_strategies WHERE name = 'default' AND is_active = 1")
+            default_strategy = cursor.fetchone()
+
+            if default_strategy:
+                default_id = default_strategy[0]
+                # 고아 포지션을 기본 전략으로 이전
+                cursor.execute("""
+                    UPDATE virtual_positions SET strategy_id = ?
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM virtual_strategies s
+                        WHERE s.id = virtual_positions.strategy_id AND s.is_active = 1
+                    )
+                """, (default_id,))
+                self.conn.commit()
+                logger.info(f"✅ 고아 포지션 {orphan_count}개를 기본 전략으로 이전 완료")
+            else:
+                logger.warning(f"⚠️ 기본 전략 없음 - 고아 포지션 {orphan_count}개 미처리")
+
     def create_strategy(
         self,
         name: str,

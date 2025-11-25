@@ -101,14 +101,18 @@ class VirtualTradingManager:
         strategy = next((s for s in strategies if s['id'] == strategy_id), None)
 
         if not strategy:
-            # 전략이 없으면 기본 설정 사용 (에러 대신 경고)
-            logger.warning(f"전략을 찾을 수 없음: {strategy_id} - 기본 설정 사용")
-            strategy = {
-                'id': strategy_id,
-                'name': 'default',
-                'split_buy_enabled': 0,
-                'split_sell_enabled': 0,
-            }
+            # 전략이 없으면 기본 전략 사용 (DB에서 조회)
+            logger.warning(f"전략을 찾을 수 없음: {strategy_id} - 기본 전략으로 대체")
+            strategy = next((s for s in strategies if s['name'] == 'default'), None)
+            if not strategy:
+                # 기본 전략도 없으면 최소 설정 사용
+                logger.error(f"기본 전략도 없음 - 최소 설정으로 진행")
+                strategy = {
+                    'id': strategy_id,
+                    'name': 'fallback',
+                    'split_buy_enabled': 0,
+                    'split_sell_enabled': 0,
+                }
 
         # 손절/익절가 계산
         stop_loss_price = None
@@ -282,14 +286,18 @@ class VirtualTradingManager:
             strategy = next((s for s in strategies if s['id'] == strategy_id), None)
 
             if not strategy:
-                # 전략이 없으면 기본 설정 사용 (에러 대신 경고)
-                logger.warning(f"전략을 찾을 수 없음: {strategy_id} - 기본 설정 사용")
-                strategy = {
-                    'id': strategy_id,
-                    'name': 'default',
-                    'split_buy_enabled': 0,
-                    'split_sell_enabled': 0,
-                }
+                # 전략이 없으면 기본 전략 사용 (DB에서 조회)
+                logger.warning(f"전략을 찾을 수 없음: {strategy_id} - 기본 전략으로 대체")
+                strategy = next((s for s in strategies if s['name'] == 'default'), None)
+                if not strategy:
+                    # 기본 전략도 없으면 최소 설정 사용
+                    logger.error(f"기본 전략도 없음 - 최소 설정으로 진행")
+                    strategy = {
+                        'id': strategy_id,
+                        'name': 'fallback',
+                        'split_buy_enabled': 0,
+                        'split_sell_enabled': 0,
+                    }
 
             # 손절/익절은 즉시 전량 매도
             is_emergency_exit = reason in ["stop_loss"]
