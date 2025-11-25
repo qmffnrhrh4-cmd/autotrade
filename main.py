@@ -17,7 +17,7 @@ from config.manager import get_config
 from config.constants import DELAYS, URLS, HOST, PORTS, BUY_SCORE_THRESHOLDS
 from utils.logger_new import get_logger
 from database import get_db_session, Trade, Position, PortfolioSnapshot
-from core import KiwoomRESTClient
+from core import KiwoomRESTClient, init_autopilot, get_autopilot
 from core.websocket_manager import WebSocketManager
 from api import AccountAPI, MarketAPI, OrderAPI, ExecutionAPI, OrderTracker, OrderStatus
 from research import Screener, DataFetcher
@@ -118,6 +118,7 @@ class AutoTradingBot:
         self.trade_logger = None
         self.virtual_trading_manager = None
         self.virtual_trading_scheduler = None
+        self.autopilot = None  # v6.3 AutoPilot (완전 자동화)
 
         self.monitor = get_monitor()
         self.alert_manager = get_alert_manager()
@@ -532,12 +533,32 @@ class AutoTradingBot:
                     logger.info("가상매매 스케줄러 시작 완료 (실시간 업데이트, 자동 손절/익절, 독립 매매)")
 
                 logger.info("가상매매 시스템 초기화 완료")
+
+                # v6.3 AutoPilot 초기화 (완전 자동화)
+                try:
+                    from virtual_trading.evolution_engine import get_evolution_engine
+                    evolution_engine = get_evolution_engine()
+
+                    self.autopilot = init_autopilot(
+                        virtual_manager=self.virtual_trading_manager,
+                        evolution_engine=evolution_engine,
+                        dynamic_risk_manager=self.dynamic_risk_manager,
+                        analyzer=getattr(self, 'analyzer', None),
+                        data_fetcher=self.data_fetcher
+                    )
+                    self.autopilot.start()
+                    logger.info("🤖 AutoPilot 완전 자동화 모드 시작!")
+                except Exception as e:
+                    logger.warning(f"AutoPilot 초기화 실패 (수동 모드로 계속): {e}")
+                    self.autopilot = None
+
             except Exception as e:
                 logger.warning(f"가상매매 시스템 초기화 실패: {e}")
                 self.virtual_trader = None
                 self.trade_logger = None
                 self.virtual_trading_manager = None
                 self.virtual_trading_scheduler = None
+                self.autopilot = None
 
             self._initialize_control_file()
             self._restore_state()
