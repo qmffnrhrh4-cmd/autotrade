@@ -535,22 +535,29 @@ class AutoTradingBot:
                 logger.info("가상매매 시스템 초기화 완료")
 
                 # v6.3 AutoPilot 초기화 (완전 자동화)
-                try:
-                    from virtual_trading.evolution_engine import get_evolution_engine
-                    evolution_engine = get_evolution_engine()
+                # 환경 변수로 비활성화 여부 확인
+                autopilot_disabled = os.environ.get('AUTOPILOT_DISABLED', '0') == '1'
 
-                    self.autopilot = init_autopilot(
-                        virtual_manager=self.virtual_trading_manager,
-                        evolution_engine=evolution_engine,
-                        dynamic_risk_manager=self.dynamic_risk_manager,
-                        analyzer=getattr(self, 'analyzer', None),
-                        data_fetcher=self.data_fetcher
-                    )
-                    self.autopilot.start()
-                    logger.info("🤖 AutoPilot 완전 자동화 모드 시작!")
-                except Exception as e:
-                    logger.warning(f"AutoPilot 초기화 실패 (수동 모드로 계속): {e}")
+                if autopilot_disabled:
+                    logger.info("⚠️  AutoPilot 비활성화됨 (--no-autopilot 플래그)")
                     self.autopilot = None
+                else:
+                    try:
+                        from virtual_trading.evolution_engine import get_evolution_engine
+                        evolution_engine = get_evolution_engine()
+
+                        self.autopilot = init_autopilot(
+                            virtual_manager=self.virtual_trading_manager,
+                            evolution_engine=evolution_engine,
+                            dynamic_risk_manager=self.dynamic_risk_manager,
+                            analyzer=getattr(self, 'analyzer', None),
+                            data_fetcher=self.data_fetcher
+                        )
+                        self.autopilot.start()
+                        logger.info("🤖 AutoPilot 완전 자동화 모드 시작!")
+                    except Exception as e:
+                        logger.warning(f"AutoPilot 초기화 실패 (수동 모드로 계속): {e}")
+                        self.autopilot = None
 
             except Exception as e:
                 logger.warning(f"가상매매 시스템 초기화 실패: {e}")
@@ -2078,10 +2085,19 @@ def main():
                        help='가상매매 전략 자동 시작')
     parser.add_argument('--skip-test', action='store_true',
                        help='자체 테스트 건너뛰기')
+    parser.add_argument('--no-autopilot', action='store_true',
+                       help='AutoPilot 비활성화 (수동 모드)')
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+
+    # AutoPilot 제어 (환경 변수로 전달)
+    if args.no_autopilot:
+        os.environ['AUTOPILOT_DISABLED'] = '1'
+        logger.info("⚠️  AutoPilot 비활성화됨 (수동 모드)")
+    else:
+        os.environ['AUTOPILOT_DISABLED'] = '0'
 
     bot = AutoTradingBot()
 
