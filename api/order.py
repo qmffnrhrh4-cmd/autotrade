@@ -420,9 +420,9 @@ class OrderAPI:
         try:
             logger.info(f"주문 취소 요청: {stock_code}, 주문번호={order_no}, 수량={quantity}")
 
-            # 계좌번호 확인
+            # 계좌번호 확인 (client에서 가져오기)
             if account_number is None:
-                account_number = self.account_number
+                account_number = getattr(self.client, 'account_number_full', None)
 
             if not account_number:
                 logger.error("계좌번호가 설정되지 않았습니다")
