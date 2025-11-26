@@ -420,29 +420,22 @@ class OrderAPI:
         try:
             logger.info(f"주문 취소 요청: {stock_code}, 주문번호={order_no}, 수량={quantity}")
 
-            # 계좌번호 확인 (client에서 가져오기)
-            if account_number is None:
-                account_number = getattr(self.client, 'account_number_full', None)
+            # 전량 취소 여부
+            cancel_all = quantity == 0
 
-            if not account_number:
-                logger.error("계좌번호가 설정되지 않았습니다")
-                return {'success': False, 'error': 'Account number not set'}
+            # API 호출: kt10003 (주식취소주문)
+            body = {
+                "dmst_stex_tp": "KRX",
+                "stk_cd": stock_code,
+                "orig_ord_no": order_no,
+                "cncl_qty": "0" if cancel_all else str(quantity),
+                "trde_tp": "0"
+            }
 
-            # API 호출: 정정취소주문 (JTTT1006U)
-            # 취소인 경우 취소수량만 지정하고 정정가격은 0
-            result = self.client.hashkey_request(
-                'JTTT1006U',
-                override={
-                    'CANO': account_number[:8],  # 계좌번호 앞 8자리
-                    'ACNT_PRDT_CD': account_number[8:],  # 계좌번호 뒤 2자리
-                    'PDNO': stock_code,  # 종목코드
-                    'ORGN_ODNO': order_no,  # 원주문번호
-                    'QTY_ALL_ORD_YN': 'Y' if quantity == 0 else 'N',  # 전량취소 여부
-                    'ORD_QTY': str(quantity) if quantity > 0 else '0',  # 취소수량
-                    'RVSE_CNCL_DVSN_CD': '02',  # 정정취소구분 (01:정정, 02:취소)
-                    'ORD_DVSN': '00',  # 주문구분 (00:지정가)
-                    'ORD_UNPR': '0'  # 주문단가 (취소시 0)
-                }
+            result = self.client.request(
+                api_id='kt10003',
+                body=body,
+                path='/api/dostk/ordr'
             )
 
             if result and result.get('return_code') == 0:
@@ -450,7 +443,7 @@ class OrderAPI:
                 return {
                     'success': True,
                     'order_no': order_no,
-                    'cancelled_quantity': quantity,
+                    'cancelled_quantity': quantity if quantity > 0 else 'all',
                     'message': '주문이 취소되었습니다',
                     'result': result
                 }
