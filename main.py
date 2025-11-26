@@ -1622,14 +1622,15 @@ class AutoTradingBot:
                 else:
                     order_no = order_result.get('order_no', '') if isinstance(order_result, dict) else ''
 
-                # Fix: 임시 주문을 실제 주문으로 교체 또는 유지
+                # Fix: 임시 주문을 실제 주문으로 교체
+                # CRITICAL: 실제 주문을 먼저 등록한 후 임시 주문 제거 (중복 매수 방지)
                 if self.order_tracker:
-                    # 임시 주문 제거
-                    self.order_tracker.update_status(temp_order_no, OrderStatus.FILLED)
-                    # 실제 주문번호로 새로 등록
+                    # 실제 주문번호로 먼저 등록 (pending_stocks에서 제거되지 않도록)
                     if order_no:
                         self.order_tracker.register_order(order_no, stock_code, 'buy', quantity, optimal_price)
                         logger.info(f"✅ 실제 주문 등록: {order_no}")
+                    # 임시 주문 제거 (이제 실제 주문이 있으므로 안전)
+                    self.order_tracker.update_status(temp_order_no, OrderStatus.FILLED)
                 trade = Trade(
                     stock_code=stock_code,
                     stock_name=stock_name,

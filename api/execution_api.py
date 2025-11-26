@@ -317,7 +317,8 @@ class OrderTracker:
         try:
             outstanding = self.execution_api.get_outstanding_orders()
             if outstanding:
-                orders = outstanding.get('ord_list', [])
+                # Fix: ka10075 API는 'oso' 키로 미체결 목록 반환
+                orders = outstanding.get('oso', []) or outstanding.get('ord_list', [])
                 api_order_nos = set()
 
                 for order in orders:
@@ -328,16 +329,27 @@ class OrderTracker:
 
                     if order_no not in self._orders:
                         stock_code = order.get('stk_cd', '')
-                        side = 'buy' if order.get('sell_tp') == '2' else 'sell'
-                        qty = int(order.get('ord_qty', 0))
-                        price = int(order.get('ord_uv', 0))
+                        # Fix: io_tp_nm 필드로 매수/매도 구분 ('+매수', '-매도')
+                        io_type = order.get('io_tp_nm', '')
+                        side = 'buy' if '매수' in io_type else 'sell'
+                        qty = int(float(str(order.get('ord_qty', 0)).replace(',', '')))
+                        # Fix: ord_pric 필드 사용 (ord_uv가 아님)
+                        price = int(float(str(order.get('ord_pric', 0)).replace(',', '')))
                         self.register_order(order_no, stock_code, side, qty, price)
                         synced += 1
+                        logger.info(f"📝 미체결 주문 동기화: {stock_code} {side} {qty}주 @ {price:,}원")
 
+                # 더 이상 미체결 목록에 없는 주문은 체결 처리
+                # CRITICAL FIX: pending_ 으로 시작하는 임시 주문은 제외 (API에 존재하지 않는 내부 추적용)
                 for order_no, record in list(self._orders.items()):
                     if record.status == OrderStatus.SUBMITTED and order_no not in api_order_nos:
+                        # 임시 주문(pending_)은 API에 없어도 체결 처리하지 않음
+                        if order_no.startswith('pending_'):
+                            logger.debug(f"임시 주문 유지: {order_no} (API 동기화 제외)")
+                            continue
                         self.update_status(order_no, OrderStatus.FILLED)
                         synced += 1
+                        logger.info(f"📋 주문 체결 처리: {order_no} (미체결 목록에서 제거됨)")
 
             self._last_sync = now
             if synced > 0:
