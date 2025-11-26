@@ -151,28 +151,51 @@ class EmergencyManager:
             logger.warning(f"⚠️ 포트폴리오 데이터 오류 의심: value={portfolio_value:,}, capital={initial_capital:,} (체크 건너뜀)")
             return None
 
-        if initial_capital > 0:
-            portfolio_loss_pct = (portfolio_value - initial_capital) / initial_capital
+        # Fix v6.1.6: 보유 종목이 없으면 포트폴리오 손실 체크 건너뜀 (청산할 것이 없으므로)
+        if not positions or len(positions) == 0:
+            logger.debug(f"보유 종목 없음 - 포트폴리오 손실 체크 건너뜀 (value={portfolio_value:,}, capital={initial_capital:,})")
+            return None
 
-            if portfolio_loss_pct <= self.portfolio_loss_threshold:
-                # 10% 이상 손실 - CRITICAL
+        # Fix v6.1.7: 포트폴리오 전체 손실 대신 현재 보유 종목의 총 손익률로 체크
+        # 과거 누적 손실이 아닌, 현재 활성 포지션의 손익만 고려
+        total_purchase_value = 0
+        total_current_value = 0
+
+        for position in positions:
+            purchase_price = position.get('purchase_price', 0)
+            current_price = position.get('current_price', 0)
+            quantity = position.get('quantity', 0)
+
+            if purchase_price > 0 and current_price > 0 and quantity > 0:
+                total_purchase_value += purchase_price * quantity
+                total_current_value += current_price * quantity
+
+        # 보유 종목의 총 손익률 계산
+        if total_purchase_value > 0:
+            positions_loss_pct = (total_current_value - total_purchase_value) / total_purchase_value
+
+            # 현재 보유 종목이 10% 이상 손실인 경우만 비상 청산
+            if positions_loss_pct <= self.portfolio_loss_threshold:
                 level = EmergencyLevel.CRITICAL
-                if portfolio_loss_pct <= self.emergency_stop_loss_pct:
-                    # 15% 이상 손실 - EMERGENCY
+                if positions_loss_pct <= self.emergency_stop_loss_pct:
                     level = EmergencyLevel.EMERGENCY
 
                 event = EmergencyEvent(
                     event_type=EmergencyType.PORTFOLIO_LOSS,
                     level=level,
                     timestamp=datetime.now(),
-                    description=f"포트폴리오 손실 {portfolio_loss_pct*100:.1f}% 발생",
+                    description=f"보유 종목 손실 {positions_loss_pct*100:.1f}% 발생",
                     data={
-                        'portfolio_value': portfolio_value,
-                        'initial_capital': initial_capital,
-                        'loss_pct': portfolio_loss_pct
+                        'total_purchase_value': total_purchase_value,
+                        'total_current_value': total_current_value,
+                        'loss_pct': positions_loss_pct
                     }
                 )
                 return event
+            else:
+                logger.debug(f"보유 종목 손익: {positions_loss_pct*100:+.2f}% (비상 청산 임계값: {self.portfolio_loss_threshold*100:.1f}% 이하)")
+        else:
+            logger.debug("유효한 보유 종목 가치 없음 - 비상 청산 건너뜀")
 
         # 2. 개별 포지션 체크
         for position in positions:
