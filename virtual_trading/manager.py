@@ -622,17 +622,26 @@ class VirtualTradingManager:
                 drawdown = (peak - current) / peak * 100 if peak > 0 else 0
                 max_drawdown = max(max_drawdown, drawdown)
 
+        # 실현 손익 = DB에 저장된 total_profit (매도 완료된 거래의 손익 합계)
+        realized_profit = strategy.get('total_profit', 0)
+        # 총 손익 = 실현 손익 + 미실현 손익
+        total_profit = realized_profit + unrealized_profit
+
+        # 수익률 계산 (초기자본 대비)
+        initial_capital = strategy.get('initial_capital', 0)
+        calculated_return_rate = ((total_assets - initial_capital) / initial_capital * 100) if initial_capital > 0 else 0
+
         return {
             'strategy_id': strategy_id,
             'strategy_name': strategy.get('name', f'전략{strategy_id}'),
-            'initial_capital': strategy.get('initial_capital', 0),
+            'initial_capital': initial_capital,
             'current_capital': strategy.get('current_capital', 0),
             'position_value': position_value,
             'total_assets': total_assets,
-            'total_profit': strategy.get('total_profit', 0),
+            'total_profit': total_profit,  # Fix: 실현+미실현 손익
             'unrealized_profit': unrealized_profit,
-            'realized_profit': strategy.get('total_profit', 0),
-            'return_rate': strategy.get('return_rate', 0),
+            'realized_profit': realized_profit,  # Fix: DB의 실현 손익만
+            'return_rate': calculated_return_rate,  # Fix: 정확히 계산된 수익률
             'win_rate': strategy.get('win_rate', 0),
             'trade_count': strategy.get('trade_count', 0),
             'win_count': strategy.get('win_count', 0),

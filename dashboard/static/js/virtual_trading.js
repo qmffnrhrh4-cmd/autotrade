@@ -197,8 +197,8 @@ class VirtualTradingManager {
                     </div>
                     <div class="stat-item">
                         <span class="stat-label">수익</span>
-                        <span class="stat-value ${strategy.total_profit >= 0 ? 'text-success' : 'text-danger'}">
-                            ${strategy.total_profit >= 0 ? '+' : ''}${this.formatCurrency(strategy.total_profit)}
+                        <span class="stat-value ${Number(strategy.total_profit) >= 0 ? 'text-success' : 'text-danger'}">
+                            ${this.formatCurrencyWithSign(strategy.total_profit)}
                         </span>
                     </div>
                     <div class="stat-item">
@@ -285,22 +285,22 @@ class VirtualTradingManager {
                     <div class="metric-label">주식 평가액</div>
                     <div class="metric-value">${this.formatCurrency(metrics.position_value)}</div>
                 </div>
-                <div class="metric-card ${metrics.total_profit >= 0 ? 'profit' : 'loss'}">
+                <div class="metric-card ${Number(metrics.total_profit) >= 0 ? 'profit' : 'loss'}">
                     <div class="metric-label">실현 손익</div>
                     <div class="metric-value">
-                        ${metrics.total_profit >= 0 ? '+' : ''}${this.formatCurrency(metrics.total_profit)}
+                        ${this.formatCurrencyWithSign(metrics.total_profit)}
                     </div>
                 </div>
-                <div class="metric-card ${metrics.unrealized_profit >= 0 ? 'profit' : 'loss'}">
+                <div class="metric-card ${Number(metrics.unrealized_profit) >= 0 ? 'profit' : 'loss'}">
                     <div class="metric-label">미실현 손익</div>
                     <div class="metric-value">
-                        ${metrics.unrealized_profit >= 0 ? '+' : ''}${this.formatCurrency(metrics.unrealized_profit)}
+                        ${this.formatCurrencyWithSign(metrics.unrealized_profit)}
                     </div>
                 </div>
                 <div class="metric-card">
                     <div class="metric-label">수익률</div>
-                    <div class="metric-value ${metrics.return_rate >= 0 ? 'text-success' : 'text-danger'}">
-                        ${metrics.return_rate >= 0 ? '+' : ''}${metrics.return_rate.toFixed(2)}%
+                    <div class="metric-value ${Number(metrics.return_rate) >= 0 ? 'text-success' : 'text-danger'}">
+                        ${Number(metrics.return_rate) >= 0 ? '+' : ''}${Number(metrics.return_rate || 0).toFixed(2)}%
                     </div>
                 </div>
                 <div class="metric-card">
@@ -551,7 +551,17 @@ class VirtualTradingManager {
      * 통화 포맷
      */
     formatCurrency(amount) {
-        return amount.toLocaleString() + '원';
+        const num = Number(amount) || 0;
+        return num.toLocaleString() + '원';
+    }
+
+    /**
+     * 부호 포함 통화 포맷 (수익/손실 표시용)
+     */
+    formatCurrencyWithSign(amount) {
+        const num = Number(amount) || 0;
+        const sign = num >= 0 ? '+' : '';
+        return sign + num.toLocaleString() + '원';
     }
 
     /**
