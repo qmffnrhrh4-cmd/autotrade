@@ -4622,9 +4622,10 @@
 
                 let html = '';
                 data.orders.forEach(order => {
-                    const orderType = order.order_type || order.sll_buy_dvsn_cd;
-                    const orderTypeText = (orderType === '01' || orderType === 'buy') ? '매수' : '매도';
-                    const orderTypeColor = (orderType === '01' || orderType === 'buy') ? 'var(--color-success)' : 'var(--color-danger)';
+                    const orderType = order.order_type || order.sll_buy_dvsn_cd || '';
+                    const isBuy = orderType === '01' || orderType === 'buy' || orderType === '매수' || orderType.includes('매수');
+                    const orderTypeText = isBuy ? '매수' : '매도';
+                    const orderTypeColor = isBuy ? 'var(--color-success)' : 'var(--color-danger)';
 
                     html += `
                         <tr>
@@ -4683,9 +4684,10 @@
 
                 let html = '';
                 data.orders.slice(0, 20).forEach(order => {  // 최근 20개만
-                    const orderType = order.order_type || order.sll_buy_dvsn_cd;
-                    const orderTypeText = (orderType === '01' || orderType === 'buy') ? '매수' : '매도';
-                    const orderTypeColor = (orderType === '01' || orderType === 'buy') ? 'var(--color-success)' : 'var(--color-danger)';
+                    const orderType = order.order_type || order.sll_buy_dvsn_cd || '';
+                    const isBuy = orderType === '01' || orderType === 'buy' || orderType === '매수' || orderType.includes('매수');
+                    const orderTypeText = isBuy ? '매수' : '매도';
+                    const orderTypeColor = isBuy ? 'var(--color-success)' : 'var(--color-danger)';
 
                     html += `
                         <tr>

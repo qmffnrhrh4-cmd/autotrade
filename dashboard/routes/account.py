@@ -790,7 +790,7 @@ def get_optimization_summary():
 
 @account_bp.route('/api/account/pending-orders')
 def get_pending_orders():
-    """Get pending (unfilled) orders"""
+    """Get pending (unfilled) orders - 미체결 주문 조회 (ka10075)"""
     try:
         if not _bot_instance or not hasattr(_bot_instance, 'account_api'):
             return jsonify({
@@ -807,8 +807,8 @@ def get_pending_orders():
                 'orders': []
             })
 
-        # Fix: API 응답에서 ord_list 추출 (응답은 딕셔너리, 실제 주문 목록은 ord_list 키에 있음)
-        order_list = pending_orders_response.get('ord_list', [])
+        # ka10075 API 응답: {'oso': [...], 'return_code': 0, 'return_msg': '...'}
+        order_list = pending_orders_response.get('oso', [])
 
         if not order_list:
             return jsonify({
@@ -816,25 +816,27 @@ def get_pending_orders():
                 'orders': []
             })
 
-        # Normalize order data
+        # Normalize order data (ka10075 응답 필드에 맞춤)
         normalized_orders = []
         for order in order_list:
+            # io_tp_nm: '+매수' or '-매도'
+            io_type = order.get('io_tp_nm', '')
+            order_type_display = '매수' if '매수' in io_type else '매도' if '매도' in io_type else io_type
+
             normalized_orders.append({
-                'order_no': order.get('odno') or order.get('order_no', ''),
-                'stock_code': order.get('pdno') or order.get('stock_code', ''),
-                'stock_name': order.get('prdt_name') or order.get('stock_name', ''),
-                'order_type': order.get('sll_buy_dvsn_cd') or order.get('order_type', ''),
-                'order_price': int(float(str(order.get('ord_unpr', 0)).replace(',', ''))),
+                'order_no': order.get('ord_no', ''),
+                'stock_code': order.get('stk_cd', ''),
+                'stock_name': order.get('stk_nm', ''),
+                'order_type': order_type_display,
+                'order_type_raw': io_type,
+                'order_price': int(float(str(order.get('ord_pric', 0)).replace(',', ''))),
                 'order_quantity': int(float(str(order.get('ord_qty', 0)).replace(',', ''))),
-                'remaining_quantity': int(float(str(order.get('psbl_qty', 0)).replace(',', ''))),
-                'order_time': order.get('ord_tmd') or order.get('order_time', ''),
-                'sll_buy_dvsn_cd': order.get('sll_buy_dvsn_cd', ''),
-                'ord_unpr': order.get('ord_unpr', ''),
-                'ord_qty': order.get('ord_qty', ''),
-                'psbl_qty': order.get('psbl_qty', ''),
-                'ord_tmd': order.get('ord_tmd', ''),
-                'pdno': order.get('pdno', ''),
-                'prdt_name': order.get('prdt_name', '')
+                'remaining_quantity': int(float(str(order.get('oso_qty', 0)).replace(',', ''))),
+                'order_time': order.get('tm', ''),
+                'order_status': order.get('ord_stt', ''),
+                'trade_type': order.get('trde_tp', ''),  # 보통, 시장가 등
+                'current_price': order.get('cur_prc', '').replace('+', '').replace('-', ''),
+                'market': order.get('stex_tp_txt', 'KRX')
             })
 
         return jsonify({
@@ -901,7 +903,7 @@ def cancel_order():
 
 @account_bp.route('/api/account/executed-orders')
 def get_executed_orders():
-    """Get executed (filled) orders"""
+    """Get executed (filled) orders - 체결 주문 조회 (ka10076)"""
     try:
         if not _bot_instance or not hasattr(_bot_instance, 'account_api'):
             return jsonify({
@@ -910,31 +912,47 @@ def get_executed_orders():
             })
 
         # Get executed orders from API
-        executed_orders = _bot_instance.account_api.get_executed_orders()
+        executed_orders_response = _bot_instance.account_api.get_executed_orders()
 
-        if not executed_orders:
+        if not executed_orders_response:
             return jsonify({
                 'success': True,
                 'orders': []
             })
 
-        # Normalize order data
+        # ka10076 API 응답: {'cntr': [...], 'return_code': 0, 'return_msg': '...'}
+        order_list = executed_orders_response.get('cntr', [])
+
+        if not order_list:
+            return jsonify({
+                'success': True,
+                'orders': []
+            })
+
+        # Normalize order data (ka10076 응답 필드에 맞춤)
         normalized_orders = []
-        for order in executed_orders:
+        for order in order_list:
+            # io_tp_nm: '+매수' or '-매도'
+            io_type = order.get('io_tp_nm', '')
+            order_type_display = '매수' if '매수' in io_type else '매도' if '매도' in io_type else io_type
+
             normalized_orders.append({
-                'order_no': order.get('odno') or order.get('order_no', ''),
-                'stock_code': order.get('pdno') or order.get('stock_code', ''),
-                'stock_name': order.get('prdt_name') or order.get('stock_name', ''),
-                'order_type': order.get('sll_buy_dvsn_cd') or order.get('order_type', ''),
-                'executed_price': int(float(str(order.get('avg_prc', 0)).replace(',', ''))),
-                'executed_quantity': int(float(str(order.get('tot_ccld_qty', 0)).replace(',', ''))),
-                'executed_time': order.get('ord_tmd') or order.get('executed_time', ''),
-                'sll_buy_dvsn_cd': order.get('sll_buy_dvsn_cd', ''),
-                'avg_prc': order.get('avg_prc', ''),
-                'tot_ccld_qty': order.get('tot_ccld_qty', ''),
-                'ord_tmd': order.get('ord_tmd', ''),
-                'pdno': order.get('pdno', ''),
-                'prdt_name': order.get('prdt_name', '')
+                'order_no': order.get('ord_no', ''),
+                'stock_code': order.get('stk_cd', ''),
+                'stock_name': order.get('stk_nm', ''),
+                'order_type': order_type_display,
+                'order_type_raw': io_type,
+                'order_price': int(float(str(order.get('ord_pric', 0)).replace(',', ''))),
+                'order_quantity': int(float(str(order.get('ord_qty', 0)).replace(',', ''))),
+                'executed_price': int(float(str(order.get('cntr_pric', 0)).replace(',', ''))),
+                'executed_quantity': int(float(str(order.get('cntr_qty', 0)).replace(',', ''))),
+                'remaining_quantity': int(float(str(order.get('oso_qty', 0)).replace(',', ''))),
+                'order_time': order.get('ord_tm', ''),
+                'order_status': order.get('ord_stt', ''),
+                'trade_type': order.get('trde_tp', ''),  # 보통, 시장가 등
+                'commission': int(float(str(order.get('tdy_trde_cmsn', 0)).replace(',', ''))),
+                'tax': int(float(str(order.get('tdy_trde_tax', 0)).replace(',', ''))),
+                'market': order.get('stex_tp_txt', 'KRX')
             })
 
         return jsonify({
