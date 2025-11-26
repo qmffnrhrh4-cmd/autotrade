@@ -8,9 +8,8 @@ import json
 # 프로젝트 루트 추가
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from api.kiwoom_rest_client import KiwoomRESTClient
+from core.rest_client import KiwoomRESTClient
 from api.account import AccountAPI
-from config.manager import get_config
 
 
 def test_orders_api():
@@ -18,18 +17,10 @@ def test_orders_api():
     print("미체결내역 / 최근거래내역 API 테스트")
     print("=" * 60)
 
-    # 설정 로드
-    config = get_config()
-
-    # 클라이언트 초기화
+    # 클라이언트 초기화 (싱글톤)
     print("\n[1] REST 클라이언트 초기화...")
     try:
-        client = KiwoomRESTClient(
-            app_key=config.api.app_key,
-            app_secret=config.api.app_secret,
-            account_no=config.api.account_no,
-            is_paper=config.api.is_paper
-        )
+        client = KiwoomRESTClient()
         print("   OK - 클라이언트 초기화 성공")
     except Exception as e:
         print(f"   FAIL - 클라이언트 초기화 실패: {e}")
