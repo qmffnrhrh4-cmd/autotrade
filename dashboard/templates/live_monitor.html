@@ -511,7 +511,7 @@
                 document.getElementById('open-positions').textContent = data.open_positions;
             }
             if (data.total_profit !== undefined) {
-                const profit = data.total_profit;
+                const profit = Number(data.total_profit) || 0;
                 const profitEl = document.getElementById('total-profit');
                 profitEl.textContent = (profit >= 0 ? '+' : '') + profit.toLocaleString() + '원';
                 profitEl.style.color = profit >= 0 ? '#4CAF50' : '#f44336';
@@ -579,8 +579,8 @@
                             ${trade.quantity}주 @ ${trade.price.toLocaleString()}원
                         </div>
                         ${trade.profit !== undefined && !isBuy ?
-                            `<div class="mt-1" style="color: ${trade.profit >= 0 ? '#4CAF50' : '#f44336'}">
-                                ${trade.profit >= 0 ? '+' : ''}${trade.profit.toLocaleString()}원
+                            `<div class="mt-1" style="color: ${Number(trade.profit) >= 0 ? '#4CAF50' : '#f44336'}">
+                                ${Number(trade.profit) >= 0 ? '+' : ''}${Number(trade.profit || 0).toLocaleString()}원
                             </div>` : ''}
                     </div>
                 `;
