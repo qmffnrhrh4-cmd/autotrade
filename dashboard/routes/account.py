@@ -111,17 +111,37 @@ def get_account():
             # Fix: 정확한 공식 적용
             # entr 필드가 이미 주식평가액을 포함하고 있어서 중복 계산됨
             # 가용금액(cash)만 사용하여 총자산 계산
-            # 총자산 = 가용금액 + 주식평가액
+            # 총자산 = 가용금액 + 주식평가액 + 미체결 주문 금액
             cash = available_cash  # 100stk_ord_alow_amt (주문가능금액)
-            total_assets = cash + stock_value
+
+            # 미체결 주문 금액 계산
+            pending_order_amount = 0
+            try:
+                pending_orders = _bot_instance.account_api.get_outstanding_orders()
+                if pending_orders and pending_orders.get('return_code') == 0:
+                    orders = pending_orders.get('oso', [])
+                    for order in orders:
+                        # 매수 주문만 미체결 금액에 포함
+                        io_type = order.get('io_tp_nm', '')
+                        if '매수' in io_type:
+                            ord_qty = int(float(str(order.get('ord_qty', 0)).replace(',', '')))
+                            ord_pric = int(float(str(order.get('ord_pric', 0)).replace(',', '')))
+                            pending_order_amount += ord_qty * ord_pric
+                    if pending_order_amount > 0:
+                        logger.info(f"미체결 매수 주문 금액: {pending_order_amount:,}원")
+            except Exception as e:
+                logger.debug(f"미체결 주문 조회 실패 (무시): {e}")
+
+            total_assets = cash + stock_value + pending_order_amount
 
             logger.info(f"===== 계좌 정보 요약 =====")
             logger.info(f"  예수금 (entr): {deposit_amount:,}원 (사용 안함 - 중복 계산 이슈)")
             logger.info(f"  가용금액 (100stk_ord_alow_amt): {cash:,}원")
             logger.info(f"  주식평가액: {stock_value:,}원")
+            logger.info(f"  미체결 매수금액: {pending_order_amount:,}원")
             logger.info(f"  --------------------------------")
             logger.info(f"  총자산: {total_assets:,}원")
-            logger.info(f"  계산식: {cash:,} (가용금액) + {stock_value:,} (주식평가액) = {total_assets:,}원")
+            logger.info(f"  계산식: {cash:,} + {stock_value:,} + {pending_order_amount:,} = {total_assets:,}원")
             logger.info(f"  ================================")
             logger.info(f"  주문가능금액: {order_possible:,}원")
             logger.info(f"  출금가능금액: {withdraw_possible:,}원")
@@ -175,6 +195,7 @@ def get_account():
                 'total_assets': total_assets,
                 'cash': cash,
                 'stock_value': stock_value,
+                'pending_order_amount': pending_order_amount,
                 'profit_loss': profit_loss,
                 'profit_loss_percent': profit_loss_percent,
                 'open_positions': len(holdings) if holdings else 0,

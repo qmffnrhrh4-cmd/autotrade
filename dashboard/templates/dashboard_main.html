@@ -3107,13 +3107,16 @@
                     const profitLoss = data.profit_loss || 0;
                     const cash = data.cash || 0;
                     const stockValue = data.stock_value || 0;
+                    const pendingOrderAmount = data.pending_order_amount || 0;
 
                     // Debug: 총 자산 계산 검증
                     console.log('=== 계좌 정보 ===');
                     console.log('예수금:', cash.toLocaleString(), '원');
                     console.log('주식평가액:', stockValue.toLocaleString(), '원');
-                    console.log('총 자산 (예수금 + 주식평가액):', totalAssets.toLocaleString(), '원');
-                    console.log('계산 검증:', (cash + stockValue).toLocaleString(), '원', '(일치 여부:', totalAssets === cash + stockValue ? 'O' : 'X', ')');
+                    console.log('미체결 매수금액:', pendingOrderAmount.toLocaleString(), '원');
+                    console.log('총 자산:', totalAssets.toLocaleString(), '원');
+                    const expectedTotal = cash + stockValue + pendingOrderAmount;
+                    console.log('계산 검증:', expectedTotal.toLocaleString(), '원', '(일치 여부:', totalAssets === expectedTotal ? 'O' : 'X', ')');
                     console.log('보유 종목:', openPositions, '개');
                     console.log('손익:', profitLoss.toLocaleString(), '원', '(' + (profitPercent >= 0 ? '+' : '') + profitPercent.toFixed(2) + '%)');
                     console.log('================');

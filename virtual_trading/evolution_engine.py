@@ -411,8 +411,8 @@ class StrategyEvolutionEngine:
             trailing_stop_pct=random.uniform(5, 15),
             rsi_overbought_min=random.uniform(65, 75),
             rsi_overbought_max=random.uniform(80, 95),
-            # 포지션 관리
-            position_size_pct=random.uniform(10, 25),
+            # 포지션 관리 (20-40%로 증가)
+            position_size_pct=random.uniform(20, 40),
             max_positions=random.randint(2, 4),
             # 시간 필터
             trade_start_hour=random.randint(9, 11),
@@ -527,9 +527,9 @@ class StrategyEvolutionEngine:
                 mutated.take_profit_pct = random.uniform(5, 20)
             elif field == 'stop_loss_pct':
                 mutated.stop_loss_pct = random.uniform(3, 10)
-            # 포지션 관리
+            # 포지션 관리 (20-40%로 증가)
             elif field == 'position_size_pct':
-                mutated.position_size_pct = random.uniform(10, 25)
+                mutated.position_size_pct = random.uniform(20, 40)
             elif field == 'max_positions':
                 mutated.max_positions = random.randint(2, 4)
             # MACD

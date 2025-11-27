@@ -170,7 +170,10 @@ class StrategyLoader:
                 sell_take_profit=genes.get('sell_take_profit', 0.10),
                 sell_stop_loss=genes.get('sell_stop_loss', -0.05),
                 sell_trailing_stop=genes.get('sell_trailing_stop', 0.03),
-                position_size_pct=genes.get('position_size_pct', 0.10),
+                # Fix: 포지션 크기 단위 변환
+                # evolution_engine은 10-25 (백분율)로 저장하지만, 여기서는 0.10-0.25 (비율) 필요
+                # 값이 1보다 크면 백분율이므로 100으로 나눔
+                position_size_pct=genes.get('position_size_pct', 30) / 100 if genes.get('position_size_pct', 30) > 1 else genes.get('position_size_pct', 0.30),
                 max_positions=genes.get('max_positions', 5),
                 trade_time_start=genes.get('trade_time_start', '08:00'),
                 trade_time_end=genes.get('trade_time_end', '20:00'),
