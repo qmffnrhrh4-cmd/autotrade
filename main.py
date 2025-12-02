@@ -37,7 +37,6 @@ try:
     from core.event_bus import get_event_bus, EventType
     from core.emergency_controller import get_emergency_controller, is_trading_allowed
     from core.performance_analyzer import get_performance_analyzer
-    from core.telegram_notifier import get_telegram_notifier
     _risk_modules_available = True
 except ImportError as e:
     _risk_modules_available = False
@@ -46,7 +45,6 @@ except ImportError as e:
     get_emergency_controller = lambda: None
     is_trading_allowed = lambda: True
     get_performance_analyzer = lambda: None
-    get_telegram_notifier = lambda: None
 
 # 거래 실행 로거 (진단용)
 try:
@@ -157,7 +155,6 @@ class AutoTradingBot:
         self.event_bus = None
         self.emergency_controller = None
         self.performance_analyzer = None
-        self.telegram_notifier = None
 
         self.monitor = get_monitor()
         self.alert_manager = get_alert_manager()
@@ -625,10 +622,6 @@ class AutoTradingBot:
                     # 성능 분석기
                     self.performance_analyzer = get_performance_analyzer()
                     logger.info("  ✅ 성능 분석기")
-
-                    # 텔레그램 알림
-                    self.telegram_notifier = get_telegram_notifier()
-                    logger.info("  ✅ 텔레그램 알림 시스템")
 
                     logger.info("통합 리스크 관리 시스템 초기화 완료")
                 else:
