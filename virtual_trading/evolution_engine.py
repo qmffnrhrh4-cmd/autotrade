@@ -212,7 +212,54 @@ class StrategyEvolutionEngine:
         else:
             logger.info("✅ HistoricalDataCollector 초기화 완료 - OPEN API 데이터 사용 가능")
 
+        # DB에서 기존 활성 전략 로드 (gene_pool 동기화)
+        self._sync_gene_pool_from_db()
+
         logger.info(f"진화 엔진 초기화: 모집단={population_size}, 엘리트={elite_ratio*100}%, 돌연변이={mutation_rate*100}%")
+
+    def _sync_gene_pool_from_db(self):
+        """DB에서 기존 활성 전략을 로드하여 gene_pool 동기화"""
+        try:
+            import re
+            strategies = self.virtual_manager.db.get_all_strategies()
+
+            # 진화 전략만 필터링 (이름 패턴: 진화-G###-S##)
+            evolution_strategies = [
+                s for s in strategies
+                if re.match(r'진화-G\d+-S\d+', s.get('name', ''))
+            ]
+
+            if evolution_strategies:
+                self.gene_pool = []
+                for strategy in evolution_strategies:
+                    # 기본 유전자 생성 (description에서 복원 시도)
+                    gene = self._generate_random_gene()  # 기본값으로 사용
+                    self.gene_pool.append((strategy['id'], gene))
+
+                logger.info(f"📊 DB에서 {len(self.gene_pool)}개 기존 진화 전략 로드 완료")
+            else:
+                logger.info("📊 기존 진화 전략 없음 - 새로 생성 필요")
+
+        except Exception as e:
+            logger.warning(f"⚠️ gene_pool DB 동기화 실패: {e}")
+
+    def sync_with_database(self):
+        """현재 gene_pool을 DB와 동기화 (외부 호출용)"""
+        try:
+            # DB에서 활성 전략 ID 조회
+            strategies = self.virtual_manager.db.get_all_strategies()
+            active_ids = {s['id'] for s in strategies if s.get('is_active', 1) == 1}
+
+            # gene_pool에서 비활성화된 전략 제거
+            before_count = len(self.gene_pool)
+            self.gene_pool = [(sid, gene) for sid, gene in self.gene_pool if sid in active_ids]
+            after_count = len(self.gene_pool)
+
+            if before_count != after_count:
+                logger.info(f"🔄 gene_pool DB 동기화: {before_count}개 → {after_count}개")
+
+        except Exception as e:
+            logger.error(f"❌ gene_pool 동기화 실패: {e}")
 
     def initialize_population(self) -> List[int]:
         """
@@ -221,19 +268,27 @@ class StrategyEvolutionEngine:
         Returns:
             생성된 전략 ID 리스트
         """
-        logger.info(f"🧬 초기 모집단 생성 중 ({self.population_size}개)...")
+        # 이미 gene_pool에 충분한 전략이 있으면 새로 생성하지 않음
+        if len(self.gene_pool) >= self.population_size * 0.8:  # 80% 이상이면 스킵
+            logger.info(f"📊 기존 전략 {len(self.gene_pool)}개 존재 - 추가 생성 스킵")
+            return [sid for sid, _ in self.gene_pool]
 
-        strategy_ids = []
+        # 부족한 수만큼만 생성
+        needed = self.population_size - len(self.gene_pool)
+        logger.info(f"🧬 초기 모집단 생성 중 (기존 {len(self.gene_pool)}개 + 신규 {needed}개)...")
+
+        strategy_ids = [sid for sid, _ in self.gene_pool]  # 기존 전략 ID
 
         # 현재 타임스탬프 (동일 세대 내 중복 방지)
         timestamp = datetime.now().strftime('%H%M%S')
+        start_idx = len(self.gene_pool)
 
-        for i in range(self.population_size):
+        for i in range(needed):
             # 랜덤 유전자 생성
             gene = self._generate_random_gene()
 
             # 전략 생성 (타임스탬프 포함으로 중복 방지)
-            strategy_name = f"진화-G{self.generation:03d}-S{i:02d}-{timestamp}"
+            strategy_name = f"진화-G{self.generation:03d}-S{start_idx + i:02d}-{timestamp}"
             description = self._gene_to_description(gene)
 
             strategy_id = self.virtual_manager.create_strategy(
@@ -246,9 +301,9 @@ class StrategyEvolutionEngine:
             self.gene_pool.append((strategy_id, gene))
             strategy_ids.append(strategy_id)
 
-            logger.info(f"  [{i+1}/{self.population_size}] {strategy_name} 생성")
+            logger.info(f"  [{i+1}/{needed}] {strategy_name} 생성")
 
-        logger.info(f"✅ 초기 모집단 생성 완료: {len(strategy_ids)}개")
+        logger.info(f"✅ 초기 모집단 생성 완료: 총 {len(self.gene_pool)}개 (신규 {needed}개)")
         return strategy_ids
 
     def evaluate_fitness(self) -> List[StrategyFitness]:
@@ -620,6 +675,10 @@ class StrategyEvolutionEngine:
         """적합도 점수 계산 (수익성 중심)"""
         score = 0
 
+        # 거래 횟수가 0인 경우 최소 기본 점수 부여 (신규 전략 보호)
+        if trade_count == 0:
+            return 20.0  # 최소 점수로 진화 기회 부여
+
         # 수익률 (0-40점)
         if return_rate >= 30:
             score += 40
@@ -630,7 +689,9 @@ class StrategyEvolutionEngine:
         elif return_rate >= 5:
             score += 15
         elif return_rate >= 0:
-            score += 5
+            score += 10  # 손실 없으면 10점
+        elif return_rate >= -5:
+            score += 5  # 소액 손실도 일부 점수
 
         # 샤프 비율 (0-30점)
         if sharpe_ratio >= 2.0:
@@ -641,6 +702,8 @@ class StrategyEvolutionEngine:
             score += 20
         elif sharpe_ratio >= 0.5:
             score += 10
+        elif sharpe_ratio >= 0:
+            score += 5  # 양수 샤프도 점수
 
         # 승률 (0-20점)
         if win_rate >= 70:
@@ -651,14 +714,18 @@ class StrategyEvolutionEngine:
             score += 10
         elif win_rate >= 40:
             score += 5
+        elif win_rate >= 30:
+            score += 2  # 낮은 승률도 점수
 
-        # 거래 횟수 (0-10점)
+        # 거래 횟수 (0-10점) - 적극적 거래 보상
         if trade_count >= 20:
             score += 10
         elif trade_count >= 10:
-            score += 7
+            score += 8
         elif trade_count >= 5:
-            score += 4
+            score += 6
+        elif trade_count >= 1:
+            score += 3  # 1건이라도 거래했으면 점수
 
         return min(score, 100)
 

@@ -483,7 +483,7 @@ class DataFetcher:
                                 'open': int(float(item.get('open_pric', 0))),
                                 'high': int(float(item.get('high_pric', 0))),
                                 'low': int(float(item.get('low_pric', 0))),
-                                'close': int(float(item.get('cur_pric', 0))),  # cur_pric = current/closing price
+                                'close': int(float(item.get('cur_prc', item.get('cur_pric', 0)))),  # cur_prc = current/closing price
                                 'volume': int(float(item.get('trde_qty', 0)))  # trde_qty = trade quantity
                             })
                         except (ValueError, TypeError) as e:
