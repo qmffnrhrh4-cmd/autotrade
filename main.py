@@ -604,7 +604,11 @@ class AutoTradingBot:
                 else:
                     try:
                         from virtual_trading.evolution_engine import get_evolution_engine
-                        evolution_engine = get_evolution_engine()
+                        # Fix: 진화 엔진에 필수 인자 전달
+                        evolution_engine = get_evolution_engine(
+                            virtual_manager=self.virtual_trading_manager,
+                            data_fetcher=self.data_fetcher
+                        )
 
                         self.autopilot = init_autopilot(
                             virtual_manager=self.virtual_trading_manager,
