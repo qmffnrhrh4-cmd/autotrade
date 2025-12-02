@@ -913,16 +913,16 @@
             updateStatusIndicator('dataIndicator', 'dataStatus', data.data_collector_running);
             updateStatusIndicator('apiIndicator', 'apiStatus', data.api_connected, '정상', '오류');
 
-            // 시장 상태
+            // 시장 상태 - NXT 시장 타입 표시
             const marketEl = document.getElementById('marketIndicator');
             const marketText = document.getElementById('marketStatus');
             if (data.market_open) {
                 marketEl.className = 'status-indicator active';
-                marketText.textContent = '장 운영 중';
+                marketText.textContent = data.market_type || '장 운영 중';
                 marketText.className = 'text-success';
             } else {
                 marketEl.className = 'status-indicator inactive';
-                marketText.textContent = '장 마감';
+                marketText.textContent = data.market_type || '장 마감';
                 marketText.className = 'text-secondary';
             }
 
