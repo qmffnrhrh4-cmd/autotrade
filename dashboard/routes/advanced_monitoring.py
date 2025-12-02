@@ -755,3 +755,319 @@ def get_optimization_stats():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 서킷 브레이커 API (v8.2) ===
+
+@bp.route('/circuit-breaker/stats', methods=['GET'])
+def get_circuit_breaker_stats():
+    """서킷 브레이커 전체 통계"""
+    try:
+        from core.circuit_breaker import get_all_circuit_stats
+        return jsonify({
+            'success': True,
+            'data': get_all_circuit_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/circuit-breaker/<name>/reset', methods=['POST'])
+def reset_circuit_breaker(name):
+    """특정 서킷 브레이커 리셋"""
+    try:
+        from core.circuit_breaker import get_circuit_breaker
+        cb = get_circuit_breaker(name)
+        cb.reset()
+        return jsonify({
+            'success': True,
+            'message': f'서킷 브레이커 "{name}" 리셋됨'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 자가 치유 엔진 API ===
+
+@bp.route('/health/status', methods=['GET'])
+def get_health_status():
+    """시스템 건강 상태"""
+    try:
+        from core.self_healing_engine import get_healing_engine
+        engine = get_healing_engine()
+        return jsonify({
+            'success': True,
+            'data': engine.get_status()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/health/integrity', methods=['GET'])
+def check_data_integrity():
+    """데이터 무결성 검증"""
+    try:
+        from core.self_healing_engine import get_healing_engine
+        from virtual_trading.database import get_db_session
+
+        engine = get_healing_engine()
+        session = get_db_session()
+
+        result = engine.verify_data_integrity(session)
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/health/repair', methods=['POST'])
+def auto_repair():
+    """자동 복구 실행"""
+    try:
+        from core.self_healing_engine import get_healing_engine
+        from virtual_trading.database import get_db_session
+
+        data = request.get_json() or {}
+        issue_type = data.get('issue_type')
+
+        if not issue_type:
+            return jsonify({'success': False, 'error': 'issue_type 필요'}), 400
+
+        engine = get_healing_engine()
+        session = get_db_session()
+
+        success = engine.auto_repair(session, issue_type)
+        return jsonify({
+            'success': success,
+            'message': '복구 완료' if success else '복구 실패'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 자율 최적화 API ===
+
+@bp.route('/optimizer/status', methods=['GET'])
+def get_optimizer_status():
+    """자율 최적화 상태"""
+    try:
+        from core.autonomous_optimizer import get_autonomous_optimizer
+        optimizer = get_autonomous_optimizer()
+        return jsonify({
+            'success': True,
+            'data': optimizer.get_status()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/optimizer/tune', methods=['POST'])
+def trigger_auto_tune():
+    """자동 튜닝 트리거"""
+    try:
+        from core.autonomous_optimizer import get_autonomous_optimizer
+        optimizer = get_autonomous_optimizer()
+        result = optimizer.auto_tune()
+        return jsonify({
+            'success': result.get('success', False),
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/optimizer/market-condition', methods=['POST'])
+def update_market_condition():
+    """시장 상황 업데이트"""
+    try:
+        from core.autonomous_optimizer import get_autonomous_optimizer
+
+        data = request.get_json() or {}
+        optimizer = get_autonomous_optimizer()
+        condition = optimizer.detect_market_condition(data)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'market_condition': condition.value,
+                'mode': optimizer._mode.value
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 거래 코디네이터 API ===
+
+@bp.route('/coordinator/stats', methods=['GET'])
+def get_coordinator_stats():
+    """거래 코디네이터 통계"""
+    try:
+        from core.trade_coordinator import get_trade_coordinator
+        coordinator = get_trade_coordinator()
+        return jsonify({
+            'success': True,
+            'data': coordinator.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/coordinator/positions', methods=['GET'])
+def get_coordinator_positions():
+    """거래 코디네이터 포지션 목록"""
+    try:
+        from core.trade_coordinator import get_trade_coordinator
+        coordinator = get_trade_coordinator()
+        return jsonify({
+            'success': True,
+            'data': coordinator.get_all_positions()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/coordinator/partial-close', methods=['POST'])
+def create_partial_close():
+    """부분 청산 주문 생성"""
+    try:
+        from core.trade_coordinator import get_trade_coordinator
+
+        data = request.get_json() or {}
+        position_id = data.get('position_id')
+        close_ratio = data.get('close_ratio', 0.5)
+        price = data.get('price')
+        reason = data.get('reason', '')
+
+        if not position_id or not price:
+            return jsonify({'success': False, 'error': 'position_id와 price 필요'}), 400
+
+        coordinator = get_trade_coordinator()
+        order_id = coordinator.create_partial_close(
+            position_id=position_id,
+            close_ratio=close_ratio,
+            price=price,
+            reason=reason
+        )
+
+        if order_id:
+            return jsonify({
+                'success': True,
+                'data': {'order_id': order_id}
+            })
+        else:
+            return jsonify({'success': False, 'error': '부분 청산 주문 생성 실패'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 지능형 데이터 매니저 API ===
+
+@bp.route('/data-manager/stats', methods=['GET'])
+def get_data_manager_stats():
+    """지능형 데이터 매니저 통계"""
+    try:
+        from core.intelligent_data_manager import get_data_manager
+        manager = get_data_manager()
+        return jsonify({
+            'success': True,
+            'data': manager.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/data-manager/invalidate', methods=['POST'])
+def invalidate_data():
+    """데이터 캐시 무효화"""
+    try:
+        from core.intelligent_data_manager import get_data_manager
+
+        data = request.get_json() or {}
+        stock_code = data.get('stock_code')
+
+        manager = get_data_manager()
+        manager.invalidate_on_trade(stock_code)
+
+        return jsonify({
+            'success': True,
+            'message': '캐시 무효화 완료'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 통합 시스템 API (v8.2) ===
+
+@bp.route('/system/full-status', methods=['GET'])
+def get_full_system_status():
+    """전체 시스템 상태 (v8.2 통합)"""
+    try:
+        result = {
+            'timestamp': datetime.now().isoformat(),
+            'version': '8.2'
+        }
+
+        # 서킷 브레이커
+        try:
+            from core.circuit_breaker import get_all_circuit_stats
+            result['circuit_breakers'] = get_all_circuit_stats()
+        except:
+            result['circuit_breakers'] = {}
+
+        # 자가 치유 엔진
+        try:
+            from core.self_healing_engine import get_healing_engine
+            result['health'] = get_healing_engine().get_status()
+        except:
+            result['health'] = {}
+
+        # 자율 최적화
+        try:
+            from core.autonomous_optimizer import get_autonomous_optimizer
+            result['optimizer'] = get_autonomous_optimizer().get_status()
+        except:
+            result['optimizer'] = {}
+
+        # 거래 코디네이터
+        try:
+            from core.trade_coordinator import get_trade_coordinator
+            result['coordinator'] = get_trade_coordinator().get_stats()
+        except:
+            result['coordinator'] = {}
+
+        # 데이터 매니저
+        try:
+            from core.intelligent_data_manager import get_data_manager
+            result['data_manager'] = get_data_manager().get_stats()
+        except:
+            result['data_manager'] = {}
+
+        # 리스크 파이프라인
+        try:
+            from core.risk_validation_pipeline import get_risk_pipeline
+            pipeline = get_risk_pipeline()
+            result['risk_pipeline'] = pipeline.get_stats()
+        except:
+            result['risk_pipeline'] = {}
+
+        # 긴급 정지
+        try:
+            from core.emergency_controller import get_emergency_controller
+            controller = get_emergency_controller()
+            result['emergency'] = {
+                'level': controller.current_level.value,
+                'trading_allowed': controller.is_trading_allowed(),
+                'new_buy_allowed': controller.is_new_buy_allowed()
+            }
+        except:
+            result['emergency'] = {}
+
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
