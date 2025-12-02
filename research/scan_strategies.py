@@ -18,9 +18,9 @@ logger = get_logger()
 
 
 # Deep Scan 데이터 캐시 (메모리 기반) - scanner_pipeline.py와 동일
-# {stock_code: {'data': {...}, 'timestamp': datetime, 'ttl': 300}}
+# {stock_code: {'data': {...}, 'timestamp': datetime}}
 _deep_scan_cache = {}
-CACHE_TTL_SECONDS = 300  # 5분
+CACHE_TTL_SECONDS = 30  # 30초로 단축 (전략 분석용)
 
 
 def _get_from_cache(cache_key: str) -> Optional[Dict]:

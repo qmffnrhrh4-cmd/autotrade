@@ -295,6 +295,62 @@ class UserFeedback:
             category=AlertCategory.TRADE
         )
 
+        # 거래 기록
+        self.trade_history_today.append({
+            "time": datetime.now().isoformat(),
+            "type": "sell",
+            "stock": stock_name,
+            "quantity": quantity,
+            "price": price,
+            "profit_loss": profit_loss,
+            "status": "success"
+        })
+
+    def show_sell_failure(
+        self,
+        stock_code: str,
+        stock_name: str,
+        quantity: int,
+        price: int,
+        error_code: str,
+        error_msg: str
+    ):
+        """매도 실패 피드백"""
+        error_info = self._get_error_info(error_code, error_msg)
+
+        print("\n" + "=" * 70)
+        print("❌ 매도 주문이 실패했습니다")
+        print("=" * 70)
+        print(f"📋 주문 정보:")
+        print(f"  • 종목: {stock_name} ({stock_code})")
+        print(f"  • 수량: {quantity:,}주")
+        print(f"  • 가격: {price:,}원")
+        print(f"\n🚨 실패 원인:")
+        print(f"  {error_info['message']}")
+        print(f"\n💡 해결 방법:")
+        for i, action in enumerate(error_info['actions'], 1):
+            print(f"  {i}. {action}")
+        print("=" * 70 + "\n")
+
+        # 알림 발송
+        self._send_notification(
+            title="🔴 매도 실패",
+            message=f"{stock_name}\n{error_info['message']}",
+            level=AlertLevel.ERROR,
+            category=AlertCategory.TRADE
+        )
+
+        # 거래 기록
+        self.trade_history_today.append({
+            "time": datetime.now().isoformat(),
+            "type": "sell",
+            "stock": stock_name,
+            "quantity": quantity,
+            "price": price,
+            "status": "failed",
+            "error": error_msg
+        })
+
     def show_error(self, error_code: str, error_msg: str, context: str = ""):
         """에러 피드백"""
         error_info = self._get_error_info(error_code, error_msg)

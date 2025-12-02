@@ -32,17 +32,32 @@ logger = logging.getLogger(__name__)
 
 
 class CacheTTL:
-    """캐시 TTL 상수 (초)"""
-    REALTIME = 3
-    STOCK_PRICE = 5
-    PORTFOLIO = 10
-    ACCOUNT_INFO = 30
-    STRATEGY_LIST = 60
-    MARKET_DATA = 60
-    STOCK_INFO = 300
-    HISTORICAL_DATA = 600
-    STATIC_DATA = 3600
-    NEVER_EXPIRE = 0
+    """
+    캐시 TTL 상수 (초)
+
+    실시간 자동매매 시스템용으로 최적화:
+    - 주문 결정에 사용되는 데이터: 2-5초 (호가, 현재가)
+    - 분석용 데이터: 10-30초
+    - 참조 데이터: 60초 이상
+    """
+    # 실시간 트레이딩 데이터 (주문 결정용)
+    REALTIME = 2         # 호가창, 체결정보 - 2초 (기존 3초)
+    STOCK_PRICE = 3      # 현재가 - 3초 (기존 5초)
+    ORDERBOOK = 2        # 호가 깊이 - 2초 (신규)
+
+    # 계좌/포트폴리오 데이터
+    PORTFOLIO = 5        # 보유 종목 - 5초 (기존 10초)
+    ACCOUNT_INFO = 15    # 계좌 정보 - 15초 (기존 30초)
+
+    # 분석용 데이터
+    MARKET_DATA = 10     # 시장 데이터 - 10초 (기존 60초)
+    STRATEGY_LIST = 30   # 전략 목록 - 30초 (기존 60초)
+
+    # 참조 데이터 (변경 빈도 낮음)
+    STOCK_INFO = 300     # 종목 기본정보 - 5분
+    HISTORICAL_DATA = 600  # 과거 데이터 - 10분
+    STATIC_DATA = 3600   # 정적 데이터 - 1시간
+    NEVER_EXPIRE = 0     # 만료 없음
 
 
 @dataclass
