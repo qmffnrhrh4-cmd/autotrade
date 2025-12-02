@@ -1,12 +1,52 @@
 """
 api/market/ranking.py
 순위 정보 조회 API
+
+개선사항:
+- API 에러와 "데이터 없음" 구분
+- 진단 로깅 통합
+- 호출자에게 명확한 상태 전달
 """
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional, NamedTuple
+from enum import Enum
 from utils.trading_date import get_last_trading_date
 
+# 진단 로거 통합
+try:
+    from utils.diagnostic_logger import log_api_call, log_error
+except ImportError:
+    def log_api_call(*args, **kwargs):
+        pass
+    def log_error(*args, **kwargs):
+        pass
+
 logger = logging.getLogger(__name__)
+
+
+class RankingResultStatus(Enum):
+    """순위 조회 결과 상태"""
+    SUCCESS = "success"                    # 정상 조회
+    NO_DATA = "no_data"                    # 장외 시간 등으로 데이터 없음
+    API_ERROR = "api_error"                # API 호출 실패
+    NETWORK_ERROR = "network_error"        # 네트워크 오류
+    PARSE_ERROR = "parse_error"            # 응답 파싱 오류
+
+
+class RankingResult(NamedTuple):
+    """순위 조회 결과"""
+    status: RankingResultStatus
+    data: List[Dict[str, Any]]
+    message: str
+    error_code: Optional[int] = None
+
+    @property
+    def is_success(self) -> bool:
+        return self.status == RankingResultStatus.SUCCESS
+
+    @property
+    def has_data(self) -> bool:
+        return len(self.data) > 0
 
 
 class RankingAPI:
@@ -22,6 +62,9 @@ class RankingAPI:
     등
     """
 
+    # 마지막 조회 결과 상태 저장 (진단용)
+    _last_result_status: Dict[str, RankingResult] = {}
+
     def __init__(self, client):
         """
         RankingAPI 초기화
@@ -31,6 +74,24 @@ class RankingAPI:
         """
         self.client = client
         logger.debug("RankingAPI 초기화 완료")
+
+    @classmethod
+    def get_last_status(cls, api_name: str) -> Optional[RankingResult]:
+        """마지막 API 호출 상태 반환 (진단용)"""
+        return cls._last_result_status.get(api_name)
+
+    def _record_result(self, api_name: str, result: RankingResult):
+        """결과 기록 (진단용)"""
+        RankingAPI._last_result_status[api_name] = result
+
+        # 진단 로거에 기록
+        log_api_call(
+            api_name=f"ranking_{api_name}",
+            success=result.is_success,
+            data_count=len(result.data),
+            error_message="" if result.is_success else result.message,
+            status=result.status.value
+        )
 
     def get_volume_rank(
         self,
@@ -88,6 +149,13 @@ class RankingAPI:
                     print(msg)
                     logger.warning(msg)
                     print(f"📍 전체 응답 키: {list(response.keys())}")
+
+                    # 진단: NO_DATA 상태 기록
+                    self._record_result("volume_rank", RankingResult(
+                        status=RankingResultStatus.NO_DATA,
+                        data=[],
+                        message="장마감/주말/공휴일로 데이터 없음"
+                    ))
                     return []
 
                 # 데이터 정규화: API 응답 키 -> 표준 키
@@ -136,18 +204,42 @@ class RankingAPI:
                     })
 
                 logger.info(f"✅ 거래량 순위 {len(normalized_list)}개 조회 완료")
+
+                # 진단: 성공 기록
+                self._record_result("volume_rank", RankingResult(
+                    status=RankingResultStatus.SUCCESS,
+                    data=normalized_list,
+                    message=f"{len(normalized_list)}개 조회 완료"
+                ))
                 return normalized_list
             else:
                 error_msg = response.get('return_msg', 'Unknown error') if response else 'No response'
+                error_code = response.get('return_code') if response else -1
                 logger.error(f"❌ 거래량 순위 조회 실패: {error_msg}")
-                logger.error(f"Response code: {response.get('return_code') if response else 'N/A'}")
+                logger.error(f"Response code: {error_code}")
                 logger.debug(f"Full response: {response}")
+
+                # 진단: API_ERROR 기록
+                self._record_result("volume_rank", RankingResult(
+                    status=RankingResultStatus.API_ERROR,
+                    data=[],
+                    message=error_msg,
+                    error_code=error_code
+                ))
                 return []
 
         except Exception as e:
             logger.error(f"❌ 거래량 순위 조회 중 예외 발생: {e}")
             import traceback
             traceback.print_exc()
+
+            # 진단: 예외 기록
+            self._record_result("volume_rank", RankingResult(
+                status=RankingResultStatus.NETWORK_ERROR,
+                data=[],
+                message=str(e)
+            ))
+            log_error("ranking_api", str(e), error_type="VOLUME_RANK_ERROR")
             return []
 
     def get_price_change_rank(
@@ -209,6 +301,9 @@ class RankingAPI:
 
                 if not rank_list:
                     logger.warning("⚠️ API 호출 성공했으나 데이터가 비어있습니다 (장마감 후/주말/공휴일일 수 있음)")
+                    self._record_result("price_change_rank", RankingResult(
+                        status=RankingResultStatus.NO_DATA, data=[], message="장마감/주말/공휴일"
+                    ))
                     return []
 
                 # 데이터 정규화: API 응답 키 -> 표준 키
@@ -219,24 +314,35 @@ class RankingAPI:
                         'name': item.get('stk_nm', ''),
                         'price': int(float(item.get('cur_prc', '0').replace('+', '').replace('-', ''))),
                         'change_rate': float(item.get('flu_rt', '0').replace('+', '').replace('-', '')),
+                        'rate': float(item.get('flu_rt', '0').replace('+', '').replace('-', '')),  # 호환성
                         'volume': int(float(item.get('now_trde_qty', '0'))),
                         'change': int(float(item.get('pred_pre', '0').replace('+', '').replace('-', ''))),
                         'change_sign': item.get('pred_pre_sig', ''),
                     })
 
                 logger.info(f"✅ {sort_name} 순위 {len(normalized_list)}개 조회 완료")
+                self._record_result("price_change_rank", RankingResult(
+                    status=RankingResultStatus.SUCCESS, data=normalized_list, message=f"{len(normalized_list)}개 조회"
+                ))
                 return normalized_list
             else:
                 error_msg = response.get('return_msg', 'Unknown error') if response else 'No response'
                 logger.error(f"❌ 등락률 순위 조회 실패: {error_msg}")
                 logger.error(f"Response code: {response.get('return_code') if response else 'N/A'}")
                 logger.debug(f"Full response: {response}")
+                self._record_result("price_change_rank", RankingResult(
+                    status=RankingResultStatus.API_ERROR, data=[], message=error_msg
+                ))
                 return []
 
         except Exception as e:
             logger.error(f"❌ 등락률 순위 조회 중 예외 발생: {e}")
             import traceback
             traceback.print_exc()
+            self._record_result("price_change_rank", RankingResult(
+                status=RankingResultStatus.NETWORK_ERROR, data=[], message=str(e)
+            ))
+            log_error("ranking_api", str(e), error_type="PRICE_CHANGE_RANK_ERROR")
             return []
 
     def get_trading_value_rank(
@@ -293,6 +399,9 @@ class RankingAPI:
 
                 if not rank_list:
                     logger.warning("⚠️ API 호출 성공했으나 데이터가 비어있습니다 (장마감 후/주말/공휴일일 수 있음)")
+                    self._record_result("trading_value_rank", RankingResult(
+                        status=RankingResultStatus.NO_DATA, data=[], message="장마감/주말/공휴일"
+                    ))
                     return []
 
                 # 데이터 정규화
@@ -306,21 +415,32 @@ class RankingAPI:
                         'volume': int(float(item.get('trde_qty', '0'))),
                         'change': int(float(item.get('pred_pre', '0').replace('+', '').replace('-', ''))),
                         'change_sign': item.get('pred_pre_sig', ''),
+                        'rate': 0.0,  # 호환성
                     })
 
                 logger.info(f"✅ 거래대금 순위 {len(normalized_list)}개 조회 완료")
+                self._record_result("trading_value_rank", RankingResult(
+                    status=RankingResultStatus.SUCCESS, data=normalized_list, message=f"{len(normalized_list)}개 조회"
+                ))
                 return normalized_list
             else:
                 error_msg = response.get('return_msg', 'Unknown error') if response else 'No response'
                 logger.error(f"❌ 거래대금 순위 조회 실패: {error_msg}")
                 logger.error(f"Response code: {response.get('return_code') if response else 'N/A'}")
                 logger.debug(f"Full response: {response}")
+                self._record_result("trading_value_rank", RankingResult(
+                    status=RankingResultStatus.API_ERROR, data=[], message=error_msg
+                ))
                 return []
 
         except Exception as e:
             logger.error(f"❌ 거래대금 순위 조회 중 예외 발생: {e}")
             import traceback
             traceback.print_exc()
+            self._record_result("trading_value_rank", RankingResult(
+                status=RankingResultStatus.NETWORK_ERROR, data=[], message=str(e)
+            ))
+            log_error("ranking_api", str(e), error_type="TRADING_VALUE_RANK_ERROR")
             return []
 
     def get_volume_surge_rank(

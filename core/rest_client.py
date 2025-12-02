@@ -20,6 +20,15 @@ from .exceptions import (
     InvalidResponseError,
 )
 
+# 진단 로거 통합
+try:
+    from utils.diagnostic_logger import get_diagnostic_logger, log_api_call
+    _diag_logger = get_diagnostic_logger()
+except ImportError:
+    _diag_logger = None
+    def log_api_call(*args, **kwargs):
+        pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -401,6 +410,17 @@ class KiwoomRESTClient:
             elapsed_ms = (time.monotonic() - start_time) * 1000
             logger.info(f"[REST 응답] {api_id} - 상태:{res.status_code}, 지연:{elapsed_ms:.2f}ms")
 
+            # 진단 로깅 - 성공 여부 기록
+            is_success = res.status_code < 400
+            log_api_call(
+                api_name=api_id,
+                success=is_success,
+                response_time_ms=elapsed_ms,
+                error_message="" if is_success else f"HTTP {res.status_code}",
+                http_status=res.status_code,
+                url=url
+            )
+
             # 에러 상태 코드일 경우 상세 로그
             if res.status_code >= 400:
                 # 분봉 API 500 에러는 주말/공휴일에 정상 - DEBUG로 낮춤
@@ -435,23 +455,27 @@ class KiwoomRESTClient:
         
         except requests.exceptions.Timeout:
             logger.error(f"API 요청 시간 초과 ({api_id})")
+            log_api_call(api_name=api_id, success=False, error_message="Timeout")
             return {"return_code": -102, "return_msg": "API 요청 시간 초과"}
-        
+
         except requests.exceptions.HTTPError as e:
             error_text = e.response.text[:200]
             logger.error(f"HTTP 오류 ({api_id}): {e.response.status_code} - {error_text}")
+            log_api_call(api_name=api_id, success=False, error_message=f"HTTP {e.response.status_code}")
             return {
                 "return_code": -int(e.response.status_code),
                 "return_msg": f"HTTP 오류: {e.response.reason}",
                 "error_detail": error_text
             }
-        
+
         except requests.exceptions.RequestException as e:
             logger.error(f"네트워크 오류 ({api_id}): {e}")
+            log_api_call(api_name=api_id, success=False, error_message=f"Network: {str(e)[:50]}")
             return {"return_code": -103, "return_msg": f"네트워크 오류: {e}"}
-        
+
         except Exception as e:
             logger.error(f"예외 발생 ({api_id}): {e}", exc_info=True)
+            log_api_call(api_name=api_id, success=False, error_message=f"Exception: {str(e)[:50]}")
             return {"return_code": -104, "return_msg": f"내부 오류: {e}"}
     
     def _process_api_response(self, res: requests.Response, api_id: str) -> Dict[str, Any]:
@@ -472,17 +496,37 @@ class KiwoomRESTClient:
         if return_code != 0:
             logger.warning(f"API 로직 오류 ({api_id}): {return_msg} (코드: {return_code})")
             logger.debug(f"전체 응답: {result_data}")
+            # 진단 로깅 - API 로직 오류
+            if _diag_logger:
+                _diag_logger.log_api_call(
+                    api_name=api_id,
+                    success=False,
+                    data_count=0,
+                    error_message=f"API Error {return_code}: {return_msg}"
+                )
         else:
             logger.info(f"API 호출 성공 ({api_id})")
-            # output 데이터 유무 로깅
+            # output 데이터 유무 로깅 및 진단 기록
+            data_count = 0
             if 'output' in result_data:
                 output_data = result_data['output']
                 if isinstance(output_data, list):
-                    logger.debug(f"  output: 리스트 {len(output_data)}개 항목")
+                    data_count = len(output_data)
+                    logger.debug(f"  output: 리스트 {data_count}개 항목")
                 elif isinstance(output_data, dict):
-                    logger.debug(f"  output: 딕셔너리 {len(output_data)}개 키")
+                    data_count = len(output_data)
+                    logger.debug(f"  output: 딕셔너리 {data_count}개 키")
                 else:
+                    data_count = 1
                     logger.debug(f"  output: {type(output_data)}")
+
+            # 진단 로깅 - 성공 시 데이터 개수 기록
+            if _diag_logger:
+                _diag_logger.log_api_call(
+                    api_name=api_id,
+                    success=True,
+                    data_count=data_count
+                )
 
         return result_data
     

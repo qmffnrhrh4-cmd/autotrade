@@ -31,6 +31,21 @@ from utils.data_cache import get_api_cache
 from utils.trading_date import is_any_trading_hours
 from virtual_trading import VirtualTrader, TradeLogger, VirtualTradingManager, VirtualTradingScheduler
 
+# 거래 실행 로거 (진단용)
+try:
+    from utils.trade_logger import get_trade_logger, log_buy, log_sell, log_success, log_failure
+    _trade_logger = get_trade_logger()
+except ImportError:
+    _trade_logger = None
+    def log_buy(*args, **kwargs):
+        return ""
+    def log_sell(*args, **kwargs):
+        return ""
+    def log_success(*args, **kwargs):
+        pass
+    def log_failure(*args, **kwargs):
+        pass
+
 logger = get_logger()
 
 
@@ -1543,6 +1558,18 @@ class AutoTradingBot:
                 self.order_tracker.register_order(temp_order_no, stock_code, 'buy', quantity, optimal_price)
                 logger.info(f"📝 임시 주문 등록: {temp_order_no}")
 
+            # 거래 로거에 매수 시도 기록
+            trade_log_id = log_buy(
+                stock_code=stock_code,
+                stock_name=stock_name,
+                quantity=quantity,
+                price=optimal_price,
+                strategy_name=strategy_note,
+                ai_signal=getattr(candidate, 'ai_signal', ''),
+                score=scoring_result.total_score if scoring_result else 0,
+                reason=f"AI Score: {getattr(candidate, 'ai_score', 0)}"
+            )
+
             # Fix v6.1.3: AI 기반 적응형 분할 매수 사용
             if self.ai_adaptive_split_executor:
                 logger.info(f"🤖 AI 기반 적응형 분할 매수 실행: {stock_name} {quantity}주 @ {optimal_price:,}원")
@@ -1650,6 +1677,11 @@ class AutoTradingBot:
                 self.db_session.commit()
 
                 logger.info(f"{stock_name} 매수 성공 (주문번호: {order_no})")
+
+                # 거래 로거에 성공 기록
+                if trade_log_id:
+                    log_success(trade_log_id, order_no, optimal_price, quantity)
+
                 # Fix: 트레일링 스탑 추가 (ATR 기반 동적 손절/익절)
                 if self.trailing_stop_manager:
                     try:
@@ -1689,8 +1721,15 @@ class AutoTradingBot:
                     self.order_tracker.update_status(temp_order_no, OrderStatus.CANCELLED)
                     logger.warning(f"❌ 주문 실패 - 임시 주문 취소: {temp_order_no}")
 
+                # 거래 로거에 실패 기록
+                if trade_log_id:
+                    log_failure(trade_log_id, "주문 실행 실패 (order_result None)")
+
         except Exception as e:
             logger.error(f"매수 실행 실패: {e}", exc_info=True)
+            # 거래 로거에 예외 기록
+            if 'trade_log_id' in locals() and trade_log_id:
+                log_failure(trade_log_id, str(e))
 
     def _execute_sell(self, stock_code, stock_name, quantity, price, profit_loss, profit_loss_rate, reason):
         try:
@@ -1714,6 +1753,27 @@ class AutoTradingBot:
             logger.info(
                 f"{stock_name} 매도 주문: {quantity}주 @ {optimal_price:,}원 "
                 f"(손익: {profit_loss:+,}원, {profit_loss_rate:+.2f}%, 호가 분석 최적화)"
+            )
+
+            # 매수 시 평균가 조회 (손익 계산용)
+            buy_price = 0
+            try:
+                holdings = self.account_api.get_holdings()
+                for h in holdings:
+                    if h.get('stk_cd', '').replace('A', '').replace('_NX', '') == stock_code:
+                        buy_price = int(float(str(h.get('avg_prc', 0)).replace(',', '')))
+                        break
+            except Exception:
+                pass
+
+            # 거래 로거에 매도 시도 기록
+            sell_trade_log_id = log_sell(
+                stock_code=stock_code,
+                stock_name=stock_name,
+                quantity=quantity,
+                price=optimal_price,
+                reason=reason,
+                buy_price=buy_price
             )
 
             from utils.trading_date import is_nxt_hours
@@ -1862,6 +1922,10 @@ class AutoTradingBot:
                 log_level = 'success' if profit_loss >= 0 else 'warning'
                 logger.info(f"{stock_name} 매도 성공 (주문번호: {order_no})")
 
+                # 거래 로거에 성공 기록
+                if sell_trade_log_id:
+                    log_success(sell_trade_log_id, order_no, optimal_price, quantity)
+
                 self.alert_manager.alert_position_closed(
                     stock_code=stock_code,
                     stock_name=stock_name,
@@ -1879,6 +1943,9 @@ class AutoTradingBot:
 
         except Exception as e:
             logger.error(f"매도 실행 실패: {e}", exc_info=True)
+            # 거래 로거에 예외 기록
+            if 'sell_trade_log_id' in locals() and sell_trade_log_id:
+                log_failure(sell_trade_log_id, str(e))
 
     def _save_portfolio_snapshot(self):
         try:
