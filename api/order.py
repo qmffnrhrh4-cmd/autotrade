@@ -3,16 +3,69 @@ api/order.py
 주문 관련 API
 
 Author: AutoTrade Pro
-Version: 5.1 - 사용자 피드백 시스템 통합
+Version: 5.2 - 재시도 로직 및 주문 상태 조회 추가
 """
 import logging
-from typing import Dict, Any, Optional
+import time
+from typing import Dict, Any, Optional, Tuple
 from datetime import datetime
 
 from utils.validators import adjust_price_to_tick_size
 from utils.user_feedback import get_user_feedback
 
 logger = logging.getLogger(__name__)
+
+# 주문 재시도 설정
+MAX_ORDER_RETRIES = 3  # 최대 재시도 횟수
+RETRY_DELAY_BASE = 1.0  # 기본 재시도 대기 시간 (초)
+RETRY_DELAY_MULTIPLIER = 2.0  # 지수 백오프 승수
+
+
+def _should_retry_order(error_msg: str, error_code: str) -> bool:
+    """
+    에러 유형에 따라 재시도 여부 판단
+
+    Returns:
+        True: 재시도 가능 (일시적 오류)
+        False: 재시도 불가 (영구적 오류)
+    """
+    # 재시도 불가능한 영구적 오류
+    permanent_errors = [
+        '잔고부족', '주문가능수량초과', '계좌번호오류',
+        '종목코드오류', '주문수량오류', '호가단위오류',
+        '신용한도초과', '주문불가종목', '상한가', '하한가',
+        '-301',  # 잔고 부족
+        '-302',  # 주문 한도 초과
+        '-303',  # 계좌 오류
+    ]
+
+    # 재시도 가능한 일시적 오류
+    temporary_errors = [
+        'timeout', 'connection', '네트워크', '응답없음',
+        '서버오류', '일시적', 'retry',
+        '-102',  # 타임아웃
+        '429',   # Rate limit
+        '500', '502', '503', '504',  # 서버 에러
+    ]
+
+    error_lower = (error_msg or '').lower()
+    error_code_str = str(error_code or '')
+
+    # 영구적 오류인지 확인
+    for perm_err in permanent_errors:
+        if perm_err.lower() in error_lower or perm_err in error_code_str:
+            return False
+
+    # 일시적 오류인지 확인
+    for temp_err in temporary_errors:
+        if temp_err.lower() in error_lower or temp_err in error_code_str:
+            return True
+
+    # 기본적으로 응답 없음(None)은 재시도
+    if error_msg == '응답 없음':
+        return True
+
+    return False
 
 
 class OrderAPI:
@@ -136,70 +189,103 @@ class OrderAPI:
             }
 
             logger.info(f"📋 주문 파라미터: order_type={order_type} → trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}, ord_uv={ord_uv_value}")
-            print(f"📋 DEBUG: body_params={body_params}")
 
-            # API 호출
-            result = self.client.request(
-                api_id='kt10000',
-                body=body_params,
-                path='/api/dostk/ordr'
+            # API 호출 (재시도 로직 포함)
+            last_error_msg = None
+            last_error_code = None
+
+            for attempt in range(MAX_ORDER_RETRIES + 1):
+                try:
+                    result = self.client.request(
+                        api_id='kt10000',
+                        body=body_params,
+                        path='/api/dostk/ordr'
+                    )
+
+                    if result and result.get('return_code') == 0:
+                        order_no = result.get('ord_no', 'N/A')
+                        if attempt > 0:
+                            logger.info(f"✅ 매수 주문 성공 (재시도 {attempt}회 후): 주문번호 {order_no}")
+                        else:
+                            logger.info(f"✅ 매수 주문 성공: 주문번호 {order_no}")
+
+                        # 사용자 피드백 표시
+                        feedback = get_user_feedback()
+                        stock_name = result.get('stk_nm', stock_code)
+                        feedback.show_buy_success(
+                            stock_code=stock_code,
+                            stock_name=stock_name,
+                            quantity=quantity,
+                            price=int(ord_uv_value) if ord_uv_value else price,
+                            order_no=order_no
+                        )
+
+                        return {
+                            'order_no': order_no,
+                            'stock_code': stock_code,
+                            'quantity': quantity,
+                            'price': price,
+                            'status': 'ordered',
+                            'result': result,
+                            'retry_count': attempt
+                        }
+
+                    # API 오류 응답
+                    last_error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
+                    last_error_code = str(result.get('return_code', '')) if result else ''
+
+                    # 재시도 가능한 오류인지 확인
+                    if attempt < MAX_ORDER_RETRIES and _should_retry_order(last_error_msg, last_error_code):
+                        retry_delay = RETRY_DELAY_BASE * (RETRY_DELAY_MULTIPLIER ** attempt)
+                        logger.warning(f"⚠️ 매수 주문 실패 (시도 {attempt+1}/{MAX_ORDER_RETRIES+1}): {last_error_msg}")
+                        logger.warning(f"   {retry_delay:.1f}초 후 재시도...")
+                        time.sleep(retry_delay)
+                        continue
+
+                    # 재시도 불가 또는 최대 재시도 도달
+                    break
+
+                except Exception as e:
+                    last_error_msg = str(e)
+                    last_error_code = 'exception'
+
+                    if attempt < MAX_ORDER_RETRIES:
+                        retry_delay = RETRY_DELAY_BASE * (RETRY_DELAY_MULTIPLIER ** attempt)
+                        logger.warning(f"⚠️ 매수 주문 예외 (시도 {attempt+1}/{MAX_ORDER_RETRIES+1}): {e}")
+                        logger.warning(f"   {retry_delay:.1f}초 후 재시도...")
+                        time.sleep(retry_delay)
+                        continue
+                    break
+
+            # 모든 재시도 실패
+            logger.error(f"❌ 매수 주문 최종 실패: {last_error_msg}")
+            logger.error(f"   서버: {self.client.base_url}")
+            logger.error(f"   파라미터: trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}")
+
+            # NXT 시간외 거래 실패 시 추가 안내
+            if dmst_stex_tp == 'NXT' and 'mockapi' in self.client.base_url:
+                logger.error(f"   ⚠️ 모의투자 서버는 NXT 시간외 거래를 지원하지 않습니다!")
+                logger.error(f"   ⚠️ 실제 운영 서버(api.kiwoom.com)로 변경하세요.")
+
+            # 사용자 피드백 표시
+            feedback.show_buy_failure(
+                stock_code=stock_code,
+                stock_name=stock_code,
+                quantity=quantity,
+                price=price,
+                error_code=last_error_code,
+                error_msg=last_error_msg
             )
 
-            if result and result.get('return_code') == 0:
-                order_no = result.get('ord_no', 'N/A')
-                logger.info(f"✅ 매수 주문 성공: 주문번호 {order_no}")
-
-                # 사용자 피드백 표시
-                feedback = get_user_feedback()
-                stock_name = result.get('stk_nm', stock_code)  # 종목명이 있으면 사용
-                feedback.show_buy_success(
-                    stock_code=stock_code,
-                    stock_name=stock_name,
-                    quantity=quantity,
-                    price=int(ord_uv_value) if ord_uv_value else price,
-                    order_no=order_no
-                )
-
-                return {
-                    'order_no': order_no,
-                    'stock_code': stock_code,
-                    'quantity': quantity,
-                    'price': price,
-                    'status': 'ordered',
-                    'result': result
-                }
-            else:
-                error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
-                error_code = str(result.get('return_code', '')) if result else ''
-                logger.error(f"❌ 매수 주문 실패: {error_msg}")
-                logger.error(f"   서버: {self.client.base_url}")
-                logger.error(f"   파라미터: trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}")
-
-                # NXT 시간외 거래 실패 시 추가 안내
-                if dmst_stex_tp == 'NXT' and 'mockapi' in self.client.base_url:
-                    logger.error(f"   ⚠️ 모의투자 서버는 NXT 시간외 거래를 지원하지 않습니다!")
-                    logger.error(f"   ⚠️ 실제 운영 서버(api.kiwoom.com)로 변경하세요.")
-
-                # 사용자 피드백 표시
-                feedback = get_user_feedback()
-                feedback.show_buy_failure(
-                    stock_code=stock_code,
-                    stock_name=stock_code,
-                    quantity=quantity,
-                    price=price,
-                    error_code=error_code,
-                    error_msg=error_msg
-                )
-
-                return {
-                    'order_no': None,
-                    'stock_code': stock_code,
-                    'quantity': quantity,
-                    'price': price,
-                    'status': 'failed',
-                    'error': error_msg,
-                    'result': result
-                }
+            return {
+                'order_no': None,
+                'stock_code': stock_code,
+                'quantity': quantity,
+                'price': price,
+                'status': 'failed',
+                'error': last_error_msg,
+                'retry_count': MAX_ORDER_RETRIES
+            }
 
         except Exception as e:
             logger.error(f"매수 주문 예외 발생: {e}", exc_info=True)
@@ -355,70 +441,106 @@ class OrderAPI:
             }
 
             logger.info(f"📋 주문 파라미터: order_type={order_type} → trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}, ord_uv={ord_uv_value}")
-            print(f"📋 DEBUG: body_params={body_params}")
 
-            # API 호출
-            result = self.client.request(
-                api_id='kt10001',
-                body=body_params,
-                path='/api/dostk/ordr'
+            # API 호출 (재시도 로직 포함)
+            last_error_msg = None
+            last_error_code = None
+
+            for attempt in range(MAX_ORDER_RETRIES + 1):
+                try:
+                    result = self.client.request(
+                        api_id='kt10001',
+                        body=body_params,
+                        path='/api/dostk/ordr'
+                    )
+
+                    if result and result.get('return_code') == 0:
+                        order_no = result.get('ord_no', 'N/A')
+                        if attempt > 0:
+                            logger.info(f"✅ 매도 주문 성공 (재시도 {attempt}회 후): 주문번호 {order_no}")
+                        else:
+                            logger.info(f"✅ 매도 주문 성공: 주문번호 {order_no}")
+
+                        # 사용자 피드백 표시
+                        feedback = get_user_feedback()
+                        stock_name = result.get('stk_nm', stock_code)
+                        feedback.show_sell_success(
+                            stock_code=stock_code,
+                            stock_name=stock_name,
+                            quantity=quantity,
+                            price=int(ord_uv_value) if ord_uv_value else price,
+                            profit_loss=0,  # 체결 후 계산됨
+                            profit_loss_rate=0.0,
+                            order_no=order_no
+                        )
+
+                        return {
+                            'order_no': order_no,
+                            'stock_code': stock_code,
+                            'quantity': quantity,
+                            'price': price,
+                            'status': 'ordered',
+                            'result': result,
+                            'retry_count': attempt
+                        }
+
+                    # API 오류 응답
+                    last_error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
+                    last_error_code = str(result.get('return_code', '')) if result else ''
+
+                    # 재시도 가능한 오류인지 확인
+                    if attempt < MAX_ORDER_RETRIES and _should_retry_order(last_error_msg, last_error_code):
+                        retry_delay = RETRY_DELAY_BASE * (RETRY_DELAY_MULTIPLIER ** attempt)
+                        logger.warning(f"⚠️ 매도 주문 실패 (시도 {attempt+1}/{MAX_ORDER_RETRIES+1}): {last_error_msg}")
+                        logger.warning(f"   {retry_delay:.1f}초 후 재시도...")
+                        time.sleep(retry_delay)
+                        continue
+
+                    # 재시도 불가 또는 최대 재시도 도달
+                    break
+
+                except Exception as e:
+                    last_error_msg = str(e)
+                    last_error_code = 'exception'
+
+                    if attempt < MAX_ORDER_RETRIES:
+                        retry_delay = RETRY_DELAY_BASE * (RETRY_DELAY_MULTIPLIER ** attempt)
+                        logger.warning(f"⚠️ 매도 주문 예외 (시도 {attempt+1}/{MAX_ORDER_RETRIES+1}): {e}")
+                        logger.warning(f"   {retry_delay:.1f}초 후 재시도...")
+                        time.sleep(retry_delay)
+                        continue
+                    break
+
+            # 모든 재시도 실패
+            logger.error(f"❌ 매도 주문 최종 실패: {last_error_msg}")
+            logger.error(f"   서버: {self.client.base_url}")
+            logger.error(f"   파라미터: trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}")
+
+            # NXT 시간외 거래 실패 시 추가 안내
+            if dmst_stex_tp == 'NXT' and 'mockapi' in self.client.base_url:
+                logger.error(f"   ⚠️ 모의투자 서버는 NXT 시간외 거래를 지원하지 않습니다!")
+                logger.error(f"   ⚠️ 실제 운영 서버(api.kiwoom.com)로 변경하세요.")
+
+            # 사용자 피드백 표시
+            feedback = get_user_feedback()
+            feedback.show_sell_failure(
+                stock_code=stock_code,
+                stock_name=stock_code,
+                quantity=quantity,
+                price=price,
+                error_code=last_error_code,
+                error_msg=last_error_msg
             )
 
-            if result and result.get('return_code') == 0:
-                order_no = result.get('ord_no', 'N/A')
-                logger.info(f"✅ 매도 주문 성공: 주문번호 {order_no}")
-
-                # 사용자 피드백 표시
-                feedback = get_user_feedback()
-                stock_name = result.get('stk_nm', stock_code)
-                # 손익 계산은 호출 측에서 제공하도록 하고, 여기서는 주문 접수만 알림
-                feedback.show_sell_success(
-                    stock_code=stock_code,
-                    stock_name=stock_name,
-                    quantity=quantity,
-                    price=int(ord_uv_value) if ord_uv_value else price,
-                    profit_loss=0,  # 체결 후 계산됨
-                    profit_loss_rate=0.0,
-                    order_no=order_no
-                )
-
-                return {
-                    'order_no': order_no,
-                    'stock_code': stock_code,
-                    'quantity': quantity,
-                    'price': price,
-                    'status': 'ordered',
-                    'result': result
-                }
-            else:
-                error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
-                error_code = str(result.get('return_code', '')) if result else ''
-                logger.error(f"❌ 매도 주문 실패: {error_msg}")
-                logger.error(f"   서버: {self.client.base_url}")
-                logger.error(f"   파라미터: trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}")
-
-                # NXT 시간외 거래 실패 시 추가 안내
-                if dmst_stex_tp == 'NXT' and 'mockapi' in self.client.base_url:
-                    logger.error(f"   ⚠️ 모의투자 서버는 NXT 시간외 거래를 지원하지 않습니다!")
-                    logger.error(f"   ⚠️ 실제 운영 서버(api.kiwoom.com)로 변경하세요.")
-
-                # 사용자 피드백 표시
-                feedback = get_user_feedback()
-                feedback.show_error(
-                    error_code=error_code,
-                    error_msg=error_msg,
-                    context='매도 주문'
-                )
-
-                return {
-                    'order_no': None,
-                    'stock_code': stock_code,
-                    'quantity': quantity,
-                    'price': price,
-                    'status': 'failed',
-                    'error': error_msg,
-                    'result': result
-                }
+            return {
+                'order_no': None,
+                'stock_code': stock_code,
+                'quantity': quantity,
+                'price': price,
+                'status': 'failed',
+                'error': last_error_msg,
+                'retry_count': MAX_ORDER_RETRIES
+            }
 
         except Exception as e:
             logger.error(f"매도 주문 예외 발생: {e}", exc_info=True)
@@ -533,20 +655,192 @@ class OrderAPI:
     def get_order_status(
         self,
         order_no: str,
+        stock_code: str = None,
         account_number: str = None
     ) -> Optional[Dict[str, Any]]:
         """
         주문 상태 조회
 
+        미체결 주문과 체결 주문 모두에서 해당 주문번호를 검색합니다.
+
         Args:
             order_no: 주문번호
+            stock_code: 종목코드 (선택, 빠른 조회용)
             account_number: 계좌번호
 
         Returns:
-            주문 상태
+            주문 상태 정보:
+            - status: 'pending' | 'partial' | 'filled' | 'cancelled' | 'unknown'
+            - order_no: 주문번호
+            - stock_code: 종목코드
+            - order_qty: 주문수량
+            - filled_qty: 체결수량
+            - remaining_qty: 미체결수량
+            - order_price: 주문가격
+            - filled_price: 체결가격 (평균)
+            - order_time: 주문시간
+            - fill_time: 체결시간 (있는 경우)
         """
-        logger.warning("주문 상태 조회 API가 아직 구현되지 않았습니다")
-        return None
+        if not self.client:
+            logger.error("Client가 초기화되지 않았습니다")
+            return {'status': 'unknown', 'error': 'Client not initialized'}
+
+        try:
+            logger.debug(f"주문 상태 조회: order_no={order_no}, stock_code={stock_code}")
+
+            # 1. 미체결 주문 조회 (ka10075)
+            try:
+                override = {'trde_tp': '0'}  # 전체 (매수+매도)
+                if stock_code:
+                    override['stk_cd'] = stock_code
+                    override['all_stk_tp'] = '1'
+                else:
+                    override['all_stk_tp'] = '0'
+
+                outstanding_result = self.client.call_verified_api(
+                    api_id='ka10075',
+                    variant_idx=1 if not stock_code else 2,
+                    body_override=override
+                )
+
+                if outstanding_result and outstanding_result.get('return_code') == 0:
+                    orders = outstanding_result.get('nccs_ord_list', [])
+                    for order in orders:
+                        if order.get('ord_no') == order_no:
+                            order_qty = int(order.get('ord_qty', 0))
+                            filled_qty = int(order.get('cntr_qty', 0))
+                            remaining_qty = int(order.get('nccs_qty', order_qty - filled_qty))
+
+                            status = 'pending'
+                            if filled_qty > 0 and remaining_qty > 0:
+                                status = 'partial'
+                            elif filled_qty > 0 and remaining_qty == 0:
+                                status = 'filled'
+
+                            return {
+                                'status': status,
+                                'order_no': order_no,
+                                'stock_code': order.get('stk_cd', stock_code),
+                                'stock_name': order.get('stk_nm', ''),
+                                'order_type': order.get('trde_tp', ''),  # 매수/매도
+                                'order_qty': order_qty,
+                                'filled_qty': filled_qty,
+                                'remaining_qty': remaining_qty,
+                                'order_price': int(order.get('ord_uv', 0)),
+                                'filled_price': int(order.get('cntr_uv', 0)),
+                                'order_time': order.get('ord_time', ''),
+                                'message': f"주문 진행 중 (체결: {filled_qty}/{order_qty}주)"
+                            }
+            except Exception as e:
+                logger.debug(f"미체결 조회 오류 (무시): {e}")
+
+            # 2. 체결 주문 조회 (ka10076)
+            try:
+                override = {'qry_tp': '0'}
+                if stock_code:
+                    override['stk_cd'] = stock_code
+
+                executed_result = self.client.call_verified_api(
+                    api_id='ka10076',
+                    variant_idx=1 if not stock_code else 2,
+                    body_override=override
+                )
+
+                if executed_result and executed_result.get('return_code') == 0:
+                    orders = executed_result.get('cntr_ord_list', [])
+                    for order in orders:
+                        if order.get('ord_no') == order_no:
+                            order_qty = int(order.get('ord_qty', 0))
+                            filled_qty = int(order.get('cntr_qty', order_qty))
+
+                            return {
+                                'status': 'filled',
+                                'order_no': order_no,
+                                'stock_code': order.get('stk_cd', stock_code),
+                                'stock_name': order.get('stk_nm', ''),
+                                'order_type': order.get('trde_tp', ''),
+                                'order_qty': order_qty,
+                                'filled_qty': filled_qty,
+                                'remaining_qty': 0,
+                                'order_price': int(order.get('ord_uv', 0)),
+                                'filled_price': int(order.get('cntr_uv', 0)),
+                                'order_time': order.get('ord_time', ''),
+                                'fill_time': order.get('cntr_time', ''),
+                                'message': f"체결 완료 ({filled_qty}주)"
+                            }
+            except Exception as e:
+                logger.debug(f"체결 조회 오류 (무시): {e}")
+
+            # 찾지 못함
+            logger.debug(f"주문번호 {order_no}를 찾지 못함")
+            return {
+                'status': 'unknown',
+                'order_no': order_no,
+                'message': '주문 정보를 찾을 수 없습니다 (취소되었거나 조회 기간 초과)'
+            }
+
+        except Exception as e:
+            logger.error(f"주문 상태 조회 오류: {e}", exc_info=True)
+            return {
+                'status': 'error',
+                'order_no': order_no,
+                'error': str(e)
+            }
+
+    def wait_for_fill(
+        self,
+        order_no: str,
+        stock_code: str = None,
+        timeout_seconds: int = 30,
+        check_interval: float = 2.0
+    ) -> Dict[str, Any]:
+        """
+        주문 체결 대기
+
+        지정된 시간 동안 주문이 체결될 때까지 상태를 확인합니다.
+
+        Args:
+            order_no: 주문번호
+            stock_code: 종목코드 (선택)
+            timeout_seconds: 타임아웃 (초)
+            check_interval: 확인 간격 (초)
+
+        Returns:
+            최종 주문 상태
+        """
+        logger.info(f"⏳ 체결 대기 시작: {order_no} (최대 {timeout_seconds}초)")
+
+        start_time = time.time()
+        last_status = None
+
+        while time.time() - start_time < timeout_seconds:
+            status = self.get_order_status(order_no, stock_code)
+
+            if status:
+                current_status = status.get('status')
+
+                # 상태 변경 시 로그
+                if current_status != last_status:
+                    filled_qty = status.get('filled_qty', 0)
+                    order_qty = status.get('order_qty', 0)
+                    logger.info(f"📊 주문 상태: {current_status} (체결: {filled_qty}/{order_qty}주)")
+                    last_status = current_status
+
+                # 완료 상태면 반환
+                if current_status in ['filled', 'cancelled', 'error']:
+                    logger.info(f"✅ 체결 완료: {current_status}")
+                    return status
+
+            time.sleep(check_interval)
+
+        # 타임아웃
+        logger.warning(f"⚠️ 체결 대기 타임아웃 ({timeout_seconds}초)")
+        return {
+            'status': 'timeout',
+            'order_no': order_no,
+            'last_check': last_status,
+            'message': f'{timeout_seconds}초 내에 체결되지 않았습니다'
+        }
 
     # ==================== DRY RUN 모드 메서드 ====================
 

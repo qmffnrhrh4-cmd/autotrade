@@ -15,7 +15,7 @@ logger = get_logger()
 
 # Deep Scan 데이터 캐시 (메모리 기반)
 _deep_scan_cache = {}
-CACHE_TTL_SECONDS = 300  # 5분
+CACHE_TTL_SECONDS = 30  # 30초로 단축 (전략 분석용)
 
 
 def _calculate_rsi(prices: List[float], period: int = 14) -> Optional[float]:

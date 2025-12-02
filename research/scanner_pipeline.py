@@ -20,7 +20,7 @@ logger = get_logger()
 
 
 _deep_scan_cache = {}
-CACHE_TTL_SECONDS = 60
+CACHE_TTL_SECONDS = 10  # 10초로 단축 (실시간 매매 결정용)
 
 
 @dataclass
