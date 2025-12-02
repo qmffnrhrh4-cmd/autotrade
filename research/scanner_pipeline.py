@@ -537,21 +537,30 @@ class ScannerPipeline:
 
             # 필터링: 최소 기관 매수 조건
             # 단, API 실패로 데이터가 없으면 필터링 스킵 (주말/비거래시간 대응)
+            # 기관/외국인 데이터 보너스 점수 (필터링 대신 가산점)
+            # 너무 엄격한 필터링으로 모든 후보가 제거되는 것을 방지
             has_investor_data = any(
                 c.institutional_net_buy != 0 or c.foreign_net_buy != 0
                 for c in candidates
             )
 
             if has_investor_data:
-                min_institutional_buy = deep_config.get('min_institutional_net_buy', 10_000_000)
-                before_filter = len(candidates)
-                candidates = [
-                    c for c in candidates
-                    if c.institutional_net_buy >= min_institutional_buy or c.foreign_net_buy >= 5_000_000
-                ]
-                logger.info(f"📊 기관/외국인 필터링: {before_filter}개 → {len(candidates)}개")
+                # 기관/외국인 순매수가 있는 종목에 가산점 부여 (점수 기반)
+                min_institutional_buy = deep_config.get('min_institutional_net_buy', 1_000_000)  # 1M으로 완화
+                min_foreign_buy = deep_config.get('min_foreign_net_buy', 500_000)  # 0.5M으로 완화
+
+                for c in candidates:
+                    # 기관/외국인 매수 보너스 (deep_score에 가산)
+                    if c.institutional_net_buy >= min_institutional_buy:
+                        c.deep_score = getattr(c, 'deep_score', 0) + 20
+                    if c.foreign_net_buy >= min_foreign_buy:
+                        c.deep_score = getattr(c, 'deep_score', 0) + 15
+
+                # 점수순 정렬 (필터링 대신)
+                candidates.sort(key=lambda x: getattr(x, 'deep_score', 0), reverse=True)
+                logger.info(f"📊 기관/외국인 데이터 가산점 적용: {len(candidates)}개 (필터링 없음)")
             else:
-                logger.warning("⚠️  기관/외국인 데이터 없음 (API 실패) - 필터링 스킵")
+                logger.warning("⚠️  기관/외국인 데이터 없음 (API 실패/장외시간) - 가산점 스킵")
 
             # 최대 개수 제한
             candidates = candidates[:self.deep_max_candidates]
@@ -639,8 +648,9 @@ class ScannerPipeline:
 
             ai_config = self.scan_config.get('ai_scan', {})
             scan_time = datetime.now()
-            min_score = ai_config.get('min_analysis_score', 7.0)
-            min_confidence = ai_config.get('min_confidence', 'Medium')
+            # AI 승인 조건 완화: 7.0 → 5.0, Medium → Low
+            min_score = ai_config.get('min_analysis_score', 5.0)  # 더 많은 신호 생성
+            min_confidence = ai_config.get('min_confidence', 'Low')  # 낮은 신뢰도도 허용
 
             print(f"📍 AI 분석기 타입: {type(self.ai_analyzer).__name__}")
             print(f"📍 AI 분석 시작 - {len(candidates)}개 종목 처리 예정")

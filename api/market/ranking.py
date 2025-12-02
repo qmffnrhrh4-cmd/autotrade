@@ -301,7 +301,7 @@ class RankingAPI:
                     normalized_list.append({
                         'code': item.get('stk_cd', '').replace('_AL', ''),
                         'name': item.get('stk_nm', ''),
-                        'price': int(float(item.get('cur_pric', '0').replace('+', '').replace('-', ''))),
+                        'price': int(float(item.get('cur_prc', item.get('cur_pric', '0')).replace('+', '').replace('-', ''))),
                         'trading_value': int(float(item.get('trde_prica', '0'))),  # 거래대금
                         'volume': int(float(item.get('trde_qty', '0'))),
                         'change': int(float(item.get('pred_pre', '0').replace('+', '').replace('-', ''))),

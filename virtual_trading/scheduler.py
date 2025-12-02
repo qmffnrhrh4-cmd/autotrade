@@ -243,6 +243,15 @@ class VirtualTradingScheduler:
             return
 
         try:
+            # DB와 gene_pool 동기화 (cleanup으로 인한 불일치 방지)
+            self.evolution_engine.sync_with_database()
+
+            # gene_pool이 비어있으면 초기화
+            if len(self.evolution_engine.gene_pool) == 0:
+                logger.warning("⚠️ gene_pool이 비어있음 - 재초기화 필요")
+                self.evolution_engine.initialize_population()
+                return  # 다음 주기에 진화 실행
+
             # 다음 세대로 진화
             new_strategy_ids = self.evolution_engine.evolve_generation()
 
@@ -676,7 +685,8 @@ class VirtualTradingScheduler:
         """전략 정리 실행 (단독 실행용)"""
         from datetime import datetime, timedelta
 
-        MAX_ACTIVE_STRATEGIES = 40
+        # evolution_engine의 population_size보다 약간 높게 설정
+        MAX_ACTIVE_STRATEGIES = 25  # evolution population_size(20) + 여유분(5)
         MIN_DAYS_TO_KEEP = 7
         PERFORMANCE_THRESHOLD = -20.0
 
@@ -758,6 +768,11 @@ class VirtualTradingScheduler:
                 self.virtual_manager.db.conn.commit()
 
                 logger.info(f"✅ 정리 완료: {cleanup_count}개 비활성화")
+
+                # evolution_engine에게 gene_pool 동기화 알림
+                if self.evolution_engine and cleanup_count > 0:
+                    self.evolution_engine.sync_with_database()
+                    logger.info(f"🔄 진화 엔진 gene_pool 동기화 완료")
             else:
                 logger.info("✅ 정리 불필요 (활성 전략 수 적정)")
 
