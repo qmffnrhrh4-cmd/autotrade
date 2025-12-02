@@ -741,12 +741,65 @@
                     fetchPositions(),
                     fetchSystemStatus(),
                     fetchEvolutionStatus(),
-                    fetchMarketSignals()
+                    fetchMarketSignals(),
+                    fetchActivityLogs()
                 ]);
                 updateLastUpdate();
             } catch (error) {
                 console.error('데이터 로드 실패:', error);
             }
+        }
+
+        async function fetchActivityLogs() {
+            try {
+                const response = await fetch('/api/autonomous/logs');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.logs && data.logs.length > 0) {
+                        updateActivityLogs(data.logs);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        function updateActivityLogs(logs) {
+            const container = document.getElementById('activityLog');
+            document.getElementById('logCount').textContent = logs.length;
+
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary py-3">활동 없음</div>';
+                return;
+            }
+
+            const iconMap = {
+                'scan': 'signal fa-search',
+                'signal': 'signal fa-bolt',
+                'buy': 'buy fa-arrow-up',
+                'sell': 'sell fa-arrow-down',
+                'trade': 'system fa-exchange-alt',
+                'evolution': 'evolution fa-dna',
+                'data': 'system fa-database',
+                'system': 'system fa-cog'
+            };
+
+            container.innerHTML = logs.map(log => {
+                const time = new Date(log.time);
+                const timeStr = time.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const iconClass = iconMap[log.type] || 'system fa-info';
+
+                return `
+                    <div class="log-entry">
+                        <span class="log-time">${timeStr}</span>
+                        <div class="log-icon ${iconClass.split(' ')[0]}">
+                            <i class="fas ${iconClass.split(' ')[1]}"></i>
+                        </div>
+                        <div class="log-content">
+                            <div class="log-title">${log.title}</div>
+                            <div class="log-detail">${log.detail}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
 
         async function fetchAccount() {

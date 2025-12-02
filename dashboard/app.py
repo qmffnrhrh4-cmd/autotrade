@@ -287,18 +287,14 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
     except Exception as e:
         print(f"⚠️ Failed to initialize real-time data stream: {e}")
 
-    print("=" * 80)
-    print("🚀 AutoTrade Pro v7.0 - AI-Powered Evolution Dashboard")
-    print("=" * 80)
-    print(f"📱 Dashboard URL: http://localhost:{port}")
-    print(f"📊 Evolution Dashboard: http://localhost:{port}/evolution")
-    print(f"🧬 진화 알고리즘: 33개 지표 + YOLO 학습")
-    print(f"📈 실시간 데이터: OpenAPI 지속 수신 (2초 간격)")
-    print(f"🔄 백테스팅: 전략 분석 + 실전 투자 전환")
-    print(f"💰 가상→실전: 검증된 전략 자동 전환")
-    print(f"⚡ New in v7.0: Real-time evolution dashboard + Live trading bridge")
-    print(f"📁 API Endpoints: 100+ (백테스팅 분석 + 실전 투자)")
-    print("=" * 80)
+    print("=" * 60)
+    print("🚀 AutoTrade Pro v7.1 - 자율 진화형 자동매매")
+    print("=" * 60)
+    print(f"📱 대시보드: http://localhost:{port}")
+    print(f"🧬 자율 진화 엔진: 24시간 연속 알고리즘 최적화")
+    print(f"📊 API 수집: 50+ REST API 실시간 분석")
+    print(f"🔄 멀티 종목: 병렬 스캐닝 및 매매")
+    print("=" * 60)
 
     socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
 

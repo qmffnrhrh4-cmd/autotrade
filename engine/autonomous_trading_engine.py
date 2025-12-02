@@ -137,6 +137,9 @@ class AutonomousTradingEngine:
         self.daily_trades: List[Dict] = []
         self.hourly_stats = defaultdict(lambda: {'trades': 0, 'profit': 0, 'signals': 0})
 
+        # 활동 로그 (대시보드 표시용)
+        self.activity_log: deque = deque(maxlen=100)  # 최근 100개 활동
+
         # 백그라운드 태스크
         self._threads: List[threading.Thread] = []
         self._stop_event = threading.Event()
@@ -147,6 +150,21 @@ class AutonomousTradingEngine:
         self.on_signal_generated: Optional[Callable] = None
 
         logger.info(f"🚀 자율 진화형 엔진 초기화: workers={max_workers}, positions={max_positions}")
+
+    def add_activity(self, activity_type: str, title: str, detail: str = ""):
+        """활동 로그 추가 (대시보드 표시용)"""
+        self.activity_log.append({
+            'type': activity_type,  # scan, signal, trade, evolution, data, system
+            'title': title,
+            'detail': detail,
+            'time': datetime.now()
+        })
+
+    def get_recent_activities(self, limit: int = 20) -> List[Dict]:
+        """최근 활동 로그 조회"""
+        activities = list(self.activity_log)
+        activities.reverse()  # 최신순
+        return activities[:limit]
 
     def start(self):
         """엔진 시작"""
@@ -256,10 +274,20 @@ class AutonomousTradingEngine:
                         if self.on_signal_generated:
                             self.on_signal_generated(signal)
 
+                        # 활동 로그에 신호 추가
+                        self.add_activity(
+                            'signal',
+                            f'{signal.stock_name} {signal.action.upper()}',
+                            f'신뢰도 {signal.confidence:.0f}% | {signal.strategy_id}'
+                        )
+
                     elapsed = time.time() - start_time
-                    logger.info(
-                        f"📊 스캔 완료: {len(candidates)}종목 → {len(signals)}신호 "
-                        f"({elapsed:.2f}초)"
+
+                    # 활동 로그에 스캔 결과 추가
+                    self.add_activity(
+                        'scan',
+                        f'시장 스캔 완료',
+                        f'{len(candidates)}종목 분석 → {len(signals)}개 신호 ({elapsed:.1f}초)'
                     )
 
                 # 다음 스캔까지 대기
