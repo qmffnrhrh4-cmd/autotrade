@@ -338,6 +338,7 @@ class VirtualTradingScheduler:
     def _scan_market(self) -> List[Dict[str, Any]]:
         """
         시장 스캔하여 매수 후보 종목 찾기
+        진화 알고리즘을 위해 항상 충분한 데이터 확보
         """
         try:
             # ScannerPipeline을 사용하여 후보 종목 찾기
@@ -351,15 +352,26 @@ class VirtualTradingScheduler:
             # 시장 스캔 실행
             candidates = scanner.scan_market()
 
+            # 후보가 부족하면 (10개 미만) Fast Scan만 실행하여 기본 데이터 확보
+            if not candidates or len(candidates) < 10:
+                logger.info(f"가상매매: 스캔 결과 부족 ({len(candidates) if candidates else 0}개) - Fast Scan 시도")
+                try:
+                    fast_candidates = scanner.run_fast_scan()
+                    if fast_candidates:
+                        candidates = fast_candidates
+                        logger.info(f"가상매매: Fast Scan으로 {len(candidates)}개 확보")
+                except Exception as e:
+                    logger.warning(f"Fast Scan 실패: {e}")
+
             if not candidates:
                 logger.debug("가상매매: 스캔 결과 없음")
                 return []
 
             logger.debug(f"가상매매: 스캔 결과 {len(candidates)}개")
 
-            # 스코어링
+            # 스코어링 (더 많은 종목 분석)
             scored_candidates = []
-            for candidate in candidates[:20]:  # 상위 20개만 스코어링
+            for candidate in candidates[:50]:  # 20 → 50개로 확대
                 try:
                     # StockCandidate 객체를 딕셔너리로 변환
                     stock_data = {
@@ -387,7 +399,8 @@ class VirtualTradingScheduler:
                     scoring_result = scoring_system.calculate_score(stock_data, scan_type='default')
                     score = scoring_result.total_score
 
-                    if score >= 70:  # 70점 이상 (가상매매는 적극적으로 매수하여 다양성 확보)
+                    # 가상매매는 더 적극적으로 매수 (진화 알고리즘을 위한 데이터 확보)
+                    if score >= 40:  # 70 → 40점으로 완화 (더 많은 거래로 다양성 확보)
                         scored_candidates.append({
                             'stock_code': candidate.code,
                             'stock_name': candidate.name,

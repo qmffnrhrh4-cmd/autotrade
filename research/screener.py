@@ -421,8 +421,8 @@ class Screener:
         limit: int = 100
     ) -> List[Dict[str, Any]]:
         """
-        복합 조건 스크리닝
-        
+        복합 조건 스크리닝 - 다중 API 소스 통합
+
         Args:
             min_volume: 최소 거래량
             min_price: 최소 가격
@@ -431,25 +431,60 @@ class Screener:
             max_rate: 최대 등락률
             market: 시장구분
             limit: 초기 조회 건수
-        
+
         Returns:
             필터링된 종목 리스트
         """
-        logger.info(f"복합 조건 스크리닝 시작...")
+        logger.info(f"복합 조건 스크리닝 시작 (다중 소스)...")
         logger.info(f"  - 거래량: {min_volume:,}주 이상")
         logger.info(f"  - 가격: {min_price:,}원 ~ {max_price:,}원")
         logger.info(f"  - 등락률: {min_rate}% ~ {max_rate}%")
-        
-        # 1단계: 거래량 순위 조회
-        candidates = self.fetcher.get_volume_rank(market, limit)
-        logger.info(f"1단계 후보: {len(candidates)}개")
-        
+
+        # 다중 API 소스에서 데이터 수집 (장외에도 데이터 확보)
+        all_candidates = {}
+
+        # 1. 거래량 순위 (기본)
+        try:
+            volume_rank = self.fetcher.get_volume_rank(market, limit * 2)  # limit 2배로
+            for stock in volume_rank:
+                code = stock.get('code', '')
+                if code and code not in all_candidates:
+                    all_candidates[code] = stock
+            logger.info(f"  📊 거래량 순위: {len(volume_rank)}개")
+        except Exception as e:
+            logger.warning(f"거래량 순위 조회 실패: {e}")
+
+        # 2. 거래대금 순위 (추가 데이터 확보)
+        try:
+            trading_value_rank = self.fetcher.get_trading_value_rank(market, limit)
+            for stock in trading_value_rank:
+                code = stock.get('code', '')
+                if code and code not in all_candidates:
+                    all_candidates[code] = stock
+            logger.info(f"  💰 거래대금 순위: {len(trading_value_rank)}개")
+        except Exception as e:
+            logger.warning(f"거래대금 순위 조회 실패: {e}")
+
+        # 3. 등락률 순위 (추가 데이터 확보)
+        try:
+            price_change_rank = self.fetcher.get_price_change_rank(market, 'rise', limit)
+            for stock in price_change_rank:
+                code = stock.get('code', '')
+                if code and code not in all_candidates:
+                    all_candidates[code] = stock
+            logger.info(f"  📈 등락률 순위: {len(price_change_rank)}개")
+        except Exception as e:
+            logger.warning(f"등락률 순위 조회 실패: {e}")
+
+        candidates = list(all_candidates.values())
+        logger.info(f"1단계 후보 (통합): {len(candidates)}개")
+
         # 2단계: 복합 필터 적용
         filtered = []
         for stock in candidates:
             volume = int(float(stock.get('volume', 0)))
-            price = int(float(stock.get('current_price', 0)))
-            change_rate = float(stock.get('change_rate', 0))
+            price = int(float(stock.get('current_price', stock.get('price', 0))))
+            change_rate = float(stock.get('change_rate', stock.get('rate', 0)))
 
             if (volume >= min_volume and
                 min_price <= price <= max_price and
@@ -460,7 +495,7 @@ class Screener:
                 stock['change_rate'] = change_rate
                 stock['rate'] = change_rate
                 filtered.append(stock)
-        
+
         logger.info(f"복합 조건 스크리닝 완료: {len(filtered)}개 종목")
         return filtered
     
