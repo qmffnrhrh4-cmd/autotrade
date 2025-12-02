@@ -100,14 +100,12 @@ class KiwoomOpenAPIClient:
         Returns:
             연결 성공 여부
         """
-        print("🔍 [DEBUG] connect() 함수 시작")  # STDOUT로 직접 출력
         logger.info("📡 OpenAPI 서버 연결 확인 중...")
 
         # Health check
         result = self._request('GET', '/health')
 
         # DEBUG: 전체 응답 출력
-        print(f"🔍 [DEBUG] Health check response: {result}")  # STDOUT로 직접 출력
         logger.info(f"🔍 Health check response: {result}")
 
         if result and result.get('status') == 'ok' and result.get('server_ready'):
@@ -115,7 +113,6 @@ class KiwoomOpenAPIClient:
 
             # Check if already connected to kiwoom
             connection_status = result.get('connection_status')
-            print(f"🔍 [DEBUG] Connection status: {connection_status}")  # STDOUT로 직접 출력
             logger.info(f"🔍 Connection status: {connection_status}")
 
             if connection_status == 'connected':
