@@ -763,10 +763,10 @@
 
         async function fetchPositions() {
             try {
-                const response = await fetch('/api/portfolio');
+                const response = await fetch('/api/account/portfolio');
                 if (response.ok) {
                     const data = await response.json();
-                    updatePositions(data.positions || []);
+                    updatePositions(data.holdings || []);
                 }
             } catch (e) {}
         }
@@ -834,20 +834,20 @@
 
             container.innerHTML = positions.map(p => {
                 const profit = p.profit_loss || 0;
-                const profitRate = p.profit_loss_rate || 0;
+                const profitRate = p.profit_loss_percent || p.profit_loss_rate || 0;
                 const profitClass = profit >= 0 ? 'positive' : 'negative';
 
                 return `
                     <div class="position-item">
                         <div class="position-header">
-                            <span class="position-name">${p.stock_name || p.stk_nm}</span>
+                            <span class="position-name">${p.stock_name || ''}</span>
                             <span class="position-profit ${profitClass}">
                                 ${profit >= 0 ? '+' : ''}${formatNumber(profit)}원
                             </span>
                         </div>
                         <div class="position-details">
-                            <span>${p.quantity || p.rmnd_qty}주</span>
-                            <span>평단 ${formatNumber(p.avg_price || p.avg_prc)}원</span>
+                            <span>${p.quantity || 0}주</span>
+                            <span>평단 ${formatNumber(p.avg_price || 0)}원</span>
                             <span class="${profitClass}">${profitRate >= 0 ? '+' : ''}${profitRate.toFixed(2)}%</span>
                         </div>
                     </div>

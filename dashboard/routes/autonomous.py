@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 autonomous_bp = Blueprint('autonomous', __name__)
 
 
-@autonomous_bp.route('/')
+@autonomous_bp.route('/autonomous')
 def monitor():
     """자율 진화 모니터 대시보드"""
     return render_template('autonomous_monitor.html')
