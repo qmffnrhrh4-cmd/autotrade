@@ -446,16 +446,14 @@
     <header class="header">
         <h1>
             <i class="fas fa-robot"></i>
-            AutoTrade Pro - 자율 진화 모니터
+            AutoTrade Pro
         </h1>
         <div class="d-flex align-items-center gap-3">
+            <span class="text-secondary me-2" id="lastUpdate">--:--:--</span>
             <div class="status-badge status-running" id="systemStatus">
                 <span class="status-dot"></span>
                 <span id="statusText">자동 운영 중</span>
             </div>
-            <a href="/settings" class="btn btn-sm btn-outline-secondary" title="설정">
-                <i class="fas fa-cog"></i>
-            </a>
         </div>
     </header>
 
@@ -802,24 +800,24 @@
         }
 
         function updateAccount(data) {
-            document.getElementById('totalValue').textContent = formatNumber(data.total_value || 0) + '원';
-            document.getElementById('cashBalance').textContent = formatNumber(data.cash_balance || 0) + '원';
+            // /api/account 응답 필드: total_assets, cash, stock_value, profit_loss, profit_loss_percent, open_positions
+            document.getElementById('totalValue').textContent = formatNumber(data.total_assets || 0) + '원';
+            document.getElementById('cashBalance').textContent = formatNumber(data.cash || 0) + '원';
             document.getElementById('stockValue').textContent = formatNumber(data.stock_value || 0) + '원';
 
-            const dailyPnL = data.daily_pnl || 0;
-            const dailyReturn = data.daily_return || 0;
+            const pnL = data.profit_loss || 0;
+            const pnLPercent = data.profit_loss_percent || 0;
 
             const pnlEl = document.getElementById('dailyPnL');
-            pnlEl.textContent = (dailyPnL >= 0 ? '+' : '') + formatNumber(dailyPnL) + '원';
-            pnlEl.className = 'stat-value ' + (dailyPnL >= 0 ? 'positive' : 'negative');
+            pnlEl.textContent = (pnL >= 0 ? '+' : '') + formatNumber(pnL) + '원';
+            pnlEl.className = 'stat-value ' + (pnL >= 0 ? 'positive' : 'negative');
 
             const returnEl = document.getElementById('dailyReturn');
-            returnEl.textContent = (dailyReturn >= 0 ? '+' : '') + dailyReturn.toFixed(2) + '%';
-            returnEl.className = 'stat-value ' + (dailyReturn >= 0 ? 'positive' : 'negative');
+            returnEl.textContent = (pnLPercent >= 0 ? '+' : '') + pnLPercent.toFixed(2) + '%';
+            returnEl.className = 'stat-value ' + (pnLPercent >= 0 ? 'positive' : 'negative');
 
-            // 메트릭 업데이트
-            document.getElementById('totalTrades').textContent = data.today_trades || 0;
-            document.getElementById('winRate').textContent = (data.win_rate || 0).toFixed(1) + '%';
+            // 보유 종목 수
+            document.getElementById('activePositions').textContent = data.open_positions || 0;
         }
 
         function updatePositions(positions) {
@@ -992,6 +990,7 @@
         function updateLastUpdate() {
             const now = new Date();
             state.lastUpdate = now.toLocaleTimeString('ko-KR');
+            document.getElementById('lastUpdate').textContent = state.lastUpdate;
         }
 
         function formatNumber(num) {

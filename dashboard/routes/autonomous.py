@@ -1,22 +1,14 @@
 """
 dashboard/routes/autonomous.py
-자율 진화 모드 대시보드 API
-
-단일 화면에서 모든 자동매매 활동을 모니터링
+자율 진화 모드 API 엔드포인트
 """
-from flask import Blueprint, render_template, jsonify, current_app
+from flask import Blueprint, jsonify, current_app
 from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
 
 autonomous_bp = Blueprint('autonomous', __name__)
-
-
-@autonomous_bp.route('/autonomous')
-def monitor():
-    """자율 진화 모니터 대시보드"""
-    return render_template('autonomous_monitor.html')
 
 
 @autonomous_bp.route('/api/autonomous/status')
@@ -121,13 +113,12 @@ def get_evolution():
             evolution_data.update({
                 'generation': stats.get('generation', 0),
                 'best_fitness': engine.best_fitness if hasattr(engine, 'best_fitness') else 0,
-                'avg_fitness': 0,  # 계산 필요
+                'avg_fitness': 0,
                 'population_size': stats.get('population_size', 0),
                 'deployed_count': stats.get('deployed_strategies', 0),
                 'is_evolving': stats.get('is_running', False)
             })
 
-            # 평균 적합도 계산
             if hasattr(engine, 'fitness_scores') and engine.fitness_scores:
                 fitness_values = list(engine.fitness_scores.values())
                 evolution_data['avg_fitness'] = sum(fitness_values) / len(fitness_values)
@@ -189,7 +180,6 @@ def get_logs():
         if bot and hasattr(bot, '_autonomous_engine') and bot._autonomous_engine:
             engine = bot._autonomous_engine
 
-            # 최근 거래
             for trade in engine.daily_trades[-20:]:
                 logs.append({
                     'type': trade.get('action', 'trade'),
