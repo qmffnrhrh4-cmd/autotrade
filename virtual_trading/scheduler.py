@@ -10,6 +10,17 @@ import threading
 from typing import Dict, Any, List
 from datetime import datetime
 
+# 진단 로거 통합
+try:
+    from utils.diagnostic_logger import get_diagnostic_logger, log_health_snapshot, log_error
+    _diag_logger = get_diagnostic_logger()
+except ImportError:
+    _diag_logger = None
+    def log_health_snapshot(**kwargs):
+        pass
+    def log_error(*args, **kwargs):
+        pass
+
 logger = logging.getLogger(__name__)
 
 
@@ -278,8 +289,27 @@ class VirtualTradingScheduler:
 
             logger.info(f"✅ 제{self.evolution_engine.generation}세대 진화 완료")
 
+            # 진단: 시스템 상태 스냅샷 기록
+            if _diag_logger:
+                try:
+                    strategies = self.virtual_manager.db.get_all_strategies()
+                    positions = self.virtual_manager.get_positions()
+                    trades = self.virtual_manager.get_trades()
+
+                    log_health_snapshot(
+                        evolution_generation=self.evolution_engine.generation,
+                        evolution_fitness=best_info.get('total_score', 0) if best_info else 0,
+                        virtual_trades_count=len(trades) if trades else 0,
+                        active_strategies=[s.get('name', 'Unknown') for s in strategies[:10]] if strategies else [],
+                        market_condition="evolving",
+                        last_price_update=datetime.now().isoformat()
+                    )
+                except Exception as diag_e:
+                    logger.debug(f"진단 로깅 실패: {diag_e}")
+
         except Exception as e:
             logger.error(f"진화 실행 중 오류: {e}", exc_info=True)
+            log_error("evolution", str(e), error_type="EVOLUTION_ERROR")
 
     def _execute_virtual_trading(self):
         """
@@ -418,12 +448,21 @@ class VirtualTradingScheduler:
             # 점수 높은 순으로 정렬
             scored_candidates.sort(key=lambda x: x['score'], reverse=True)
 
-            logger.debug(f"가상매매: 스코어링 결과 {len(scored_candidates)}개 (70점 이상)")
+            logger.debug(f"가상매매: 스코어링 결과 {len(scored_candidates)}개 (40점 이상)")
+
+            # 진단: 시장 스캔 결과 기록
+            if _diag_logger:
+                log_health_snapshot(
+                    market_scan_stocks=len(scored_candidates),
+                    market_condition="scanned",
+                    last_price_update=datetime.now().isoformat()
+                )
 
             return scored_candidates[:15]  # 상위 15개 (다양성 확보)
 
         except Exception as e:
             logger.error(f"시장 스캔 실패: {e}", exc_info=True)
+            log_error("market_scan", str(e), error_type="SCAN_ERROR")
             return []
 
     def _try_buy_for_strategy(self, strategy: Dict[str, Any], candidates: List[Dict[str, Any]]):
