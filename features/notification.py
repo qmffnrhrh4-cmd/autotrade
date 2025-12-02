@@ -1,13 +1,16 @@
 """
-Notification System
-Multi-channel notification system for trading alerts
+알림 시스템
+다채널 거래 알림 시스템
 
-Features:
-- Sound notifications
-- Desktop notifications
-- Telegram bot integration
-- Priority-based alerting
-- Notification history
+기능:
+- 소리 알림
+- 데스크탑 알림
+- 텔레그램 봇 연동
+- 우선순위 기반 알림
+- 알림 기록 관리
+
+Author: AutoTrade Pro
+Version: 5.1
 """
 import json
 import os
@@ -22,51 +25,51 @@ logger = logging.getLogger(__name__)
 
 
 class NotificationPriority(Enum):
-    """Notification priority levels"""
-    LOW = 1
-    MEDIUM = 2
-    HIGH = 3
-    CRITICAL = 4
+    """알림 우선순위"""
+    LOW = 1       # 낮음
+    MEDIUM = 2    # 보통
+    HIGH = 3      # 높음
+    CRITICAL = 4  # 긴급
 
 
 class NotificationChannel(Enum):
-    """Notification channels"""
-    SOUND = 'sound'
-    DESKTOP = 'desktop'
-    TELEGRAM = 'telegram'
-    EMAIL = 'email'
+    """알림 채널"""
+    SOUND = 'sound'        # 소리
+    DESKTOP = 'desktop'    # 데스크탑
+    TELEGRAM = 'telegram'  # 텔레그램
+    EMAIL = 'email'        # 이메일
 
 
 @dataclass
 class Notification:
-    """Single notification"""
+    """단일 알림"""
     id: str
     timestamp: str
     priority: str  # 'low', 'medium', 'high', 'critical'
     category: str  # 'trade', 'ai', 'alert', 'system'
     title: str
     message: str
-    channels: List[str]  # Which channels to use
-    data: Dict[str, Any] = None  # Additional data
-    delivered: bool = False
-    read: bool = False
+    channels: List[str]  # 사용할 채널
+    data: Dict[str, Any] = None  # 추가 데이터
+    delivered: bool = False  # 전달 완료
+    read: bool = False  # 읽음 여부
 
 
 class NotificationManager:
     """
-    Multi-channel notification manager
+    다채널 알림 관리자
 
-    Handles sound, desktop, and telegram notifications
+    소리, 데스크탑, 텔레그램 알림 처리
     """
 
     def __init__(self):
-        """Initialize notification manager"""
+        """알림 관리자 초기화"""
         self.enabled = True
         self.sound_enabled = True
         self.desktop_enabled = True
         self.telegram_enabled = False
 
-        # Telegram config - credentials.py에서 초기값 로드
+        # 텔레그램 설정 - credentials.py에서 초기값 로드
         try:
             from config import get_credentials
             creds = get_credentials()
@@ -77,20 +80,20 @@ class NotificationManager:
             # 텔레그램 설정이 있으면 자동 활성화
             if self.telegram_bot_token and self.telegram_chat_id:
                 self.telegram_enabled = True
-                logger.info("Telegram 설정을 credentials에서 로드했습니다")
+                logger.info("✓ 텔레그램 설정 로드 완료")
         except Exception as e:
-            logger.warning(f"Telegram credentials 로드 실패: {e}")
+            logger.warning(f"텔레그램 설정 로드 실패: {e}")
             self.telegram_bot_token: Optional[str] = None
             self.telegram_chat_id: Optional[str] = None
 
-        # Notification history
+        # 알림 기록
         self.notifications: List[Notification] = []
 
-        # Sound files directory
+        # 소리 파일 디렉토리
         self.sounds_dir = Path('dashboard/static/sounds')
         self.sounds_dir.mkdir(parents=True, exist_ok=True)
 
-        # Config file
+        # 설정 파일
         self.config_file = Path('config/notifications.json')
         self.history_file = Path('data/notifications.json')
 
@@ -98,7 +101,7 @@ class NotificationManager:
         self._load_history()
 
     def _load_config(self):
-        """Load notification config"""
+        """알림 설정 로드"""
         try:
             if self.config_file.exists():
                 with open(self.config_file, 'r', encoding='utf-8') as f:
@@ -110,10 +113,10 @@ class NotificationManager:
                     self.telegram_bot_token = config.get('telegram_bot_token')
                     self.telegram_chat_id = config.get('telegram_chat_id')
         except Exception as e:
-            logger.error(f"Error loading notification config: {e}")
+            logger.error(f"알림 설정 로드 오류: {e}")
 
     def _save_config(self):
-        """Save notification config"""
+        """알림 설정 저장"""
         try:
             self.config_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.config_file, 'w', encoding='utf-8') as f:
@@ -126,20 +129,20 @@ class NotificationManager:
                     'telegram_chat_id': self.telegram_chat_id
                 }, f, indent=2)
         except Exception as e:
-            logger.error(f"Error saving notification config: {e}")
+            logger.error(f"알림 설정 저장 오류: {e}")
 
     def _load_history(self):
-        """Load notification history"""
+        """알림 기록 로드"""
         try:
             if self.history_file.exists():
                 with open(self.history_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
-                    self.notifications = [Notification(**n) for n in data.get('notifications', [])][-100:]  # Keep last 100
+                    self.notifications = [Notification(**n) for n in data.get('notifications', [])][-100:]  # 최근 100개 유지
         except Exception as e:
-            logger.error(f"Error loading notification history: {e}")
+            logger.error(f"알림 기록 로드 오류: {e}")
 
     def _save_history(self):
-        """Save notification history"""
+        """알림 기록 저장"""
         try:
             self.history_file.parent.mkdir(parents=True, exist_ok=True)
             with open(self.history_file, 'w', encoding='utf-8') as f:
@@ -148,7 +151,7 @@ class NotificationManager:
                     'last_updated': datetime.now().isoformat()
                 }, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            logger.error(f"Error saving notification history: {e}")
+            logger.error(f"알림 기록 저장 오류: {e}")
 
     def send(
         self,
@@ -160,27 +163,27 @@ class NotificationManager:
         data: Dict[str, Any] = None
     ) -> Notification:
         """
-        Send notification
+        알림 발송
 
         Args:
-            title: Notification title
-            message: Notification message
-            priority: Priority level (low/medium/high/critical)
-            category: Category (trade/ai/alert/system)
-            channels: List of channels to use (None = auto-select based on priority)
-            data: Additional data
+            title: 알림 제목
+            message: 알림 내용
+            priority: 우선순위 (low/medium/high/critical)
+            category: 카테고리 (trade/ai/alert/system)
+            channels: 사용할 채널 목록 (None = 우선순위에 따라 자동 선택)
+            data: 추가 데이터
 
         Returns:
-            Notification object
+            알림 객체
         """
         if not self.enabled:
             return None
 
-        # Auto-select channels based on priority if not specified
+        # 우선순위에 따라 채널 자동 선택
         if channels is None:
             channels = self._auto_select_channels(priority)
 
-        # Create notification
+        # 알림 생성
         notification = Notification(
             id=f"notif_{int(datetime.now().timestamp())}",
             timestamp=datetime.now().isoformat(),
@@ -194,7 +197,7 @@ class NotificationManager:
             read=False
         )
 
-        # Deliver to each channel
+        # 각 채널로 전달
         for channel in channels:
             try:
                 if channel == 'sound' and self.sound_enabled:
@@ -204,18 +207,18 @@ class NotificationManager:
                 elif channel == 'telegram' and self.telegram_enabled:
                     self._send_telegram(notification)
             except Exception as e:
-                logger.error(f"Error sending notification to {channel}: {e}")
+                logger.error(f"{channel} 채널 알림 발송 오류: {e}")
 
         notification.delivered = True
         self.notifications.append(notification)
         self._save_history()
 
-        logger.info(f"Notification sent: [{priority}] {title}")
+        logger.info(f"알림 발송: [{priority}] {title}")
 
         return notification
 
     def _auto_select_channels(self, priority: str) -> List[str]:
-        """Auto-select channels based on priority"""
+        """우선순위에 따라 채널 자동 선택"""
         if priority == 'critical':
             return ['sound', 'desktop', 'telegram']
         elif priority == 'high':
@@ -226,9 +229,9 @@ class NotificationManager:
             return []
 
     def _send_sound(self, notification: Notification):
-        """Play sound notification"""
+        """소리 알림 재생"""
         try:
-            # Determine sound file based on priority
+            # 우선순위에 따른 소리 파일 선택
             sound_map = {
                 'critical': 'critical_alert.wav',
                 'high': 'high_alert.wav',
@@ -239,31 +242,25 @@ class NotificationManager:
             sound_file = sound_map.get(notification.priority, 'notification.wav')
             sound_path = self.sounds_dir / sound_file
 
-            # Create placeholder sound file if not exists
+            # 소리 파일이 없으면 로그만 출력
             if not sound_path.exists():
-                # In production, use actual sound files
-                # For now, just log
-                logger.info(f"Would play sound: {sound_file}")
+                logger.debug(f"소리 파일 없음: {sound_file}")
                 return
 
-            # Play sound (platform-specific)
+            # 플랫폼별 소리 재생
             # Windows: winsound.PlaySound(str(sound_path), winsound.SND_FILENAME)
             # Mac: os.system(f"afplay {sound_path}")
             # Linux: os.system(f"aplay {sound_path}")
 
-            logger.info(f"🔊 Sound played: {sound_file}")
+            logger.info(f"🔊 소리 알림: {sound_file}")
 
         except Exception as e:
-            logger.error(f"Error playing sound: {e}")
+            logger.error(f"소리 재생 오류: {e}")
 
     def _send_desktop(self, notification: Notification):
-        """Send desktop notification"""
+        """데스크탑 알림 발송"""
         try:
-            # Use platform-specific notification system
-            # Windows: win10toast
-            # Mac/Linux: notify-send
-
-            # For cross-platform, use plyer library
+            # plyer 라이브러리로 크로스플랫폼 알림
             try:
                 from plyer import notification as plyer_notif
                 plyer_notif.notify(
@@ -272,24 +269,24 @@ class NotificationManager:
                     app_name='AutoTrade Pro',
                     timeout=10
                 )
-                logger.info(f"📢 Desktop notification sent: {notification.title}")
+                logger.info(f"📢 데스크탑 알림 발송: {notification.title}")
             except ImportError:
-                # Fallback: just log
-                logger.info(f"📢 [Desktop] {notification.title}: {notification.message}")
+                # 대체: 로그 출력
+                logger.info(f"📢 [데스크탑] {notification.title}: {notification.message}")
 
         except Exception as e:
-            logger.error(f"Error sending desktop notification: {e}")
+            logger.error(f"데스크탑 알림 오류: {e}")
 
     def _send_telegram(self, notification: Notification):
-        """Send Telegram notification"""
+        """텔레그램 알림 발송"""
         if not self.telegram_bot_token or not self.telegram_chat_id:
-            logger.warning("Telegram not configured")
+            logger.warning("텔레그램이 설정되지 않았습니다")
             return
 
         try:
             import requests
 
-            # Format message
+            # 우선순위별 이모지
             priority_emoji = {
                 'critical': '🚨',
                 'high': '⚠️',
@@ -301,7 +298,7 @@ class NotificationManager:
 
             telegram_message = f"{emoji} **{notification.title}**\n\n{notification.message}"
 
-            # Send via Telegram Bot API
+            # 텔레그램 Bot API로 발송
             url = f"https://api.telegram.org/bot{self.telegram_bot_token}/sendMessage"
             payload = {
                 'chat_id': self.telegram_chat_id,
@@ -312,14 +309,14 @@ class NotificationManager:
             response = requests.post(url, json=payload, timeout=5)
 
             if response.status_code == 200:
-                logger.info(f"📱 Telegram notification sent: {notification.title}")
+                logger.info(f"📱 텔레그램 알림 발송: {notification.title}")
             else:
-                logger.error(f"Telegram API error: {response.status_code}")
+                logger.error(f"텔레그램 API 오류: {response.status_code}")
 
         except Exception as e:
-            logger.error(f"Error sending Telegram notification: {e}")
+            logger.error(f"텔레그램 알림 오류: {e}")
 
-    # Convenience methods for common notifications
+    # ==================== 편의 메서드 ====================
 
     def notify_trade(
         self,
@@ -329,7 +326,7 @@ class NotificationManager:
         price: float,
         reason: str
     ):
-        """Notify about a trade"""
+        """거래 알림"""
         title = f"{'🟢 매수' if action == 'buy' else '🔴 매도'}: {stock_name}"
         message = f"""
 수량: {quantity}주
@@ -358,11 +355,12 @@ class NotificationManager:
         confidence: float,
         reasoning: List[str]
     ):
-        """Notify about AI decision"""
-        title = f"🤖 AI 결정: {decision_type.upper()} - {stock_name}"
+        """AI 결정 알림"""
+        action_ko = {'buy': '매수', 'sell': '매도', 'hold': '보유'}.get(decision_type.lower(), decision_type)
+        title = f"🤖 AI 결정: {action_ko} - {stock_name}"
         message = f"""
 신뢰도: {confidence:.0%}
-이유:
+분석 근거:
 {chr(10).join(f"  • {r}" for r in reasoning)}
         """.strip()
 
@@ -387,7 +385,7 @@ class NotificationManager:
         message: str,
         priority: str = 'medium'
     ):
-        """Send general alert"""
+        """일반 경고 알림"""
         self.send(
             title=f"⚠️ {title}",
             message=message,
@@ -402,7 +400,7 @@ class NotificationManager:
         stock_name: str,
         profit_pct: float
     ):
-        """Notify about paper trading result"""
+        """가상 매매 결과 알림"""
         emoji = '📈' if profit_pct > 0 else '📉'
         title = f"{emoji} 가상매매: {strategy_name}"
         message = f"""
@@ -418,19 +416,19 @@ class NotificationManager:
         )
 
     def configure_telegram(self, bot_token: str, chat_id: str):
-        """Configure Telegram integration"""
+        """텔레그램 설정"""
         self.telegram_bot_token = bot_token
         self.telegram_chat_id = chat_id
         self.telegram_enabled = True
         self._save_config()
-        logger.info("Telegram configured")
+        logger.info("✓ 텔레그램 설정 완료")
 
     def get_unread_count(self) -> int:
-        """Get number of unread notifications"""
+        """읽지 않은 알림 개수"""
         return sum(1 for n in self.notifications if not n.read)
 
     def mark_as_read(self, notification_id: str):
-        """Mark notification as read"""
+        """알림 읽음 처리"""
         for notification in self.notifications:
             if notification.id == notification_id:
                 notification.read = True
@@ -438,13 +436,13 @@ class NotificationManager:
                 break
 
     def mark_all_as_read(self):
-        """Mark all notifications as read"""
+        """모든 알림 읽음 처리"""
         for notification in self.notifications:
-            notification.read = False
+            notification.read = True
         self._save_history()
 
     def get_dashboard_data(self) -> Dict[str, Any]:
-        """Get data for dashboard"""
+        """대시보드용 데이터"""
         return {
             'success': True,
             'enabled': self.enabled,
@@ -459,27 +457,26 @@ class NotificationManager:
         }
 
 
-# Global instance
+# 전역 인스턴스
 _notification_manager: Optional[NotificationManager] = None
 
 
 def get_notification_manager() -> NotificationManager:
-    """Get or create notification manager instance"""
+    """알림 관리자 싱글톤 인스턴스 반환"""
     global _notification_manager
     if _notification_manager is None:
         _notification_manager = NotificationManager()
     return _notification_manager
 
 
-# Example usage
+# 테스트 코드
 if __name__ == '__main__':
-    # Test notification manager
     manager = NotificationManager()
 
-    print("\n📢 Notification System Test")
+    print("\n📢 알림 시스템 테스트")
     print("=" * 60)
 
-    # Test trade notification
+    # 거래 알림 테스트
     manager.notify_trade(
         action='buy',
         stock_name='삼성전자',
@@ -488,7 +485,7 @@ if __name__ == '__main__':
         reason='AI 신뢰도 85%로 강력 매수'
     )
 
-    # Test AI decision notification
+    # AI 결정 알림 테스트
     manager.notify_ai_decision(
         decision_type='buy',
         stock_name='SK하이닉스',
@@ -500,7 +497,7 @@ if __name__ == '__main__':
         ]
     )
 
-    # Test alert
+    # 경고 알림 테스트
     manager.notify_alert(
         alert_type='system',
         title='AI 모드 활성화',

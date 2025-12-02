@@ -1,8 +1,10 @@
 """
-Emergency Auto-Response System
-비상 상황 자동 대응 시스템
+비상 상황 자동 대응 시스템 (Emergency Auto-Response System)
 
 시장 급락, 급등, 시스템 이상 등에 자동 대응
+
+Author: AutoTrade Pro
+Version: 5.1
 """
 import logging
 from typing import Dict, List, Optional, Callable
@@ -87,7 +89,7 @@ class EmergencyManager:
         # 콜백
         self.emergency_callbacks: List[Callable] = []
 
-        logger.info(f"EmergencyManager initialized - Enabled: {self.enabled}, Circuit Breaker: {self.circuit_breaker_enabled}")
+        logger.info(f"✓ 비상 대응 시스템 초기화 - 활성화: {self.enabled}, 서킷 브레이커: {self.circuit_breaker_enabled}")
 
     def start_monitoring(self, bot_instance):
         """
@@ -97,11 +99,11 @@ class EmergencyManager:
             bot_instance: TradingBot 인스턴스
         """
         if not self.enabled:
-            logger.info("Emergency monitoring disabled")
+            logger.info("비상 모니터링이 비활성화되어 있습니다")
             return
 
         if self.is_monitoring:
-            logger.warning("Emergency monitoring already running")
+            logger.warning("비상 모니터링이 이미 실행 중입니다")
             return
 
         self.is_monitoring = True
@@ -119,7 +121,7 @@ class EmergencyManager:
     def stop_monitoring(self):
         """모니터링 중지"""
         self.is_monitoring = False
-        logger.info("Emergency monitoring stopped")
+        logger.info("비상 모니터링 중지됨")
 
     def check_emergency_conditions(
         self,
@@ -202,7 +204,7 @@ class EmergencyManager:
             # Fix v6.1.5: 빈 stock_code 필터링
             stock_code = position.get('stock_code', '')
             if not stock_code or stock_code.strip() == '':
-                logger.debug("Empty stock_code in position, skipping emergency check")
+                logger.debug("빈 종목코드 - 긴급 체크 건너뜀")
                 continue
 
             # Fix: 현재가 유효성 체크 (0이거나 None이면 스킵)
@@ -210,7 +212,7 @@ class EmergencyManager:
             purchase_price = position.get('purchase_price', 0)
 
             if current_price <= 0 or purchase_price <= 0:
-                logger.debug(f"Invalid price data for {stock_code} (현재가: {current_price}, 매입가: {purchase_price}) - 긴급청산 스킵")
+                logger.debug(f"유효하지 않은 가격 데이터: {stock_code} (현재가: {current_price}, 매입가: {purchase_price}) - 긴급청산 건너뜀")
                 continue
 
             profit_loss_rate = position.get('profit_loss_rate', 0)
@@ -305,7 +307,7 @@ class EmergencyManager:
             duration_minutes: 활성화 기간 (분)
         """
         if not self.circuit_breaker_enabled:
-            logger.info("Circuit breaker is disabled")
+            logger.info("서킷 브레이커가 비활성화되어 있습니다")
             return
 
         self.circuit_breaker_active = True
@@ -343,7 +345,7 @@ class EmergencyManager:
 
     def _monitoring_loop(self, bot_instance):
         """모니터링 루프 (백그라운드)"""
-        logger.info("Emergency monitoring loop started")
+        logger.info("비상 모니터링 루프 시작됨")
 
         while self.is_monitoring:
             try:
@@ -374,7 +376,7 @@ class EmergencyManager:
                         self.handle_emergency(event, bot_instance)
 
             except Exception as e:
-                logger.error(f"Emergency monitoring error: {e}", exc_info=True)
+                logger.error(f"비상 모니터링 오류: {e}", exc_info=True)
 
             # 30초마다 체크
             time.sleep(30)
@@ -384,7 +386,7 @@ class EmergencyManager:
         logger.critical("🚨🚨 비상 전량 청산 실행 🚨🚨")
 
         if not self.order_api:
-            return "OrderAPI not available"
+            return "주문 API 사용 불가"
 
         try:
             # Fix: NXT 시간대 체크
@@ -398,7 +400,7 @@ class EmergencyManager:
 
                 if not holdings:
                     logger.warning("보유 종목 없음 - 청산 불필요")
-                    return "No positions to liquidate"
+                    return "청산할 포지션 없음"
 
                 logger.info(f"청산 대상: {len(holdings)}개 종목")
 
@@ -430,34 +432,34 @@ class EmergencyManager:
                     else:
                         logger.error(f"  ❌ {stock_name} 청산 실패: {result}")
 
-            return f"Emergency liquidation executed for {len(holdings)} positions"
+            return f"비상 청산 완료: {len(holdings)}개 포지션"
 
         except Exception as e:
-            logger.error(f"Emergency liquidation error: {e}", exc_info=True)
-            return f"Liquidation failed: {e}"
+            logger.error(f"비상 청산 오류: {e}", exc_info=True)
+            return f"청산 실패: {e}"
 
     def _liquidate_position(self, stock_code: str, bot_instance) -> str:
         """특정 포지션 청산"""
-        # Fix v6.1.3: stock_code 유효성 검사
+        # 종목 코드 유효성 검사
         if not stock_code or stock_code == '':
-            logger.warning("⚠️ 긴급 청산: stock_code가 비어있음 - 청산 불가")
-            return "Invalid stock_code"
+            logger.warning("⚠️ 긴급 청산: 종목코드가 비어있음 - 청산 불가")
+            return "잘못된 종목코드"
 
-        # Fix: 장 시간 체크 (장 시작 전/후에는 긴급청산 불가)
+        # 장 시간 체크 (장 시작 전/후에는 긴급청산 불가)
         from datetime import datetime
         now = datetime.now()
         # 장 시작 전 (09:00 이전) 또는 장 마감 후 (15:30 이후)
         if now.hour < 9 or (now.hour == 15 and now.minute >= 30) or now.hour > 15:
             logger.warning(f"⚠️ 장 시간 외 긴급청산 시도 차단: {stock_code} (현재 {now.strftime('%H:%M')})")
-            return "Market closed - emergency sell blocked"
+            return "장 마감 - 긴급 매도 차단됨"
 
         logger.warning(f"🔴 긴급 청산: {stock_code}")
 
         if not self.order_api:
-            return "OrderAPI not available"
+            return "주문 API 사용 불가"
 
         try:
-            # Fix: NXT 시간대 체크
+            # NXT 시간대 체크
             is_nxt = is_nxt_hours()
             exchange = 'NXT' if is_nxt else 'KRX'
 
@@ -474,31 +476,31 @@ class EmergencyManager:
                         quantity=quantity,
                         price=0,
                         order_type='01',
-                        exchange=exchange  # Fix: NXT/KRX 거래소 선택
+                        exchange=exchange
                     )
 
                     if result and result.get('success'):
-                        return f"Position {stock_code} liquidated"
+                        return f"포지션 청산 완료: {stock_code}"
                     else:
-                        return f"Liquidation failed for {stock_code}"
+                        return f"청산 실패: {stock_code}"
 
         except Exception as e:
-            logger.error(f"Position liquidation error: {e}", exc_info=True)
-            return f"Error: {e}"
+            logger.error(f"포지션 청산 오류: {e}", exc_info=True)
+            return f"오류: {e}"
 
-        return "Position not found"
+        return "포지션을 찾을 수 없음"
 
     def _partial_liquidation(self, bot_instance, ratio: float = 0.5) -> str:
         """부분 청산 (비율만큼)"""
         logger.warning(f"⚠️ 부분 청산 실행: {ratio*100:.0f}%")
 
         if not self.order_api:
-            return "OrderAPI not available"
+            return "주문 API 사용 불가"
 
         liquidated_count = 0
 
         try:
-            # Fix: NXT 시간대 체크
+            # NXT 시간대 체크
             is_nxt = is_nxt_hours()
             exchange = 'NXT' if is_nxt else 'KRX'
 
@@ -516,22 +518,22 @@ class EmergencyManager:
                             quantity=liquidate_quantity,
                             price=0,
                             order_type='01',
-                            exchange=exchange  # Fix: NXT/KRX 거래소 선택
+                            exchange=exchange
                         )
 
                         if result and result.get('success'):
                             liquidated_count += 1
 
-            return f"Partial liquidation: {liquidated_count} positions"
+            return f"부분 청산 완료: {liquidated_count}개 포지션"
 
         except Exception as e:
-            logger.error(f"Partial liquidation error: {e}", exc_info=True)
-            return f"Error: {e}"
+            logger.error(f"부분 청산 오류: {e}", exc_info=True)
+            return f"오류: {e}"
 
     def _activate_circuit_breaker(self) -> str:
         """서킷 브레이커 활성화"""
         self.activate_circuit_breaker(duration_minutes=30)
-        return "Circuit breaker activated for 30 minutes"
+        return "서킷 브레이커 30분간 활성화됨"
 
     def _trigger_callbacks(self, event: EmergencyEvent):
         """콜백 실행"""
@@ -539,15 +541,15 @@ class EmergencyManager:
             try:
                 callback(event)
             except Exception as e:
-                logger.error(f"Callback error: {e}")
+                logger.error(f"콜백 오류: {e}")
 
 
-# Singleton instance
+# 싱글톤 인스턴스
 _emergency_manager = None
 
 
 def get_emergency_manager(config=None, order_api=None, data_fetcher=None):
-    """Get emergency manager singleton"""
+    """비상 관리자 싱글톤 인스턴스 반환"""
     global _emergency_manager
     if _emergency_manager is None:
         _emergency_manager = EmergencyManager(config, order_api, data_fetcher)

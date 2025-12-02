@@ -1,12 +1,16 @@
 """
 api/order.py
 주문 관련 API
+
+Author: AutoTrade Pro
+Version: 5.1 - 사용자 피드백 시스템 통합
 """
 import logging
 from typing import Dict, Any, Optional
 from datetime import datetime
 
 from utils.validators import adjust_price_to_tick_size
+from utils.user_feedback import get_user_feedback
 
 logger = logging.getLogger(__name__)
 
@@ -144,6 +148,18 @@ class OrderAPI:
             if result and result.get('return_code') == 0:
                 order_no = result.get('ord_no', 'N/A')
                 logger.info(f"✅ 매수 주문 성공: 주문번호 {order_no}")
+
+                # 사용자 피드백 표시
+                feedback = get_user_feedback()
+                stock_name = result.get('stk_nm', stock_code)  # 종목명이 있으면 사용
+                feedback.show_buy_success(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    quantity=quantity,
+                    price=int(ord_uv_value) if ord_uv_value else price,
+                    order_no=order_no
+                )
+
                 return {
                     'order_no': order_no,
                     'stock_code': stock_code,
@@ -154,6 +170,7 @@ class OrderAPI:
                 }
             else:
                 error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
+                error_code = str(result.get('return_code', '')) if result else ''
                 logger.error(f"❌ 매수 주문 실패: {error_msg}")
                 logger.error(f"   서버: {self.client.base_url}")
                 logger.error(f"   파라미터: trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}")
@@ -162,6 +179,17 @@ class OrderAPI:
                 if dmst_stex_tp == 'NXT' and 'mockapi' in self.client.base_url:
                     logger.error(f"   ⚠️ 모의투자 서버는 NXT 시간외 거래를 지원하지 않습니다!")
                     logger.error(f"   ⚠️ 실제 운영 서버(api.kiwoom.com)로 변경하세요.")
+
+                # 사용자 피드백 표시
+                feedback = get_user_feedback()
+                feedback.show_buy_failure(
+                    stock_code=stock_code,
+                    stock_name=stock_code,
+                    quantity=quantity,
+                    price=price,
+                    error_code=error_code,
+                    error_msg=error_msg
+                )
 
                 return {
                     'order_no': None,
@@ -175,6 +203,15 @@ class OrderAPI:
 
         except Exception as e:
             logger.error(f"매수 주문 예외 발생: {e}", exc_info=True)
+
+            # 사용자 피드백 표시
+            feedback = get_user_feedback()
+            feedback.show_error(
+                error_code='exception',
+                error_msg=str(e),
+                context='매수 주문'
+            )
+
             return {
                 'order_no': None,
                 'stock_code': stock_code,
@@ -330,6 +367,21 @@ class OrderAPI:
             if result and result.get('return_code') == 0:
                 order_no = result.get('ord_no', 'N/A')
                 logger.info(f"✅ 매도 주문 성공: 주문번호 {order_no}")
+
+                # 사용자 피드백 표시
+                feedback = get_user_feedback()
+                stock_name = result.get('stk_nm', stock_code)
+                # 손익 계산은 호출 측에서 제공하도록 하고, 여기서는 주문 접수만 알림
+                feedback.show_sell_success(
+                    stock_code=stock_code,
+                    stock_name=stock_name,
+                    quantity=quantity,
+                    price=int(ord_uv_value) if ord_uv_value else price,
+                    profit_loss=0,  # 체결 후 계산됨
+                    profit_loss_rate=0.0,
+                    order_no=order_no
+                )
+
                 return {
                     'order_no': order_no,
                     'stock_code': stock_code,
@@ -340,6 +392,7 @@ class OrderAPI:
                 }
             else:
                 error_msg = result.get('return_msg', '알 수 없는 오류') if result else '응답 없음'
+                error_code = str(result.get('return_code', '')) if result else ''
                 logger.error(f"❌ 매도 주문 실패: {error_msg}")
                 logger.error(f"   서버: {self.client.base_url}")
                 logger.error(f"   파라미터: trde_tp={trde_tp}, dmst_stex_tp={dmst_stex_tp}")
@@ -348,6 +401,14 @@ class OrderAPI:
                 if dmst_stex_tp == 'NXT' and 'mockapi' in self.client.base_url:
                     logger.error(f"   ⚠️ 모의투자 서버는 NXT 시간외 거래를 지원하지 않습니다!")
                     logger.error(f"   ⚠️ 실제 운영 서버(api.kiwoom.com)로 변경하세요.")
+
+                # 사용자 피드백 표시
+                feedback = get_user_feedback()
+                feedback.show_error(
+                    error_code=error_code,
+                    error_msg=error_msg,
+                    context='매도 주문'
+                )
 
                 return {
                     'order_no': None,
@@ -361,6 +422,15 @@ class OrderAPI:
 
         except Exception as e:
             logger.error(f"매도 주문 예외 발생: {e}", exc_info=True)
+
+            # 사용자 피드백 표시
+            feedback = get_user_feedback()
+            feedback.show_error(
+                error_code='exception',
+                error_msg=str(e),
+                context='매도 주문'
+            )
+
             return {
                 'order_no': None,
                 'stock_code': stock_code,
