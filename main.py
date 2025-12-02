@@ -2088,6 +2088,12 @@ def main():
                        help='자체 테스트 건너뛰기')
     parser.add_argument('--no-autopilot', action='store_true',
                        help='AutoPilot 비활성화 (수동 모드)')
+    parser.add_argument('--autonomous', action='store_true',
+                       help='자율 진화 모드 (24시간 연속 자동매매 + 알고리즘 진화)')
+    parser.add_argument('--max-positions', type=int, default=50,
+                       help='최대 보유 종목 수 (기본: 50)')
+    parser.add_argument('--parallel-workers', type=int, default=20,
+                       help='병렬 처리 스레드 수 (기본: 20)')
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -2167,6 +2173,84 @@ def main():
 
         except Exception as e:
             logger.error(f"❌ 가상매매 초기화 실패: {e}", exc_info=True)
+
+    # 자율 진화 모드 활성화
+    if args.autonomous:
+        logger.info("=" * 80)
+        logger.info("🔥 자율 진화 모드 활성화")
+        logger.info("=" * 80)
+        logger.info("  • 24시간 연속 자동매매")
+        logger.info("  • 멀티 종목 병렬 처리")
+        logger.info("  • 실시간 알고리즘 진화")
+        logger.info("  • 전체 API 데이터 수집")
+        logger.info("=" * 80)
+
+        try:
+            from engine import (
+                AutonomousTradingEngine,
+                APIDataAggregator,
+                ContinuousEvolution
+            )
+
+            # 1. API 데이터 수집기 시작
+            logger.info("📊 API 데이터 수집기 초기화...")
+            api_aggregator = APIDataAggregator(
+                client=bot.client,
+                max_workers=10,
+                enable_all_apis=True
+            )
+            api_aggregator.start()
+            logger.info("✅ API 수집기 시작 (50+ APIs)")
+
+            # 2. 연속 진화 엔진 시작
+            logger.info("🧬 연속 진화 엔진 초기화...")
+            evolution_engine = ContinuousEvolution(
+                client=bot.client,
+                population_size=30,
+                mutation_rate=0.15,
+                max_workers=10
+            )
+            evolution_engine.start()
+            logger.info("✅ 진화 엔진 시작 (24시간 연속)")
+
+            # 3. 자율 매매 엔진 시작
+            logger.info("🚀 자율 매매 엔진 초기화...")
+            autonomous_engine = AutonomousTradingEngine(
+                client=bot.client,
+                max_workers=args.parallel_workers,
+                max_positions=args.max_positions,
+                evolution_interval_minutes=30,
+                scan_interval_seconds=10,
+                enable_auto_evolution=True
+            )
+
+            # 콜백 설정
+            def on_trade_executed(signal, result):
+                logger.info(f"💰 거래 체결: {signal.stock_name} {signal.action} {signal.quantity}주")
+
+            def on_strategy_evolved(strategy):
+                logger.info(f"🧬 새 전략 진화: fitness={strategy.get('fitness', 0):.2f}")
+
+            autonomous_engine.on_trade_executed = on_trade_executed
+            autonomous_engine.on_strategy_evolved = on_strategy_evolved
+
+            autonomous_engine.start()
+            logger.info("✅ 자율 매매 엔진 시작")
+
+            logger.info("=" * 80)
+            logger.info("🎯 자율 진화 시스템 완전 가동!")
+            logger.info(f"   • 최대 보유: {args.max_positions}종목")
+            logger.info(f"   • 병렬 처리: {args.parallel_workers}스레드")
+            logger.info("=" * 80)
+
+            # 엔진 참조 저장 (종료 시 정리용)
+            bot._autonomous_engine = autonomous_engine
+            bot._api_aggregator = api_aggregator
+            bot._evolution_engine = evolution_engine
+
+        except Exception as e:
+            logger.error(f"❌ 자율 진화 모드 초기화 실패: {e}", exc_info=True)
+            logger.info("⚠️ 일반 모드로 계속합니다...")
 
     bot.start()
 
