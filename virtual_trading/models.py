@@ -264,13 +264,13 @@ class VirtualTradingDB:
         keep_ids = [row[0] for row in cursor.fetchall()]
 
         if keep_ids:
-            # 보존 목록에 없는 전략 비활성화
+            # 보존 목록에 없는 전략 비활성화 (SQL Injection 방지: 파라미터화된 쿼리 사용)
             placeholders = ','.join('?' * len(keep_ids))
-            cursor.execute(f"""
-                UPDATE virtual_strategies
-                SET is_active = 0
-                WHERE is_active = 1 AND id NOT IN ({placeholders})
-            """, keep_ids)
+            # Security: Using parameterized query with tuple conversion
+            cursor.execute(
+                f"UPDATE virtual_strategies SET is_active = 0 WHERE is_active = 1 AND id NOT IN ({placeholders})",
+                tuple(keep_ids)
+            )
 
             deactivated = cursor.rowcount
             self.conn.commit()

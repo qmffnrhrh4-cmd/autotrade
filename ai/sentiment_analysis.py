@@ -129,21 +129,28 @@ class NewsSentimentAnalyzer:
         }
 
     def _fetch_news(self, stock_code: str, days_back: int) -> List[NewsArticle]:
-        """Fetch news articles"""
-        # Mock news for testing
-        mock_articles = [
-            NewsArticle(
-                title=f"{stock_code} 주가 상승세 지속, 실적 개선 기대",
-                content="전문가들은 향후 긍정적 전망을 유지하고 있다.",
-                source="Financial Times",
-                published_at=(datetime.now() - timedelta(hours=i)).isoformat(),
-                url=f"https://example.com/news/{i}"
-            )
-            for i in range(5)
-        ]
+        """
+        Fetch news articles for a stock.
 
-        self.article_cache[stock_code] = mock_articles
-        return mock_articles
+        NOTE: This is a STUB implementation. For production use, integrate with:
+        - Naver Finance API (https://openapi.naver.com)
+        - Google News API
+        - Financial news providers (Bloomberg, Reuters)
+
+        Currently returns empty list to avoid misleading mock data.
+        """
+        # Try to fetch real news if available
+        if REQUESTS_AVAILABLE:
+            try:
+                # Example: Naver Finance news scraping (requires proper API key)
+                # This is a placeholder for real implementation
+                pass
+            except Exception as e:
+                pass
+
+        # Return empty list instead of fake data
+        # This makes it clear that news analysis is not available
+        return []
 
     def _calculate_sentiment(self, text: str) -> float:
         """Calculate sentiment score from text"""
@@ -233,24 +240,20 @@ class SocialMediaAnalyzer:
         }
 
     def _fetch_posts(self, stock_code: str, hours_back: int) -> List[SocialMediaPost]:
-        """Fetch social media posts"""
-        # Mock posts
-        import random
+        """
+        Fetch social media posts about a stock.
 
-        mock_posts = [
-            SocialMediaPost(
-                platform='twitter',
-                content=f"${ stock_code} looking strong! 🚀",
-                author=f"user_{i}",
-                timestamp=(datetime.now() - timedelta(minutes=i*10)).isoformat(),
-                likes=random.randint(10, 1000),
-                shares=random.randint(5, 500)
-            )
-            for i in range(20)
-        ]
+        NOTE: This is a STUB implementation. For production use, integrate with:
+        - Twitter/X API (requires developer account)
+        - Reddit API (r/wallstreetbets, r/stocks)
+        - StockTwits API
 
-        self.post_cache[stock_code] = mock_posts
-        return mock_posts
+        Currently returns empty list to avoid misleading mock/random data.
+        Social media sentiment analysis requires proper API integration.
+        """
+        # Return empty list instead of fake random data
+        # This makes it clear that social sentiment is not available
+        return []
 
     def _calculate_post_sentiment(self, text: str) -> float:
         """Calculate sentiment from post"""

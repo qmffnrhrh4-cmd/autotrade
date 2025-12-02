@@ -431,8 +431,8 @@ class AIParameterOptimizer:
                 if distances:
                     closest_idx = np.argmin(distances)
                     return history.scores[closest_idx]
-        except:
-            pass
+        except (TypeError, ValueError, IndexError) as e:
+            logger.debug(f"Score estimation error: {e}")
 
         return np.mean(history.scores)
 

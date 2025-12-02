@@ -1007,7 +1007,8 @@ class ProgramManager:
                 try:
                     with open(self.report_path, 'r', encoding='utf-8') as f:
                         reports = json.load(f)
-                except:
+                except (json.JSONDecodeError, IOError, PermissionError) as e:
+                    logger.warning(f"Failed to load existing reports: {e}")
                     reports = []
 
             # 새 보고서 추가 (최근 10개만 유지)

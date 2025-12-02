@@ -260,7 +260,7 @@ def is_price_stale(timestamp_str: str, max_age_seconds: int = 60) -> bool:
         timestamp = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
         age = (datetime.now() - timestamp).total_seconds()
         return age > max_age_seconds
-    except:
+    except (ValueError, TypeError, AttributeError):
         return True  # 파싱 실패시 오래된 것으로 간주
 
 
