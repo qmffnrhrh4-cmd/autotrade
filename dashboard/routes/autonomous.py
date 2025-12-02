@@ -188,19 +188,36 @@ def get_logs():
 
         if bot and hasattr(bot, '_autonomous_engine') and bot._autonomous_engine:
             engine = bot._autonomous_engine
-            daily_trades = getattr(engine, 'daily_trades', [])
 
-            for trade in daily_trades[-20:]:
+            # 활동 로그 조회 (get_recent_activities 메서드 사용)
+            if hasattr(engine, 'get_recent_activities'):
+                activities = engine.get_recent_activities(30)
+                for activity in activities:
+                    time_val = activity.get('time', datetime.now())
+                    logs.append({
+                        'type': activity.get('type', 'system'),
+                        'title': activity.get('title', ''),
+                        'detail': activity.get('detail', ''),
+                        'time': time_val.isoformat() if hasattr(time_val, 'isoformat') else str(time_val)
+                    })
+
+            # 거래 내역도 추가
+            daily_trades = getattr(engine, 'daily_trades', [])
+            for trade in daily_trades[-10:]:
+                time_val = trade.get('time', datetime.now())
                 logs.append({
                     'type': trade.get('action', 'trade'),
                     'title': trade.get('stock_name', trade.get('stock_code', '')),
-                    'detail': f"{trade.get('quantity', 0)}주",
-                    'time': trade.get('time', datetime.now()).isoformat() if hasattr(trade.get('time', datetime.now()), 'isoformat') else str(trade.get('time', ''))
+                    'detail': f"{trade.get('quantity', 0)}주 @ {trade.get('price', 0):,}원",
+                    'time': time_val.isoformat() if hasattr(time_val, 'isoformat') else str(time_val)
                 })
+
+        # 시간순 정렬 (최신순)
+        logs.sort(key=lambda x: x['time'], reverse=True)
 
         return jsonify({
             'success': True,
-            'logs': logs
+            'logs': logs[:30]  # 최대 30개
         })
 
     except Exception as e:

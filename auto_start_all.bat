@@ -4,13 +4,13 @@ setlocal enabledelayedexpansion
 
 echo.
 echo ================================================================================
-echo   AutoTrade Pro - Complete Automation System v6.3
+echo   AutoTrade Pro v7.1 - 자율 진화형 자동매매
 echo ================================================================================
 echo.
-echo   [v] OpenAPI Server 32-bit - Kiwoom Connection
-echo   [v] Strategy Evolution Engine - 24/7 Auto Optimization
-echo   [v] Web Dashboard - Real-time Monitoring
-echo   [v] AutoPilot - AI Full Automation
+echo   [v] 24시간 자율 진화 엔진
+echo   [v] 멀티 종목 병렬 매매
+echo   [v] 50+ API 실시간 수집
+echo   [v] 단일 대시보드 모니터링
 echo.
 echo ================================================================================
 echo.
