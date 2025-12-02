@@ -119,15 +119,14 @@ class StrategyOptimizationEngine:
         # 백테스터 초기화 (market_api가 제공된 경우)
         if market_api:
             try:
-                from ai.strategy_backtester import StrategyBacktester
-                self.backtester = StrategyBacktester(
+                from ai.unified_backtester import UnifiedBacktester, BacktestConfig
+                config = BacktestConfig(initial_capital=10_000_000)
+                self.backtester = UnifiedBacktester(
+                    config=config,
                     market_api=market_api,
-                    chart_api=chart_api,
                     openapi_client=openapi_client
                 )
                 logger.info("✅ 실제 백테스터 연결 완료")
-                if chart_api:
-                    logger.info("  - ChartAPI 연결: 차트 데이터 사용 가능")
                 if openapi_client:
                     logger.info("  - OpenAPIClient 연결: 실시간 데이터 사용 가능")
             except Exception as e:
