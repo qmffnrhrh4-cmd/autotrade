@@ -23,7 +23,7 @@ def set_bot_instance(bot):
     if bot and hasattr(bot, 'market_api'):
         try:
             from ai.unified_backtester import UnifiedBacktester, BacktestConfig
-            from virtual_trading.diverse_strategies import STRATEGY_CLASSES
+            from ai.strategy_backtester import STRATEGY_CLASSES
 
             # BacktestConfig로 초기화
             config = BacktestConfig(
