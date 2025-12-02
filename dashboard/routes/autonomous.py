@@ -2,7 +2,7 @@
 dashboard/routes/autonomous.py
 자율 진화 모드 API 엔드포인트
 """
-from flask import Blueprint, jsonify, current_app
+from flask import Blueprint, jsonify
 from datetime import datetime
 import logging
 
@@ -10,12 +10,21 @@ logger = logging.getLogger(__name__)
 
 autonomous_bp = Blueprint('autonomous', __name__)
 
+# 봇 인스턴스 (다른 라우트들과 동일한 패턴)
+_bot_instance = None
+
+
+def set_bot_instance(bot):
+    """봇 인스턴스 설정"""
+    global _bot_instance
+    _bot_instance = bot
+
 
 @autonomous_bp.route('/api/autonomous/status')
 def get_status():
     """시스템 상태 조회"""
     try:
-        bot = current_app.config.get('BOT')
+        bot = _bot_instance
 
         # 엔진 상태 확인
         engine_running = False
@@ -29,17 +38,17 @@ def get_status():
             # 자율 엔진 상태
             if hasattr(bot, '_autonomous_engine') and bot._autonomous_engine:
                 engine = bot._autonomous_engine
-                engine_running = engine.is_running
+                engine_running = getattr(engine, 'is_running', False)
                 signal_count = engine.signal_queue.qsize() if hasattr(engine, 'signal_queue') else 0
 
             # 진화 엔진 상태
             if hasattr(bot, '_evolution_engine') and bot._evolution_engine:
-                evolution_running = bot._evolution_engine.is_running
+                evolution_running = getattr(bot._evolution_engine, 'is_running', False)
 
             # 데이터 수집기 상태
             if hasattr(bot, '_api_aggregator') and bot._api_aggregator:
                 agg = bot._api_aggregator
-                data_collector_running = agg.is_running
+                data_collector_running = getattr(agg, 'is_running', False)
                 api_stats = agg.get_api_coverage_stats() if hasattr(agg, 'get_api_coverage_stats') else {}
 
             # API 연결 상태
@@ -95,7 +104,7 @@ def get_status():
 def get_evolution():
     """진화 상태 조회"""
     try:
-        bot = current_app.config.get('BOT')
+        bot = _bot_instance
 
         evolution_data = {
             'generation': 0,
@@ -112,7 +121,7 @@ def get_evolution():
 
             evolution_data.update({
                 'generation': stats.get('generation', 0),
-                'best_fitness': engine.best_fitness if hasattr(engine, 'best_fitness') else 0,
+                'best_fitness': getattr(engine, 'best_fitness', 0),
                 'avg_fitness': 0,
                 'population_size': stats.get('population_size', 0),
                 'deployed_count': stats.get('deployed_strategies', 0),
@@ -142,7 +151,7 @@ def get_evolution():
 def get_signals():
     """시장 신호 조회"""
     try:
-        bot = current_app.config.get('BOT')
+        bot = _bot_instance
         signals = []
 
         if bot and hasattr(bot, '_api_aggregator') and bot._api_aggregator:
@@ -151,10 +160,10 @@ def get_signals():
 
             for s in recent:
                 signals.append({
-                    'type': s.signal_type if hasattr(s, 'signal_type') else 'neutral',
-                    'strength': int(s.strength) if hasattr(s, 'strength') else 0,
-                    'source': s.source if hasattr(s, 'source') else '',
-                    'description': s.description if hasattr(s, 'description') else ''
+                    'type': getattr(s, 'signal_type', 'neutral'),
+                    'strength': int(getattr(s, 'strength', 0)),
+                    'source': getattr(s, 'source', ''),
+                    'description': getattr(s, 'description', '')
                 })
 
         return jsonify({
@@ -174,18 +183,19 @@ def get_signals():
 def get_logs():
     """활동 로그 조회"""
     try:
-        bot = current_app.config.get('BOT')
+        bot = _bot_instance
         logs = []
 
         if bot and hasattr(bot, '_autonomous_engine') and bot._autonomous_engine:
             engine = bot._autonomous_engine
+            daily_trades = getattr(engine, 'daily_trades', [])
 
-            for trade in engine.daily_trades[-20:]:
+            for trade in daily_trades[-20:]:
                 logs.append({
                     'type': trade.get('action', 'trade'),
                     'title': trade.get('stock_name', trade.get('stock_code', '')),
                     'detail': f"{trade.get('quantity', 0)}주",
-                    'time': trade.get('time', datetime.now()).isoformat()
+                    'time': trade.get('time', datetime.now()).isoformat() if hasattr(trade.get('time', datetime.now()), 'isoformat') else str(trade.get('time', ''))
                 })
 
         return jsonify({

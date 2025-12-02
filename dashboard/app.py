@@ -99,7 +99,7 @@ from .routes.virtual_trading import init_virtual_trading_manager
 from .routes.program_manager import set_bot_instance as program_manager_set_bot
 from .routes.backtest_analysis import set_bot_instance as backtest_analysis_set_bot
 from .routes.live_trading import set_bot_instance as live_trading_set_bot, set_live_trading_bridge
-from .routes.autonomous import autonomous_bp  # v7.0: 자율 진화 모니터
+from .routes.autonomous import autonomous_bp, set_bot_instance as autonomous_set_bot  # v7.0: 자율 진화 모니터
 
 # Register all blueprints
 app.register_blueprint(account_bp)
@@ -200,6 +200,7 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
         program_manager_set_bot(bot_instance)
         backtest_analysis_set_bot(bot_instance)
         live_trading_set_bot(bot_instance)
+        autonomous_set_bot(bot_instance)  # v7.0: 자율 진화 모니터
 
         # Set config manager and unified settings for system routes
         if config_manager:
