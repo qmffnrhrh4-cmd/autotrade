@@ -192,8 +192,8 @@ class StrategyEvolutionEngine:
         self.mutation_rate = mutation_rate
         self.initial_capital = initial_capital
 
-        # 현재 세대
-        self.generation = 0
+        # 현재 세대 (기존 전략에서 최대 세대 번호를 계승)
+        self.generation = self._get_max_generation()
 
         # 유전자 풀 (활성 전략)
         self.gene_pool: List[Tuple[int, StrategyGene]] = []  # [(strategy_id, gene), ...]
@@ -225,12 +225,15 @@ class StrategyEvolutionEngine:
 
         strategy_ids = []
 
+        # 현재 타임스탬프 (동일 세대 내 중복 방지)
+        timestamp = datetime.now().strftime('%H%M%S')
+
         for i in range(self.population_size):
             # 랜덤 유전자 생성
             gene = self._generate_random_gene()
 
-            # 전략 생성
-            strategy_name = f"진화-G{self.generation:03d}-S{i:02d}"
+            # 전략 생성 (타임스탬프 포함으로 중복 방지)
+            strategy_name = f"진화-G{self.generation:03d}-S{i:02d}-{timestamp}"
             description = self._gene_to_description(gene)
 
             strategy_id = self.virtual_manager.create_strategy(
@@ -361,6 +364,9 @@ class StrategyEvolutionEngine:
         new_strategy_ids = []
         new_strategies_needed = self.population_size - elite_count
 
+        # 현재 타임스탬프 (동일 세대 내 중복 방지)
+        timestamp = datetime.now().strftime('%H%M%S')
+
         for i in range(new_strategies_needed):
             # 랜덤으로 2개 엘리트 선택
             parent1 = random.choice(elites)
@@ -377,8 +383,8 @@ class StrategyEvolutionEngine:
                 child_gene = self._mutate(child_gene)
                 logger.debug(f"  🧬 돌연변이 발생!")
 
-            # 새 전략 생성
-            strategy_name = f"진화-G{self.generation+1:03d}-S{elite_count+i:02d}"
+            # 새 전략 생성 (타임스탬프 포함으로 중복 방지)
+            strategy_name = f"진화-G{self.generation+1:03d}-S{elite_count+i:02d}-{timestamp}"
             description = self._gene_to_description(child_gene)
 
             strategy_id = self.virtual_manager.create_strategy(
@@ -396,6 +402,27 @@ class StrategyEvolutionEngine:
         self.generation += 1
 
         return new_strategy_ids
+
+    def _get_max_generation(self) -> int:
+        """기존 전략에서 최대 세대 번호 조회"""
+        try:
+            import re
+            strategies = self.virtual_manager.db.get_all_strategies()
+            max_gen = 0
+            for strategy in strategies:
+                name = strategy.get('name', '')
+                # "진화-G{세대:03d}-S{번호:02d}" 또는 "진화-G{세대:03d}-S{번호:02d}-{timestamp}" 형식에서 세대 번호 추출
+                match = re.search(r'진화-G(\d+)-S\d+', name)
+                if match:
+                    gen = int(match.group(1))
+                    max_gen = max(max_gen, gen)
+            if max_gen > 0:
+                logger.info(f"📊 기존 진화 전략 발견: 최대 세대 {max_gen}, 다음 세대 {max_gen + 1}부터 시작")
+                return max_gen + 1
+            return 0
+        except Exception as e:
+            logger.warning(f"세대 번호 조회 실패: {e}")
+            return 0
 
     def _generate_random_gene(self) -> StrategyGene:
         """랜덤 유전자 생성 (33개 지표)"""

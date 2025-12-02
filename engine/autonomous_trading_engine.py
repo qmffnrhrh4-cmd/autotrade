@@ -598,17 +598,9 @@ class AutonomousTradingEngine:
     def _evolve_strategies(self, fitness_scores: Dict[str, float]) -> List[Dict]:
         """유전 알고리즘으로 전략 진화"""
         try:
-            from ai.strategy_optimizer import StrategyOptimizationEngine
-            optimizer = StrategyOptimizationEngine()
-
-            # 현재 최고 전략 기반으로 진화
-            if hasattr(optimizer, 'evolve_generation'):
-                new_generation = optimizer.evolve_generation(list(fitness_scores.items()))
-            else:
-                # 대체 진화 로직
-                new_generation = self._simple_evolution(fitness_scores)
-
-            return new_generation
+            # StrategyOptimizationEngine.evolve_generation()은 population과 fitness_scores 두 개를 요구
+            # 여기서는 간단한 진화 로직 사용
+            return self._simple_evolution(fitness_scores)
         except Exception as e:
             logger.error(f"전략 진화 오류: {e}")
             return self._simple_evolution(fitness_scores)
@@ -962,8 +954,8 @@ class AutonomousTradingEngine:
         logger.info("⚙️ 파라미터 최적화 중...")
 
         try:
-            from ai.parameter_optimizer import ParameterOptimizer
-            optimizer = ParameterOptimizer()
+            from ai.parameter_optimizer import get_parameter_optimizer
+            optimizer = get_parameter_optimizer()
 
             # 주요 파라미터 최적화
             optimal_params = optimizer.optimize_all()
