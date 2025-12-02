@@ -22,15 +22,25 @@ def set_bot_instance(bot):
 
     if bot and hasattr(bot, 'market_api'):
         try:
-            from ai.strategy_backtester import StrategyBacktester
-            # Fix: OpenAPI 클라이언트도 전달하여 백테스팅 데이터 조회 가능하도록 함
+            from ai.unified_backtester import UnifiedBacktester, BacktestConfig
+            from virtual_trading.diverse_strategies import STRATEGY_CLASSES
+
+            # BacktestConfig로 초기화
+            config = BacktestConfig(
+                initial_capital=10_000_000,
+                commission_rate=0.00015,
+                slippage_pct=0.001
+            )
             openapi_client = getattr(bot, 'openapi_client', None)
-            chart_api = getattr(bot, 'chart_api', None)
-            _backtester = StrategyBacktester(
+            _backtester = UnifiedBacktester(
+                config=config,
                 market_api=bot.market_api,
-                chart_api=chart_api,
                 openapi_client=openapi_client
             )
+
+            # 전략 클래스들 등록
+            _backtester.strategies = [cls() for cls in STRATEGY_CLASSES.values()]
+
             logger.info(f"Backtester initialized (strategies: {len(_backtester.strategies)})")
             if openapi_client:
                 logger.info("  - OpenAPI client connected for backtesting")
