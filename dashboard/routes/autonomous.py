@@ -55,17 +55,41 @@ def get_status():
             if hasattr(bot, 'client') and bot.client:
                 api_connected = True
 
-        # 시장 상태
+        # 시장 상태 - NXT 포함
         now = datetime.now()
         hour = now.hour
         minute = now.minute
         weekday = now.weekday()
 
-        # 평일 9:00-15:30
-        market_open = (
-            weekday < 5 and
-            ((hour == 9 and minute >= 0) or (9 < hour < 15) or (hour == 15 and minute <= 30))
-        )
+        # 평일 NXT 시장 시간 포함 (08:00-20:00)
+        # 프리마켓: 08:00-08:50, 메인마켓: 09:00-15:20, 애프터마켓: 15:40-20:00
+        market_open = False
+        market_type = '장 마감'
+
+        if weekday < 5:  # 평일
+            if 8 <= hour < 9:
+                # NXT 프리마켓: 08:00-08:50
+                if hour == 8 and minute < 50:
+                    market_open = True
+                    market_type = 'NXT 프리마켓'
+            elif 9 <= hour < 15:
+                # NXT 메인마켓: 09:00-15:00
+                market_open = True
+                market_type = 'NXT 메인마켓'
+            elif hour == 15:
+                if minute < 20:
+                    market_open = True
+                    market_type = 'NXT 메인마켓'
+                elif minute < 30:
+                    market_open = True
+                    market_type = 'KRX 종가 결정'
+                elif minute >= 40:
+                    market_open = True
+                    market_type = 'NXT 애프터마켓'
+            elif 16 <= hour < 20:
+                # NXT 애프터마켓: 15:40-20:00
+                market_open = True
+                market_type = 'NXT 애프터마켓'
 
         return jsonify({
             'success': True,
@@ -74,6 +98,7 @@ def get_status():
             'data_collector_running': data_collector_running,
             'api_connected': api_connected,
             'market_open': market_open,
+            'market_type': market_type,
             'signal_count': signal_count,
             'api_stats': {
                 'total': api_stats.get('collected_apis', 0),
