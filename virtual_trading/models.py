@@ -379,7 +379,7 @@ class VirtualTradingDB:
             seen_names.add(strategy_name)
 
             holdings_value = row['holdings_value'] or 0
-            current_capital = row['current_capital']
+            current_capital = row['current_capital'] or 0
             total_assets = current_capital + holdings_value
 
             strategies.append({
