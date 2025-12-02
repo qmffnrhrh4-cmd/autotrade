@@ -99,6 +99,7 @@ from .routes.virtual_trading import init_virtual_trading_manager
 from .routes.program_manager import set_bot_instance as program_manager_set_bot
 from .routes.backtest_analysis import set_bot_instance as backtest_analysis_set_bot
 from .routes.live_trading import set_bot_instance as live_trading_set_bot, set_live_trading_bridge
+from .routes.autonomous import autonomous_bp  # v7.0: 자율 진화 모니터
 
 # Register all blueprints
 app.register_blueprint(account_bp)
@@ -117,6 +118,7 @@ app.register_blueprint(program_manager_bp)  # 프로그램 매니저
 app.register_blueprint(evolution_bp)  # Fix: 전략 진화 시스템
 app.register_blueprint(backtest_analysis_bp)  # 백테스팅 결과 분석
 app.register_blueprint(live_trading_bp)  # 실전 투자 전환
+app.register_blueprint(autonomous_bp, url_prefix='/autonomous')  # v7.0: 자율 진화 모니터
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers

@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoTrade Pro - 자율 진화 모니터</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0e17;
+            --bg-card: #111827;
+            --bg-card-hover: #1f2937;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-blue: #3b82f6;
+            --accent-yellow: #f59e0b;
+            --accent-purple: #8b5cf6;
+            --border-color: #1e293b;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* 헤더 */
+        .header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header h1 i { color: var(--accent-blue); }
+
+        .status-badge {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-running {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* 메인 그리드 */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            grid-template-rows: auto 1fr auto;
+            gap: 15px;
+            padding: 15px;
+            height: calc(100vh - 70px);
+        }
+
+        /* 카드 스타일 */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .card-header {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .card-header i {
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+
+        .card-body {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        /* 왼쪽 사이드바 - 계좌 & 시스템 */
+        .sidebar-left {
+            grid-row: 1 / 4;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 계좌 요약 */
+        .account-summary .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .account-summary .stat-item:last-child { border-bottom: none; }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .stat-value.positive { color: var(--accent-green); }
+        .stat-value.negative { color: var(--accent-red); }
+
+        /* 시스템 상태 */
+        .system-status .status-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px 0;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .status-indicator.active { background: var(--accent-green); }
+        .status-indicator.inactive { background: var(--text-secondary); }
+        .status-indicator.warning { background: var(--accent-yellow); }
+
+        /* 중앙 - 메인 모니터 */
+        .main-content {
+            grid-column: 2;
+            grid-row: 1 / 4;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 핵심 지표 */
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .metric-card .icon {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+
+        .metric-card .value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .metric-card .label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        /* 실시간 활동 로그 */
+        .activity-log {
+            flex: 1;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .activity-log .card-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0;
+        }
+
+        .log-entry {
+            padding: 10px 15px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.85rem;
+        }
+
+        .log-entry:hover {
+            background: var(--bg-card-hover);
+        }
+
+        .log-time {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            white-space: nowrap;
+        }
+
+        .log-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .log-icon.buy { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+        .log-icon.sell { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+        .log-icon.signal { background: rgba(59, 130, 246, 0.2); color: var(--accent-blue); }
+        .log-icon.evolution { background: rgba(139, 92, 246, 0.2); color: var(--accent-purple); }
+        .log-icon.system { background: rgba(245, 158, 11, 0.2); color: var(--accent-yellow); }
+
+        .log-content { flex: 1; }
+        .log-title { font-weight: 500; margin-bottom: 2px; }
+        .log-detail { color: var(--text-secondary); font-size: 0.8rem; }
+
+        /* 오른쪽 사이드바 - 포지션 & 진화 */
+        .sidebar-right {
+            grid-row: 1 / 4;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* 보유 종목 */
+        .positions-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .position-item {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .position-item:last-child { border-bottom: none; }
+
+        .position-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .position-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .position-profit {
+            font-weight: 600;
+        }
+
+        .position-profit.positive { color: var(--accent-green); }
+        .position-profit.negative { color: var(--accent-red); }
+
+        .position-details {
+            display: flex;
+            gap: 15px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* 진화 상태 */
+        .evolution-card .evolution-progress {
+            margin-bottom: 15px;
+        }
+
+        .progress-bar-container {
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
+            transition: width 0.3s ease;
+        }
+
+        .evolution-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .evo-stat {
+            text-align: center;
+            padding: 8px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+        }
+
+        .evo-stat .value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-purple);
+        }
+
+        .evo-stat .label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        /* API 수집 상태 */
+        .api-status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+        }
+
+        .api-category {
+            padding: 8px;
+            background: var(--bg-card-hover);
+            border-radius: 6px;
+            font-size: 0.75rem;
+        }
+
+        .api-category .name {
+            margin-bottom: 3px;
+            color: var(--text-secondary);
+        }
+
+        .api-category .count {
+            font-weight: 600;
+        }
+
+        /* 하단 바 */
+        .footer {
+            grid-column: 1 / 4;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 15px;
+            background: var(--bg-card);
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+
+        .footer-stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .footer-stat {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .footer-stat i { color: var(--text-secondary); }
+
+        .last-update {
+            color: var(--text-secondary);
+        }
+
+        /* 스크롤바 스타일 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #374151; }
+
+        /* 반응형 */
+        @media (max-width: 1400px) {
+            .main-grid {
+                grid-template-columns: 250px 1fr 280px;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr auto auto;
+            }
+
+            .sidebar-left, .sidebar-right {
+                grid-row: auto;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+
+            .sidebar-left .card, .sidebar-right .card {
+                flex: 1;
+                min-width: 250px;
+            }
+
+            .main-content {
+                grid-column: 1;
+                grid-row: auto;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 헤더 -->
+    <header class="header">
+        <h1>
+            <i class="fas fa-robot"></i>
+            AutoTrade Pro - 자율 진화 모니터
+        </h1>
+        <div class="status-badge status-running" id="systemStatus">
+            <span class="status-dot"></span>
+            <span id="statusText">자동 운영 중</span>
+        </div>
+    </header>
+
+    <!-- 메인 그리드 -->
+    <div class="main-grid">
+        <!-- 왼쪽 사이드바 -->
+        <div class="sidebar-left">
+            <!-- 계좌 요약 -->
+            <div class="card account-summary">
+                <div class="card-header">
+                    <span><i class="fas fa-wallet"></i> 계좌 현황</span>
+                </div>
+                <div class="card-body">
+                    <div class="stat-item">
+                        <span class="stat-label">총 평가금액</span>
+                        <span class="stat-value" id="totalValue">0원</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">예수금</span>
+                        <span class="stat-value" id="cashBalance">0원</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">주식 평가</span>
+                        <span class="stat-value" id="stockValue">0원</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">일간 손익</span>
+                        <span class="stat-value" id="dailyPnL">0원</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">일간 수익률</span>
+                        <span class="stat-value" id="dailyReturn">0.00%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시스템 상태 -->
+            <div class="card system-status">
+                <div class="card-header">
+                    <span><i class="fas fa-server"></i> 시스템 상태</span>
+                </div>
+                <div class="card-body">
+                    <div class="status-item">
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator active" id="engineIndicator"></span>
+                            <span>자율 매매 엔진</span>
+                        </div>
+                        <span class="text-success" id="engineStatus">실행 중</span>
+                    </div>
+                    <div class="status-item">
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator active" id="evolutionIndicator"></span>
+                            <span>진화 엔진</span>
+                        </div>
+                        <span class="text-success" id="evolutionStatus">실행 중</span>
+                    </div>
+                    <div class="status-item">
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator active" id="dataIndicator"></span>
+                            <span>데이터 수집</span>
+                        </div>
+                        <span class="text-success" id="dataStatus">실행 중</span>
+                    </div>
+                    <div class="status-item">
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator active" id="apiIndicator"></span>
+                            <span>API 연결</span>
+                        </div>
+                        <span class="text-success" id="apiStatus">정상</span>
+                    </div>
+                    <div class="status-item">
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator" id="marketIndicator"></span>
+                            <span>시장 상태</span>
+                        </div>
+                        <span id="marketStatus">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API 수집 현황 -->
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-database"></i> API 수집</span>
+                    <span class="badge bg-primary" id="apiTotalCount">0</span>
+                </div>
+                <div class="card-body">
+                    <div class="api-status-grid" id="apiCategories">
+                        <div class="api-category">
+                            <div class="name">외국인</div>
+                            <div class="count" id="apiForeign">0</div>
+                        </div>
+                        <div class="api-category">
+                            <div class="name">기관</div>
+                            <div class="count" id="apiInstitution">0</div>
+                        </div>
+                        <div class="api-category">
+                            <div class="name">프로그램</div>
+                            <div class="count" id="apiProgram">0</div>
+                        </div>
+                        <div class="api-category">
+                            <div class="name">거래량</div>
+                            <div class="count" id="apiVolume">0</div>
+                        </div>
+                        <div class="api-category">
+                            <div class="name">호가</div>
+                            <div class="count" id="apiOrderbook">0</div>
+                        </div>
+                        <div class="api-category">
+                            <div class="name">업종</div>
+                            <div class="count" id="apiSector">0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 중앙 메인 컨텐츠 -->
+        <div class="main-content">
+            <!-- 핵심 지표 -->
+            <div class="metrics-row">
+                <div class="metric-card">
+                    <div class="icon" style="color: var(--accent-blue)">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="value" id="totalTrades">0</div>
+                    <div class="label">오늘 거래</div>
+                </div>
+                <div class="metric-card">
+                    <div class="icon" style="color: var(--accent-green)">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="value" id="winRate">0%</div>
+                    <div class="label">승률</div>
+                </div>
+                <div class="metric-card">
+                    <div class="icon" style="color: var(--accent-purple)">
+                        <i class="fas fa-signal"></i>
+                    </div>
+                    <div class="value" id="signalCount">0</div>
+                    <div class="label">생성된 신호</div>
+                </div>
+                <div class="metric-card">
+                    <div class="icon" style="color: var(--accent-yellow)">
+                        <i class="fas fa-bullseye"></i>
+                    </div>
+                    <div class="value" id="activePositions">0</div>
+                    <div class="label">보유 종목</div>
+                </div>
+            </div>
+
+            <!-- 실시간 활동 로그 -->
+            <div class="card activity-log">
+                <div class="card-header">
+                    <span><i class="fas fa-stream"></i> 실시간 활동</span>
+                    <span class="badge bg-secondary" id="logCount">0</span>
+                </div>
+                <div class="card-body" id="activityLog">
+                    <!-- 로그 엔트리가 여기에 동적으로 추가됨 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 오른쪽 사이드바 -->
+        <div class="sidebar-right">
+            <!-- 보유 종목 -->
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-briefcase"></i> 보유 종목</span>
+                    <span class="badge bg-primary" id="positionCount">0</span>
+                </div>
+                <div class="card-body positions-list" id="positionsList">
+                    <!-- 포지션이 여기에 동적으로 추가됨 -->
+                </div>
+            </div>
+
+            <!-- 진화 상태 -->
+            <div class="card evolution-card">
+                <div class="card-header">
+                    <span><i class="fas fa-dna"></i> 알고리즘 진화</span>
+                </div>
+                <div class="card-body">
+                    <div class="evolution-progress">
+                        <div class="d-flex justify-content-between mb-1">
+                            <small>세대 <span id="currentGeneration">0</span></small>
+                            <small id="evolutionPhase">진화 중...</small>
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" id="evolutionProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="evolution-stats">
+                        <div class="evo-stat">
+                            <div class="value" id="bestFitness">0</div>
+                            <div class="label">최고 적합도</div>
+                        </div>
+                        <div class="evo-stat">
+                            <div class="value" id="avgFitness">0</div>
+                            <div class="label">평균 적합도</div>
+                        </div>
+                        <div class="evo-stat">
+                            <div class="value" id="populationSize">0</div>
+                            <div class="label">개체 수</div>
+                        </div>
+                        <div class="evo-stat">
+                            <div class="value" id="deployedStrategies">0</div>
+                            <div class="label">배포 전략</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 시장 신호 -->
+            <div class="card">
+                <div class="card-header">
+                    <span><i class="fas fa-bolt"></i> 시장 신호</span>
+                </div>
+                <div class="card-body" id="marketSignals">
+                    <div class="text-center text-secondary py-3">
+                        <i class="fas fa-spinner fa-spin"></i> 분석 중...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.socket.io/4.6.0/socket.io.min.js"></script>
+    <script>
+        // 상태 저장
+        const state = {
+            logs: [],
+            positions: [],
+            account: {},
+            evolution: {},
+            signals: [],
+            lastUpdate: null
+        };
+
+        // 소켓 연결
+        const socket = io();
+
+        // 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 자율 진화 모니터 초기화');
+
+            // 초기 데이터 로드
+            fetchAllData();
+
+            // 자동 새로고침 (3초)
+            setInterval(fetchAllData, 3000);
+
+            // 소켓 이벤트
+            setupSocketEvents();
+        });
+
+        function setupSocketEvents() {
+            socket.on('connect', () => {
+                addLog('system', '시스템', '대시보드 연결됨');
+            });
+
+            socket.on('trade_executed', (data) => {
+                addLog(data.action, data.stock_name,
+                    `${data.quantity}주 @ ${formatNumber(data.price)}원`);
+                fetchPositions();
+                fetchAccount();
+            });
+
+            socket.on('signal_generated', (data) => {
+                addLog('signal', '신호 생성',
+                    `${data.stock_name} ${data.action} (신뢰도: ${data.confidence}%)`);
+            });
+
+            socket.on('evolution_update', (data) => {
+                updateEvolution(data);
+                addLog('evolution', '진화',
+                    `세대 ${data.generation} 완료 (fitness: ${data.best_fitness.toFixed(2)})`);
+            });
+        }
+
+        async function fetchAllData() {
+            try {
+                await Promise.all([
+                    fetchAccount(),
+                    fetchPositions(),
+                    fetchSystemStatus(),
+                    fetchEvolutionStatus(),
+                    fetchMarketSignals()
+                ]);
+                updateLastUpdate();
+            } catch (error) {
+                console.error('데이터 로드 실패:', error);
+            }
+        }
+
+        async function fetchAccount() {
+            try {
+                const response = await fetch('/api/account');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateAccount(data);
+                }
+            } catch (e) {}
+        }
+
+        async function fetchPositions() {
+            try {
+                const response = await fetch('/api/portfolio');
+                if (response.ok) {
+                    const data = await response.json();
+                    updatePositions(data.positions || []);
+                }
+            } catch (e) {}
+        }
+
+        async function fetchSystemStatus() {
+            try {
+                const response = await fetch('/api/autonomous/status');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateSystemStatus(data);
+                }
+            } catch (e) {}
+        }
+
+        async function fetchEvolutionStatus() {
+            try {
+                const response = await fetch('/api/autonomous/evolution');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateEvolution(data);
+                }
+            } catch (e) {}
+        }
+
+        async function fetchMarketSignals() {
+            try {
+                const response = await fetch('/api/autonomous/signals');
+                if (response.ok) {
+                    const data = await response.json();
+                    updateMarketSignals(data.signals || []);
+                }
+            } catch (e) {}
+        }
+
+        function updateAccount(data) {
+            document.getElementById('totalValue').textContent = formatNumber(data.total_value || 0) + '원';
+            document.getElementById('cashBalance').textContent = formatNumber(data.cash_balance || 0) + '원';
+            document.getElementById('stockValue').textContent = formatNumber(data.stock_value || 0) + '원';
+
+            const dailyPnL = data.daily_pnl || 0;
+            const dailyReturn = data.daily_return || 0;
+
+            const pnlEl = document.getElementById('dailyPnL');
+            pnlEl.textContent = (dailyPnL >= 0 ? '+' : '') + formatNumber(dailyPnL) + '원';
+            pnlEl.className = 'stat-value ' + (dailyPnL >= 0 ? 'positive' : 'negative');
+
+            const returnEl = document.getElementById('dailyReturn');
+            returnEl.textContent = (dailyReturn >= 0 ? '+' : '') + dailyReturn.toFixed(2) + '%';
+            returnEl.className = 'stat-value ' + (dailyReturn >= 0 ? 'positive' : 'negative');
+
+            // 메트릭 업데이트
+            document.getElementById('totalTrades').textContent = data.today_trades || 0;
+            document.getElementById('winRate').textContent = (data.win_rate || 0).toFixed(1) + '%';
+        }
+
+        function updatePositions(positions) {
+            const container = document.getElementById('positionsList');
+            document.getElementById('positionCount').textContent = positions.length;
+            document.getElementById('activePositions').textContent = positions.length;
+
+            if (positions.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary py-3">보유 종목 없음</div>';
+                return;
+            }
+
+            container.innerHTML = positions.map(p => {
+                const profit = p.profit_loss || 0;
+                const profitRate = p.profit_loss_rate || 0;
+                const profitClass = profit >= 0 ? 'positive' : 'negative';
+
+                return `
+                    <div class="position-item">
+                        <div class="position-header">
+                            <span class="position-name">${p.stock_name || p.stk_nm}</span>
+                            <span class="position-profit ${profitClass}">
+                                ${profit >= 0 ? '+' : ''}${formatNumber(profit)}원
+                            </span>
+                        </div>
+                        <div class="position-details">
+                            <span>${p.quantity || p.rmnd_qty}주</span>
+                            <span>평단 ${formatNumber(p.avg_price || p.avg_prc)}원</span>
+                            <span class="${profitClass}">${profitRate >= 0 ? '+' : ''}${profitRate.toFixed(2)}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateSystemStatus(data) {
+            // 엔진 상태
+            updateStatusIndicator('engineIndicator', 'engineStatus', data.engine_running);
+            updateStatusIndicator('evolutionIndicator', 'evolutionStatus', data.evolution_running);
+            updateStatusIndicator('dataIndicator', 'dataStatus', data.data_collector_running);
+            updateStatusIndicator('apiIndicator', 'apiStatus', data.api_connected, '정상', '오류');
+
+            // 시장 상태
+            const marketEl = document.getElementById('marketIndicator');
+            const marketText = document.getElementById('marketStatus');
+            if (data.market_open) {
+                marketEl.className = 'status-indicator active';
+                marketText.textContent = '장 운영 중';
+                marketText.className = 'text-success';
+            } else {
+                marketEl.className = 'status-indicator inactive';
+                marketText.textContent = '장 마감';
+                marketText.className = 'text-secondary';
+            }
+
+            // 신호 수
+            document.getElementById('signalCount').textContent = data.signal_count || 0;
+
+            // API 통계
+            if (data.api_stats) {
+                document.getElementById('apiTotalCount').textContent = data.api_stats.total || 0;
+                document.getElementById('apiForeign').textContent = data.api_stats.foreign || 0;
+                document.getElementById('apiInstitution').textContent = data.api_stats.institution || 0;
+                document.getElementById('apiProgram').textContent = data.api_stats.program || 0;
+                document.getElementById('apiVolume').textContent = data.api_stats.volume || 0;
+                document.getElementById('apiOrderbook').textContent = data.api_stats.orderbook || 0;
+                document.getElementById('apiSector').textContent = data.api_stats.sector || 0;
+            }
+        }
+
+        function updateStatusIndicator(indicatorId, statusId, isActive, activeText = '실행 중', inactiveText = '중지') {
+            const indicator = document.getElementById(indicatorId);
+            const status = document.getElementById(statusId);
+
+            if (isActive) {
+                indicator.className = 'status-indicator active';
+                status.textContent = activeText;
+                status.className = 'text-success';
+            } else {
+                indicator.className = 'status-indicator inactive';
+                status.textContent = inactiveText;
+                status.className = 'text-secondary';
+            }
+        }
+
+        function updateEvolution(data) {
+            document.getElementById('currentGeneration').textContent = data.generation || 0;
+            document.getElementById('bestFitness').textContent = (data.best_fitness || 0).toFixed(1);
+            document.getElementById('avgFitness').textContent = (data.avg_fitness || 0).toFixed(1);
+            document.getElementById('populationSize').textContent = data.population_size || 0;
+            document.getElementById('deployedStrategies').textContent = data.deployed_count || 0;
+
+            // 진행률 (세대당 대략 30분, 하루 48세대)
+            const progress = ((data.generation || 0) % 10) * 10;
+            document.getElementById('evolutionProgress').style.width = progress + '%';
+
+            const phase = data.is_evolving ? '진화 중...' : '대기 중';
+            document.getElementById('evolutionPhase').textContent = phase;
+        }
+
+        function updateMarketSignals(signals) {
+            const container = document.getElementById('marketSignals');
+
+            if (!signals || signals.length === 0) {
+                container.innerHTML = '<div class="text-center text-secondary py-2">대기 중...</div>';
+                return;
+            }
+
+            container.innerHTML = signals.slice(0, 5).map(s => {
+                const icon = s.type === 'bullish' ? 'fa-arrow-up text-success' :
+                            s.type === 'bearish' ? 'fa-arrow-down text-danger' :
+                            'fa-minus text-secondary';
+                return `
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="fas ${icon} me-2"></i>
+                        <div class="flex-grow-1">
+                            <small class="d-block">${s.description}</small>
+                            <small class="text-secondary">${s.source}</small>
+                        </div>
+                        <span class="badge bg-secondary">${s.strength}%</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function addLog(type, title, detail) {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+            const iconClass = {
+                'buy': 'buy fa-arrow-up',
+                'sell': 'sell fa-arrow-down',
+                'signal': 'signal fa-bolt',
+                'evolution': 'evolution fa-dna',
+                'system': 'system fa-cog'
+            }[type] || 'system fa-info';
+
+            const entry = {
+                time: timeStr,
+                type,
+                iconClass,
+                title,
+                detail
+            };
+
+            state.logs.unshift(entry);
+            if (state.logs.length > 100) state.logs.pop();
+
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('activityLog');
+            document.getElementById('logCount').textContent = state.logs.length;
+
+            container.innerHTML = state.logs.map(log => `
+                <div class="log-entry">
+                    <span class="log-time">${log.time}</span>
+                    <div class="log-icon ${log.iconClass.split(' ')[0]}">
+                        <i class="fas ${log.iconClass.split(' ')[1]}"></i>
+                    </div>
+                    <div class="log-content">
+                        <div class="log-title">${log.title}</div>
+                        <div class="log-detail">${log.detail}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateLastUpdate() {
+            const now = new Date();
+            state.lastUpdate = now.toLocaleTimeString('ko-KR');
+        }
+
+        function formatNumber(num) {
+            if (num === null || num === undefined) return '0';
+            return Math.round(num).toLocaleString('ko-KR');
+        }
+
+        // 초기 로그
+        addLog('system', '시스템', '자율 진화 모니터 시작됨');
+    </script>
+</body>
+</html>
