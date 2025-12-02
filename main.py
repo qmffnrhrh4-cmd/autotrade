@@ -2088,8 +2088,8 @@ def main():
                        help='자체 테스트 건너뛰기')
     parser.add_argument('--no-autopilot', action='store_true',
                        help='AutoPilot 비활성화 (수동 모드)')
-    parser.add_argument('--autonomous', action='store_true',
-                       help='자율 진화 모드 (24시간 연속 자동매매 + 알고리즘 진화)')
+    parser.add_argument('--no-autonomous', action='store_true',
+                       help='자율 진화 모드 비활성화 (기본: 활성화)')
     parser.add_argument('--max-positions', type=int, default=50,
                        help='최대 보유 종목 수 (기본: 50)')
     parser.add_argument('--parallel-workers', type=int, default=20,
@@ -2174,8 +2174,8 @@ def main():
         except Exception as e:
             logger.error(f"❌ 가상매매 초기화 실패: {e}", exc_info=True)
 
-    # 자율 진화 모드 활성화
-    if args.autonomous:
+    # 자율 진화 모드 활성화 (기본값: 활성화)
+    if not args.no_autonomous:
         logger.info("=" * 80)
         logger.info("🔥 자율 진화 모드 활성화")
         logger.info("=" * 80)
