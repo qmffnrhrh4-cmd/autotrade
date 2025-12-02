@@ -136,8 +136,10 @@ class StrategyAutoDeployer:
             generation = strategy_info['generation']
             fitness = strategy_info['fitness_score']
 
-            # 전략 이름 생성
-            strategy_name = f"AI-진화-G{generation}-F{fitness:.1f}"
+            # 전략 이름 생성 (타임스탬프 포함으로 중복 방지)
+            from datetime import datetime
+            timestamp = datetime.now().strftime('%H%M%S')
+            strategy_name = f"AI-진화-G{generation}-F{fitness:.1f}-{timestamp}"
             description = self._create_strategy_description(genes, strategy_info['metrics'])
 
             # 가상매매 전략 생성
