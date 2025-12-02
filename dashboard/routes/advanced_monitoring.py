@@ -518,45 +518,6 @@ def get_trade_stats():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-# === 텔레그램 알림 API ===
-
-@bp.route('/telegram/status', methods=['GET'])
-def get_telegram_status():
-    """텔레그램 상태"""
-    try:
-        from core.telegram_notifier import get_telegram_notifier
-
-        notifier = get_telegram_notifier()
-        stats = notifier.get_stats()
-
-        return jsonify({
-            'success': True,
-            'data': stats
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@bp.route('/telegram/test', methods=['POST'])
-def send_test_telegram():
-    """테스트 메시지 발송"""
-    try:
-        from core.telegram_notifier import get_telegram_notifier, AlertLevel
-
-        data = request.get_json() or {}
-        message = data.get('message', '테스트 메시지입니다.')
-
-        notifier = get_telegram_notifier()
-        notifier.send(message, AlertLevel.INFO)
-
-        return jsonify({
-            'success': True,
-            'message': '테스트 메시지 발송됨'
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 # === 통합 대시보드 API ===
 
 @bp.route('/dashboard/overview', methods=['GET'])
@@ -604,6 +565,189 @@ def get_dashboard_overview():
             result['events'] = bus.get_stats()
         except:
             result['events'] = {}
+
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 성능 최적화 API (v8.1) ===
+
+@bp.route('/cache/stats', methods=['GET'])
+def get_cache_stats():
+    """스마트 캐시 통계"""
+    try:
+        from core.smart_cache import get_smart_cache
+        cache = get_smart_cache()
+        return jsonify({
+            'success': True,
+            'data': cache.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/cache/clear', methods=['POST'])
+def clear_cache():
+    """캐시 전체 무효화"""
+    try:
+        from core.smart_cache import get_smart_cache, CacheType
+        cache = get_smart_cache()
+
+        data = request.get_json() or {}
+        cache_type = data.get('type')
+
+        if cache_type:
+            try:
+                ct = CacheType(cache_type)
+                count = cache.invalidate(ct)
+            except ValueError:
+                return jsonify({'success': False, 'error': f'Invalid cache type: {cache_type}'}), 400
+        else:
+            count = cache.invalidate()
+
+        return jsonify({
+            'success': True,
+            'message': f'{count}개 캐시 무효화됨'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/batch-price/stats', methods=['GET'])
+def get_batch_price_stats():
+    """배치 가격 조회 통계"""
+    try:
+        from core.batch_price_fetcher import get_batch_price_fetcher
+        fetcher = get_batch_price_fetcher()
+        return jsonify({
+            'success': True,
+            'data': fetcher.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/order-idempotency/stats', methods=['GET'])
+def get_order_idempotency_stats():
+    """주문 멱등성 통계"""
+    try:
+        from core.order_idempotency import get_order_idempotency
+        manager = get_order_idempotency()
+        return jsonify({
+            'success': True,
+            'data': manager.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/db-transaction/stats', methods=['GET'])
+def get_db_transaction_stats():
+    """DB 트랜잭션 통계"""
+    try:
+        from core.db_transaction import get_transaction_manager
+        manager = get_transaction_manager()
+        return jsonify({
+            'success': True,
+            'data': manager.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/scheduler/stats', methods=['GET'])
+def get_scheduler_stats():
+    """비동기 스케줄러 통계"""
+    try:
+        from core.async_scheduler import get_async_scheduler
+        scheduler = get_async_scheduler()
+        return jsonify({
+            'success': True,
+            'data': scheduler.get_stats()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/scheduler/tasks', methods=['GET'])
+def get_scheduler_tasks():
+    """스케줄러 태스크 목록"""
+    try:
+        from core.async_scheduler import get_async_scheduler
+        scheduler = get_async_scheduler()
+        return jsonify({
+            'success': True,
+            'data': scheduler.get_all_tasks()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/scheduler/trigger/<task_id>', methods=['POST'])
+def trigger_scheduler_task(task_id):
+    """스케줄러 태스크 즉시 실행"""
+    try:
+        from core.async_scheduler import get_async_scheduler
+        scheduler = get_async_scheduler()
+
+        if scheduler.trigger_task(task_id):
+            return jsonify({
+                'success': True,
+                'message': f'태스크 {task_id} 트리거됨'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'태스크 {task_id} 찾을 수 없음'
+            }), 404
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/system/optimization-stats', methods=['GET'])
+def get_optimization_stats():
+    """전체 최적화 시스템 통계"""
+    try:
+        result = {}
+
+        # 스마트 캐시
+        try:
+            from core.smart_cache import get_smart_cache
+            result['smart_cache'] = get_smart_cache().get_stats()
+        except:
+            result['smart_cache'] = {}
+
+        # 배치 가격 조회
+        try:
+            from core.batch_price_fetcher import get_batch_price_fetcher
+            result['batch_price_fetcher'] = get_batch_price_fetcher().get_stats()
+        except:
+            result['batch_price_fetcher'] = {}
+
+        # 주문 멱등성
+        try:
+            from core.order_idempotency import get_order_idempotency
+            result['order_idempotency'] = get_order_idempotency().get_stats()
+        except:
+            result['order_idempotency'] = {}
+
+        # DB 트랜잭션
+        try:
+            from core.db_transaction import get_transaction_manager
+            result['db_transaction'] = get_transaction_manager().get_stats()
+        except:
+            result['db_transaction'] = {}
+
+        # 스케줄러
+        try:
+            from core.async_scheduler import get_async_scheduler
+            result['scheduler'] = get_async_scheduler().get_stats()
+        except:
+            result['scheduler'] = {}
 
         return jsonify({
             'success': True,
