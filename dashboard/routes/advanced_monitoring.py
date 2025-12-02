@@ -1,0 +1,613 @@
+"""
+dashboard/routes/advanced_monitoring.py
+고급 모니터링 및 분석 API
+
+새로 추가된 기능들의 대시보드 API 엔드포인트:
+- 리스크 관리
+- 성능 분석
+- 긴급 정지 제어
+- A/B 테스트 현황
+- 실시간 이벤트
+"""
+from flask import Blueprint, jsonify, request
+import logging
+
+logger = logging.getLogger(__name__)
+
+bp = Blueprint('advanced_monitoring', __name__, url_prefix='/api/advanced')
+
+
+# === 리스크 관리 API ===
+
+@bp.route('/risk/status', methods=['GET'])
+def get_risk_status():
+    """리스크 상태 조회"""
+    try:
+        from core.risk_validation_pipeline import get_risk_pipeline
+
+        pipeline = get_risk_pipeline()
+        summary = pipeline.get_validation_summary()
+        daily_stats = pipeline.get_daily_stats()
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'validation_summary': summary,
+                'daily_stats': daily_stats,
+                'emergency_stop': pipeline.emergency_stop,
+                'emergency_reason': pipeline.emergency_reason
+            }
+        })
+    except Exception as e:
+        logger.error(f"리스크 상태 조회 실패: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/risk/limits', methods=['GET'])
+def get_risk_limits():
+    """리스크 한도 조회"""
+    try:
+        from core.risk_validation_pipeline import get_risk_pipeline
+
+        pipeline = get_risk_pipeline()
+        return jsonify({
+            'success': True,
+            'data': pipeline.limits
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/risk/limits', methods=['POST'])
+def update_risk_limits():
+    """리스크 한도 업데이트"""
+    try:
+        from core.risk_validation_pipeline import get_risk_pipeline
+
+        data = request.get_json()
+        pipeline = get_risk_pipeline()
+
+        for key, value in data.items():
+            if key in pipeline.limits:
+                pipeline.limits[key] = value
+
+        return jsonify({
+            'success': True,
+            'message': '리스크 한도가 업데이트되었습니다',
+            'data': pipeline.limits
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/risk/validation-history', methods=['GET'])
+def get_validation_history():
+    """검증 히스토리 조회"""
+    try:
+        from core.risk_validation_pipeline import get_risk_pipeline
+        from dataclasses import asdict
+
+        pipeline = get_risk_pipeline()
+        limit = request.args.get('limit', 50, type=int)
+
+        history = []
+        for report in pipeline.validation_history[-limit:]:
+            report_dict = {
+                'order_id': report.order_id,
+                'timestamp': report.timestamp,
+                'stock_code': report.stock_code,
+                'stock_name': report.stock_name,
+                'order_type': report.order_type,
+                'requested_quantity': report.requested_quantity,
+                'final_quantity': report.final_quantity,
+                'result': report.final_result.value,
+                'risk_level': report.overall_risk_level.value,
+                'rejection_reasons': report.rejection_reasons,
+                'warnings': report.warnings
+            }
+            history.append(report_dict)
+
+        return jsonify({
+            'success': True,
+            'data': history
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 포트폴리오 리스크 API ===
+
+@bp.route('/portfolio-risk/report', methods=['GET'])
+def get_portfolio_risk_report():
+    """포트폴리오 리스크 보고서 조회"""
+    try:
+        from core.portfolio_risk_manager import get_portfolio_risk_manager
+        from dataclasses import asdict
+
+        manager = get_portfolio_risk_manager()
+
+        # 최근 보고서
+        if manager.report_history:
+            report = manager.report_history[-1]
+            return jsonify({
+                'success': True,
+                'data': {
+                    'timestamp': report.timestamp,
+                    'total_value': report.total_value,
+                    'cash': report.cash,
+                    'invested': report.invested,
+                    'portfolio_var_95': report.portfolio_var_95,
+                    'portfolio_var_99': report.portfolio_var_99,
+                    'portfolio_volatility': report.portfolio_volatility,
+                    'sharpe_ratio': report.sharpe_ratio,
+                    'sector_exposure': report.sector_exposure,
+                    'max_sector_weight': report.max_sector_weight,
+                    'warnings': report.warnings,
+                    'recommendations': report.recommendations
+                }
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'data': None,
+                'message': '보고서 없음'
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 성능 분석 API ===
+
+@bp.route('/performance/summary', methods=['GET'])
+def get_performance_summary():
+    """성능 요약 조회"""
+    try:
+        from core.performance_analyzer import get_performance_analyzer
+
+        analyzer = get_performance_analyzer()
+        summary = analyzer.get_summary()
+
+        return jsonify({
+            'success': True,
+            'data': summary
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/performance/strategy-comparison', methods=['GET'])
+def get_strategy_comparison():
+    """전략별 성과 비교"""
+    try:
+        from core.performance_analyzer import get_performance_analyzer
+
+        analyzer = get_performance_analyzer()
+        comparison = analyzer.get_strategy_comparison()
+
+        return jsonify({
+            'success': True,
+            'data': comparison
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/performance/stock-ranking', methods=['GET'])
+def get_stock_ranking():
+    """종목별 순위"""
+    try:
+        from core.performance_analyzer import get_performance_analyzer
+
+        analyzer = get_performance_analyzer()
+        top_n = request.args.get('top', 10, type=int)
+        top, worst = analyzer.get_stock_ranking(top_n)
+
+        return jsonify({
+            'success': True,
+            'data': {
+                'top_performers': top,
+                'worst_performers': worst
+            }
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/performance/attribution', methods=['GET'])
+def get_attribution_analysis():
+    """귀인 분석"""
+    try:
+        from core.performance_analyzer import get_performance_analyzer
+
+        analyzer = get_performance_analyzer()
+        analysis = analyzer.get_attribution_analysis()
+
+        return jsonify({
+            'success': True,
+            'data': analysis
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/performance/monthly-report', methods=['GET'])
+def get_monthly_report():
+    """월간 보고서"""
+    try:
+        from core.performance_analyzer import get_performance_analyzer
+        from dataclasses import asdict
+        from datetime import datetime
+
+        analyzer = get_performance_analyzer()
+
+        year = request.args.get('year', datetime.now().year, type=int)
+        month = request.args.get('month', datetime.now().month, type=int)
+
+        report = analyzer.generate_monthly_report(year, month)
+
+        if report:
+            return jsonify({
+                'success': True,
+                'data': asdict(report)
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'data': None,
+                'message': f'{year}년 {month}월 데이터 없음'
+            })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 긴급 정지 API ===
+
+@bp.route('/emergency/status', methods=['GET'])
+def get_emergency_status():
+    """긴급 상태 조회"""
+    try:
+        from core.emergency_controller import get_emergency_controller
+
+        controller = get_emergency_controller()
+        status = controller.get_status()
+
+        return jsonify({
+            'success': True,
+            'data': status
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/emergency/stop', methods=['POST'])
+def trigger_emergency_stop():
+    """긴급 정지 활성화"""
+    try:
+        from core.emergency_controller import get_emergency_controller
+
+        data = request.get_json() or {}
+        reason = data.get('reason', '수동 긴급 정지')
+
+        controller = get_emergency_controller()
+        controller.trigger_emergency_stop(reason, triggered_by='dashboard')
+
+        return jsonify({
+            'success': True,
+            'message': f'긴급 정지 활성화됨: {reason}'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/emergency/release', methods=['POST'])
+def release_emergency_stop():
+    """긴급 정지 해제"""
+    try:
+        from core.emergency_controller import get_emergency_controller
+
+        controller = get_emergency_controller()
+        controller.release_emergency_stop(released_by='dashboard')
+
+        return jsonify({
+            'success': True,
+            'message': '긴급 정지 해제됨'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === A/B 테스트 API ===
+
+@bp.route('/ab-test/status', methods=['GET'])
+def get_ab_test_status():
+    """A/B 테스트 현황"""
+    try:
+        from core.strategy_ab_test import get_ab_test_manager
+
+        manager = get_ab_test_manager()
+        status = manager.get_test_status()
+
+        return jsonify({
+            'success': True,
+            'data': status
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/ab-test/summary', methods=['GET'])
+def get_ab_test_summary():
+    """A/B 테스트 요약"""
+    try:
+        from core.strategy_ab_test import get_ab_test_manager
+
+        manager = get_ab_test_manager()
+        summary = manager.get_summary()
+
+        return jsonify({
+            'success': True,
+            'data': summary
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/ab-test/start', methods=['POST'])
+def start_ab_test():
+    """A/B 테스트 시작"""
+    try:
+        from core.strategy_ab_test import get_ab_test_manager
+        from dataclasses import asdict
+
+        data = request.get_json()
+        control = data.get('control_version')
+        treatment = data.get('treatment_version')
+        weight = data.get('treatment_weight', 0.10)
+
+        if not control or not treatment:
+            return jsonify({
+                'success': False,
+                'error': 'control_version과 treatment_version이 필요합니다'
+            }), 400
+
+        manager = get_ab_test_manager()
+        test = manager.start_ab_test(control, treatment, weight)
+
+        return jsonify({
+            'success': True,
+            'data': asdict(test)
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 실시간 이벤트 API ===
+
+@bp.route('/events/recent', methods=['GET'])
+def get_recent_events():
+    """최근 이벤트 조회"""
+    try:
+        from core.event_bus import get_event_bus
+
+        bus = get_event_bus()
+        limit = request.args.get('limit', 50, type=int)
+        event_type = request.args.get('type')
+
+        if event_type:
+            from core.event_bus import EventType
+            try:
+                et = EventType(event_type)
+                events = bus.get_recent_events(limit, et)
+            except ValueError:
+                events = bus.get_recent_events(limit)
+        else:
+            events = bus.get_recent_events(limit)
+
+        return jsonify({
+            'success': True,
+            'data': events
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/events/stats', methods=['GET'])
+def get_event_stats():
+    """이벤트 통계"""
+    try:
+        from core.event_bus import get_event_bus
+
+        bus = get_event_bus()
+        stats = bus.get_stats()
+
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 진단 API ===
+
+@bp.route('/diagnostics/report', methods=['GET'])
+def get_diagnostic_report():
+    """진단 보고서 조회"""
+    try:
+        from utils.diagnostic_logger import get_diagnostic_logger
+
+        diag = get_diagnostic_logger()
+        report = diag.generate_diagnostic_report()
+
+        return jsonify({
+            'success': True,
+            'data': report
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/diagnostics/api-summary', methods=['GET'])
+def get_api_summary():
+    """API 호출 요약"""
+    try:
+        from utils.diagnostic_logger import get_diagnostic_logger
+
+        diag = get_diagnostic_logger()
+        summary = diag.get_api_summary()
+
+        return jsonify({
+            'success': True,
+            'data': summary
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 거래 로그 API ===
+
+@bp.route('/trades/recent', methods=['GET'])
+def get_recent_trades_log():
+    """최근 거래 로그"""
+    try:
+        from utils.trade_logger import get_trade_logger
+
+        trade_logger = get_trade_logger()
+        limit = request.args.get('limit', 50, type=int)
+        trades = trade_logger.get_recent_trades(limit)
+
+        return jsonify({
+            'success': True,
+            'data': trades
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/trades/pending', methods=['GET'])
+def get_pending_trades():
+    """대기 중 거래"""
+    try:
+        from utils.trade_logger import get_trade_logger
+
+        trade_logger = get_trade_logger()
+        pending = trade_logger.get_pending_trades()
+
+        return jsonify({
+            'success': True,
+            'data': pending
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/trades/stats', methods=['GET'])
+def get_trade_stats():
+    """거래 통계"""
+    try:
+        from utils.trade_logger import get_trade_logger
+
+        trade_logger = get_trade_logger()
+        stats = trade_logger.get_trade_stats()
+
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 텔레그램 알림 API ===
+
+@bp.route('/telegram/status', methods=['GET'])
+def get_telegram_status():
+    """텔레그램 상태"""
+    try:
+        from core.telegram_notifier import get_telegram_notifier
+
+        notifier = get_telegram_notifier()
+        stats = notifier.get_stats()
+
+        return jsonify({
+            'success': True,
+            'data': stats
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@bp.route('/telegram/test', methods=['POST'])
+def send_test_telegram():
+    """테스트 메시지 발송"""
+    try:
+        from core.telegram_notifier import get_telegram_notifier, AlertLevel
+
+        data = request.get_json() or {}
+        message = data.get('message', '테스트 메시지입니다.')
+
+        notifier = get_telegram_notifier()
+        notifier.send(message, AlertLevel.INFO)
+
+        return jsonify({
+            'success': True,
+            'message': '테스트 메시지 발송됨'
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# === 통합 대시보드 API ===
+
+@bp.route('/dashboard/overview', methods=['GET'])
+def get_dashboard_overview():
+    """대시보드 전체 개요"""
+    try:
+        result = {}
+
+        # 긴급 상태
+        try:
+            from core.emergency_controller import get_emergency_controller
+            controller = get_emergency_controller()
+            result['emergency'] = controller.get_status()
+        except:
+            result['emergency'] = {'level': 'unknown'}
+
+        # 리스크 상태
+        try:
+            from core.risk_validation_pipeline import get_risk_pipeline
+            pipeline = get_risk_pipeline()
+            result['risk'] = pipeline.get_validation_summary()
+        except:
+            result['risk'] = {}
+
+        # 성능 요약
+        try:
+            from core.performance_analyzer import get_performance_analyzer
+            analyzer = get_performance_analyzer()
+            result['performance'] = analyzer.get_summary()
+        except:
+            result['performance'] = {}
+
+        # A/B 테스트
+        try:
+            from core.strategy_ab_test import get_ab_test_manager
+            manager = get_ab_test_manager()
+            result['ab_test'] = manager.get_summary()
+        except:
+            result['ab_test'] = {}
+
+        # 이벤트 통계
+        try:
+            from core.event_bus import get_event_bus
+            bus = get_event_bus()
+            result['events'] = bus.get_stats()
+        except:
+            result['events'] = {}
+
+        return jsonify({
+            'success': True,
+            'data': result
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500

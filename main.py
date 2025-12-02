@@ -31,6 +31,23 @@ from utils.data_cache import get_api_cache
 from utils.trading_date import is_any_trading_hours
 from virtual_trading import VirtualTrader, TradeLogger, VirtualTradingManager, VirtualTradingScheduler
 
+# v8.0: 통합 리스크 관리 모듈
+try:
+    from core.risk_validation_pipeline import get_risk_pipeline, ValidationResult
+    from core.event_bus import get_event_bus, EventType
+    from core.emergency_controller import get_emergency_controller, is_trading_allowed
+    from core.performance_analyzer import get_performance_analyzer
+    from core.telegram_notifier import get_telegram_notifier
+    _risk_modules_available = True
+except ImportError as e:
+    _risk_modules_available = False
+    get_risk_pipeline = lambda: None
+    get_event_bus = lambda: None
+    get_emergency_controller = lambda: None
+    is_trading_allowed = lambda: True
+    get_performance_analyzer = lambda: None
+    get_telegram_notifier = lambda: None
+
 # 거래 실행 로거 (진단용)
 try:
     from utils.trade_logger import get_trade_logger, log_buy, log_sell, log_success, log_failure
@@ -134,6 +151,13 @@ class AutoTradingBot:
         self.virtual_trading_manager = None
         self.virtual_trading_scheduler = None
         self.autopilot = None  # v6.3 AutoPilot (완전 자동화)
+
+        # v8.0: 통합 리스크 관리 모듈
+        self.risk_pipeline = None
+        self.event_bus = None
+        self.emergency_controller = None
+        self.performance_analyzer = None
+        self.telegram_notifier = None
 
         self.monitor = get_monitor()
         self.alert_manager = get_alert_manager()
@@ -581,6 +605,36 @@ class AutoTradingBot:
                 self.virtual_trading_manager = None
                 self.virtual_trading_scheduler = None
                 self.autopilot = None
+
+            # v8.0: 통합 리스크 관리 모듈 초기화
+            logger.info("통합 리스크 관리 시스템 초기화 중...")
+            try:
+                if _risk_modules_available:
+                    # 리스크 검증 파이프라인
+                    self.risk_pipeline = get_risk_pipeline()
+                    logger.info("  ✅ 4단계 리스크 검증 파이프라인")
+
+                    # 이벤트 버스
+                    self.event_bus = get_event_bus()
+                    logger.info("  ✅ 실시간 이벤트 버스")
+
+                    # 긴급 정지 컨트롤러
+                    self.emergency_controller = get_emergency_controller()
+                    logger.info(f"  ✅ 긴급 정지 컨트롤러 (현재 수준: {self.emergency_controller.current_level.value})")
+
+                    # 성능 분석기
+                    self.performance_analyzer = get_performance_analyzer()
+                    logger.info("  ✅ 성능 분석기")
+
+                    # 텔레그램 알림
+                    self.telegram_notifier = get_telegram_notifier()
+                    logger.info("  ✅ 텔레그램 알림 시스템")
+
+                    logger.info("통합 리스크 관리 시스템 초기화 완료")
+                else:
+                    logger.warning("리스크 관리 모듈 사용 불가 - 기본 모드로 실행")
+            except Exception as e:
+                logger.warning(f"리스크 관리 시스템 초기화 실패: {e}")
 
             self._initialize_control_file()
             self._restore_state()
@@ -1465,6 +1519,11 @@ class AutoTradingBot:
                 logger.warning(f"{self.market_status['market_type']}: 신규 매수 주문 불가")
                 return
 
+            # v8.0: 긴급 정지 확인
+            if self.emergency_controller and not self.emergency_controller.is_new_buy_allowed():
+                logger.warning(f"🚨 긴급 정지 활성화 - 신규 매수 차단 (수준: {self.emergency_controller.current_level.value})")
+                return
+
             stock_code = candidate.code
             stock_name = candidate.name
             current_price = candidate.price
@@ -1526,6 +1585,39 @@ class AutoTradingBot:
                 return
 
             total_amount = optimal_price * quantity
+
+            # v8.0: 4단계 리스크 검증 파이프라인
+            if self.risk_pipeline:
+                try:
+                    # 포트폴리오 정보 수집
+                    portfolio_value = self.portfolio_manager.get_total_value() if self.portfolio_manager else available_cash
+                    current_positions = len(self.portfolio_manager.positions) if self.portfolio_manager else 0
+
+                    validation_result = self.risk_pipeline.validate_order(
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        order_type='buy',
+                        quantity=quantity,
+                        price=optimal_price,
+                        portfolio_value=portfolio_value,
+                        current_positions=current_positions
+                    )
+
+                    if not validation_result.passed:
+                        logger.warning(f"🛡️ 리스크 검증 실패: {stock_name}")
+                        for msg in validation_result.messages:
+                            logger.warning(f"   - {msg}")
+                        if self.event_bus:
+                            self.event_bus.emit_risk_warning(
+                                f"매수 차단: {stock_name}",
+                                validation_result.risk_level,
+                                {'reason': validation_result.messages}
+                            )
+                        return
+
+                    logger.info(f"✅ 리스크 검증 통과: {stock_name} (수준: {validation_result.risk_level})")
+                except Exception as e:
+                    logger.warning(f"리스크 검증 오류 (무시하고 진행): {e}")
 
             strategy_note = "진화된 전략" if (self.strategy_loader and self.strategy_loader.current_strategy) else "기본 전략"
             logger.info(
@@ -1682,6 +1774,29 @@ class AutoTradingBot:
                 if trade_log_id:
                     log_success(trade_log_id, order_no, optimal_price, quantity)
 
+                # v8.0: 이벤트 버스 알림
+                if self.event_bus:
+                    self.event_bus.emit_order_filled(
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        order_type='buy',
+                        quantity=quantity,
+                        price=optimal_price,
+                        order_no=order_no
+                    )
+
+                # v8.0: 성능 분석기 기록
+                if self.performance_analyzer:
+                    self.performance_analyzer.record_trade(
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        trade_type='buy',
+                        quantity=quantity,
+                        price=optimal_price,
+                        strategy_name=strategy_note,
+                        ai_score=getattr(candidate, 'ai_score', 0)
+                    )
+
                 # Fix: 트레일링 스탑 추가 (ATR 기반 동적 손절/익절)
                 if self.trailing_stop_manager:
                     try:
@@ -1735,6 +1850,11 @@ class AutoTradingBot:
         try:
             if self.market_status.get('can_cancel_only'):
                 logger.warning(f"{self.market_status['market_type']}: 신규 매도 주문 불가")
+                return
+
+            # v8.0: 긴급 정지 시에도 매도는 허용 (손절을 위해)
+            if self.emergency_controller and not self.emergency_controller.can_sell():
+                logger.warning(f"🚨 시스템 종료 상태 - 매도도 차단됨 (수준: {self.emergency_controller.current_level.value})")
                 return
 
             # 호가 분석 기반 최적 매도 가격 계산
@@ -1925,6 +2045,35 @@ class AutoTradingBot:
                 # 거래 로거에 성공 기록
                 if sell_trade_log_id:
                     log_success(sell_trade_log_id, order_no, optimal_price, quantity)
+
+                # v8.0: 이벤트 버스 알림
+                if self.event_bus:
+                    self.event_bus.emit_order_filled(
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        order_type='sell',
+                        quantity=quantity,
+                        price=optimal_price,
+                        order_no=order_no
+                    )
+
+                # v8.0: 성능 분석기 기록
+                if self.performance_analyzer:
+                    self.performance_analyzer.record_trade(
+                        stock_code=stock_code,
+                        stock_name=stock_name,
+                        trade_type='sell',
+                        quantity=quantity,
+                        price=optimal_price,
+                        profit_loss=profit_loss,
+                        profit_loss_pct=profit_loss_rate,
+                        strategy_name=reason
+                    )
+
+                # v8.0: 긴급 정지 컨트롤러에 일일 손실 체크
+                if self.emergency_controller and profit_loss < 0:
+                    portfolio_value = self.portfolio_manager.get_total_value() if self.portfolio_manager else 10000000
+                    self.emergency_controller.check_daily_loss(profit_loss, portfolio_value)
 
                 self.alert_manager.alert_position_closed(
                     stock_code=stock_code,

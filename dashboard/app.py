@@ -77,6 +77,9 @@ from .routes import (
     live_trading_bp  # 실전 투자 전환
 )
 
+# Import advanced monitoring routes (v8.0: 고급 모니터링 및 리스크 관리)
+from .routes.advanced_monitoring import advanced_bp
+
 # Import automation routes (v5.5: 고급 자동화 시스템)
 from .routes.automation import automation_bp, init_automation_routes
 
@@ -119,6 +122,7 @@ app.register_blueprint(evolution_bp)  # Fix: 전략 진화 시스템
 app.register_blueprint(backtest_analysis_bp)  # 백테스팅 결과 분석
 app.register_blueprint(live_trading_bp)  # 실전 투자 전환
 app.register_blueprint(autonomous_bp)  # v7.0: 자율 진화 모니터 (API: /api/autonomous/*)
+app.register_blueprint(advanced_bp)  # v8.0: 고급 모니터링 (API: /api/advanced/*)
 
 # Register WebSocket handlers
 from .websocket import register_websocket_handlers
@@ -288,12 +292,14 @@ def run_dashboard(bot=None, host: str = None, port: int = None, debug: bool = Fa
         print(f"⚠️ Failed to initialize real-time data stream: {e}")
 
     print("=" * 60)
-    print("🚀 AutoTrade Pro v7.1 - 자율 진화형 자동매매")
+    print("🚀 AutoTrade Pro v8.0 - 통합 리스크 관리 시스템")
     print("=" * 60)
     print(f"📱 대시보드: http://localhost:{port}")
     print(f"🧬 자율 진화 엔진: 24시간 연속 알고리즘 최적화")
     print(f"📊 API 수집: 50+ REST API 실시간 분석")
-    print(f"🔄 멀티 종목: 병렬 스캐닝 및 매매")
+    print(f"🛡️ 4단계 리스크 검증: 포지션→포트폴리오→시장→계좌")
+    print(f"📈 A/B 테스트: 점진적 전략 배포 (5%→25%→50%→100%)")
+    print(f"🚨 긴급 정지: 자동/수동 보호 시스템")
     print("=" * 60)
 
     socketio.run(app, host=host, port=port, debug=debug, allow_unsafe_werkzeug=True)
