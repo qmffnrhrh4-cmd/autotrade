@@ -1,10 +1,17 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, redirect, url_for
 
 pages_bp = Blueprint('pages', __name__)
 
 
 @pages_bp.route('/')
 def index():
+    """메인 페이지 - 자율 진화 모니터로 리다이렉트"""
+    return redirect('/autonomous')
+
+
+@pages_bp.route('/legacy')
+def legacy_dashboard():
+    """레거시 대시보드 (이전 버전 호환용)"""
     return render_template('dashboard_main.html')
 
 
