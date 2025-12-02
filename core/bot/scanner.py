@@ -238,12 +238,13 @@ class StockScanner:
                         portfolio_info=portfolio_info
                     )
                 )
-            except:
+            except Exception as e:
                 # 폴백: Mock 분석
+                logger.warning(f"AI analysis failed, using fallback: {e}")
                 ai_analysis = {
                     'signal': 'hold',
                     'confidence': 0.5,
-                    'reasons': ['AI 분석 실패'],
+                    'reasons': [f'AI 분석 실패: {str(e)[:50]}'],
                     'risks': []
                 }
 

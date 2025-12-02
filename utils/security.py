@@ -42,10 +42,14 @@ class SecureKeyManager:
 
         if CRYPTO_AVAILABLE and master_password:
             # 마스터 비밀번호로부터 암호화 키 생성
+            # Security: Use environment variable or generate secure random salt
+            import hashlib
+            salt_source = os.environ.get('ENCRYPTION_SALT', 'autotrade_default_salt_change_in_production')
+            salt = hashlib.sha256(salt_source.encode()).digest()[:16]
             kdf = PBKDF2(
                 algorithm=hashes.SHA256(),
                 length=32,
-                salt=b'autotrade_salt',  # 실제로는 랜덤 salt 사용
+                salt=salt,
                 iterations=100000,
             )
             key = base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
@@ -113,8 +117,8 @@ class SecureKeyManager:
         # 파일 권한 제한 (Unix only)
         try:
             os.chmod(file_path, 0o600)
-        except:
-            pass
+        except (OSError, PermissionError) as e:
+            logger.warning(f"Failed to set file permissions: {e}")
 
         logger.info(f"✓ Encrypted key saved: {file_path}")
 

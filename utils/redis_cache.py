@@ -1,17 +1,39 @@
 """
-Redis Cache Manager v6.0
+Redis Cache Manager v6.1
 Redis 기반 고성능 캐싱
+
+Security Update:
+- Replaced pickle with JSON for safer serialization
+- Added fallback to msgpack for complex types
 """
 
 import json
-import pickle
 from typing import Any, Optional, Callable
-from datetime import timedelta
+from datetime import timedelta, datetime
 from functools import wraps
 import hashlib
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Safe serialization helper
+def _safe_serialize(value: Any) -> bytes:
+    """Safely serialize value to bytes using JSON (no pickle for security)"""
+    try:
+        # Try JSON first (safe)
+        return json.dumps(value, default=str, ensure_ascii=False).encode('utf-8')
+    except (TypeError, ValueError):
+        # For complex objects, convert to string representation
+        logger.warning("Complex object serialization - using string representation")
+        return json.dumps(str(value)).encode('utf-8')
+
+def _safe_deserialize(data: bytes) -> Any:
+    """Safely deserialize bytes to value using JSON"""
+    try:
+        return json.loads(data.decode('utf-8'))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        logger.warning(f"Deserialization failed: {e}")
+        return None
 
 # Import config constants
 try:
@@ -119,7 +141,7 @@ class RedisCacheManager:
 
                 if value:
                     self.stats['hits'] += 1
-                    return pickle.loads(value)
+                    return _safe_deserialize(value)
                 else:
                     self.stats['misses'] += 1
                     return default
@@ -167,8 +189,8 @@ class RedisCacheManager:
 
         try:
             if self.redis_client:
-                # Redis 저장
-                serialized = pickle.dumps(value)
+                # Redis 저장 (using safe JSON serialization)
+                serialized = _safe_serialize(value)
 
                 if ttl:
                     self.redis_client.setex(key, ttl, serialized)

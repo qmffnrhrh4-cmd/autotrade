@@ -497,7 +497,7 @@ class KiwoomOpenAPIClient:
             # 부호 처리
             sign = -1 if str(value).strip().startswith('-') else 1
             return int(cleaned) * sign
-        except:
+        except (ValueError, TypeError):
             return 0
 
     def _parse_float(self, value: Any) -> float:
@@ -509,7 +509,7 @@ class KiwoomOpenAPIClient:
             if not cleaned:
                 return 0.0
             return float(cleaned)
-        except:
+        except (ValueError, TypeError):
             return 0.0
 
     def _calculate_volatility(self, candles: List[Dict]) -> float:
@@ -526,7 +526,7 @@ class KiwoomOpenAPIClient:
             variance = sum((p - avg_price) ** 2 for p in prices) / len(prices)
             volatility = (variance ** 0.5) / avg_price * 100 if avg_price > 0 else 0.0
             return round(volatility, 2)
-        except:
+        except (ValueError, TypeError, ZeroDivisionError):
             return 0.0
 
     def _analyze_price_action(self, candles: List[Dict]) -> str:
@@ -551,7 +551,7 @@ class KiwoomOpenAPIClient:
                 return 'weak_down'
             else:
                 return 'neutral'
-        except:
+        except (ValueError, TypeError, IndexError):
             return 'neutral'
 
     def __enter__(self):

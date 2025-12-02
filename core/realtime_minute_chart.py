@@ -168,8 +168,8 @@ class RealtimeMinuteChart:
                     hour = int(time_str[:2])
                     minute = int(time_str[2:4])
                     now = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
-                except:
-                    pass
+                except (ValueError, TypeError):
+                    pass  # Keep current time if parsing fails
             else:
                 now = now.replace(second=0, microsecond=0)
 

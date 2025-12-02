@@ -49,7 +49,7 @@ class LoguruLogger:
                         return log_config.get(key, default)
                     else:
                         return getattr(log_config, key, default)
-                except:
+                except (AttributeError, TypeError):
                     return default
 
         except ImportError:

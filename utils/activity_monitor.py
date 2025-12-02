@@ -31,11 +31,13 @@ class TradingActivityMonitor:
         self.max_activities = max_activities
         self.max_candidates = max_candidates
 
-        # 실시간 데이터
+        # 실시간 데이터 (메모리 관리를 위해 최대 크기 제한)
         self.activities = deque(maxlen=max_activities)  # 활동 로그
         self.candidates = []  # 후보 종목
-        self.ai_analyses = {}  # AI 분석 결과
-        self.buy_plans = {}  # 매수 계획
+        self.ai_analyses = {}  # AI 분석 결과 (최대 100개 유지)
+        self.buy_plans = {}  # 매수 계획 (최대 50개 유지)
+        self._max_ai_analyses = 100
+        self._max_buy_plans = 50
 
         # 현재 상태
         self.current_screening = {
@@ -175,6 +177,16 @@ class TradingActivityMonitor:
                 'result': analysis_result
             }
 
+            # 메모리 관리: 최대 크기 초과시 오래된 항목 제거
+            if len(self.ai_analyses) > self._max_ai_analyses:
+                # 가장 오래된 항목 제거 (timestamp 기준)
+                sorted_items = sorted(
+                    self.ai_analyses.items(),
+                    key=lambda x: x[1].get('timestamp', ''),
+                    reverse=True
+                )
+                self.ai_analyses = dict(sorted_items[:self._max_ai_analyses])
+
             # 후보 종목 업데이트
             for candidate in self.candidates:
                 if candidate['stock_code'] == stock_code:
@@ -219,11 +231,45 @@ class TradingActivityMonitor:
 
             self.buy_plans[stock_code] = enhanced_plan
 
+            # 메모리 관리: 최대 크기 초과시 오래된 항목 제거
+            if len(self.buy_plans) > self._max_buy_plans:
+                sorted_items = sorted(
+                    self.buy_plans.items(),
+                    key=lambda x: x[1].get('timestamp', ''),
+                    reverse=True
+                )
+                self.buy_plans = dict(sorted_items[:self._max_buy_plans])
+
             # 후보 종목 업데이트
             for candidate in self.candidates:
                 if candidate['stock_code'] == stock_code:
                     candidate['buy_plan_ready'] = True
                     break
+
+    def cleanup_old_data(self, max_age_hours: int = 24):
+        """
+        오래된 데이터 정리 (메모리 관리)
+
+        Args:
+            max_age_hours: 최대 보관 시간 (시간 단위)
+        """
+        from datetime import timedelta
+
+        with self._lock:
+            cutoff = datetime.now() - timedelta(hours=max_age_hours)
+            cutoff_str = cutoff.isoformat()
+
+            # AI 분석 정리
+            self.ai_analyses = {
+                k: v for k, v in self.ai_analyses.items()
+                if v.get('timestamp', '') > cutoff_str
+            }
+
+            # 매수 계획 정리 (완료/취소된 항목만)
+            self.buy_plans = {
+                k: v for k, v in self.buy_plans.items()
+                if v.get('status') in ('pending', 'executing') or v.get('timestamp', '') > cutoff_str
+            }
 
     def update_user_settings(self, settings: Dict[str, Any]):
         """

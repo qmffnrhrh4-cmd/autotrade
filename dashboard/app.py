@@ -43,9 +43,14 @@ except ImportError:
 app = Flask(__name__,
            template_folder='templates',
            static_folder='static')
-app.config['SECRET_KEY'] = 'autotrade-pro-v5-modular'
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# Security: Use environment variable for secret key, fallback to random for dev only
+import secrets
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY') or secrets.token_hex(32)
+
+# CORS: Restrict to specific origins (localhost for development)
+ALLOWED_ORIGINS = os.environ.get('CORS_ORIGINS', 'http://localhost:5000,http://127.0.0.1:5000').split(',')
+CORS(app, origins=ALLOWED_ORIGINS, supports_credentials=True)
+socketio = SocketIO(app, cors_allowed_origins=ALLOWED_ORIGINS, async_mode='threading')
 
 # Suppress Flask/werkzeug logs (only show warnings and errors)
 import logging
@@ -128,7 +133,8 @@ def get_control_status() -> Dict[str, Any]:
     try:
         with open(control_file, 'r', encoding='utf-8') as f:
             return json.load(f)
-    except:
+    except (FileNotFoundError, json.JSONDecodeError, PermissionError) as e:
+        logger.warning(f"Failed to read control.json: {e}")
         return {"trading_enabled": False}
 
 
