@@ -13,34 +13,40 @@ AI_MODELS = {
     'fallback': 'gemini-pro'
 }
 
+# Q5. 다중 종목 동시 매매: 포지션 수 대폭 확대
+# Q7. 위험 관리 자동화: 시장 상황에 따라 유기적 조절
 RISK_MODES = {
     'very_conservative': {
-        'max_open_positions': 3,
+        'max_open_positions': 10,      # 3 → 10
+        'risk_per_trade_ratio': 0.03,  # 포지션당 3%
+        'take_profit_ratio': 0.06,
+        'stop_loss_ratio': -0.02,
+        'ai_min_score': 6.0,           # 8.0 → 6.0 (더 많은 기회)
+        'volatility_multiplier': 0.5   # Q4. 변동성 기반 조절
+    },
+    'conservative': {
+        'max_open_positions': 20,      # 5 → 20
         'risk_per_trade_ratio': 0.05,
         'take_profit_ratio': 0.08,
         'stop_loss_ratio': -0.03,
-        'ai_min_score': 8.0
-    },
-    'conservative': {
-        'max_open_positions': 5,
-        'risk_per_trade_ratio': 0.10,
-        'take_profit_ratio': 0.10,
-        'stop_loss_ratio': -0.05,
-        'ai_min_score': 7.5
+        'ai_min_score': 5.5,
+        'volatility_multiplier': 0.7
     },
     'normal': {
-        'max_open_positions': 8,
-        'risk_per_trade_ratio': 0.15,
-        'take_profit_ratio': 0.12,
-        'stop_loss_ratio': -0.06,
-        'ai_min_score': 7.0
+        'max_open_positions': 30,      # 8 → 30
+        'risk_per_trade_ratio': 0.08,
+        'take_profit_ratio': 0.10,
+        'stop_loss_ratio': -0.05,
+        'ai_min_score': 5.0,           # 7.0 → 5.0
+        'volatility_multiplier': 1.0
     },
     'aggressive': {
-        'max_open_positions': 12,
-        'risk_per_trade_ratio': 0.25,
+        'max_open_positions': 50,      # 12 → 50
+        'risk_per_trade_ratio': 0.10,
         'take_profit_ratio': 0.15,
         'stop_loss_ratio': -0.07,
-        'ai_min_score': 6.5
+        'ai_min_score': 4.0,           # 6.5 → 4.0
+        'volatility_multiplier': 1.5
     }
 }
 
@@ -119,27 +125,30 @@ PROFIT_LOSS_RATIOS = {
     }
 }
 
+# Q5. 다중 종목 동시 매매 지원
 RISK_LIMITS = {
-    'max_position_size': 0.30,
-    'max_daily_loss': 0.03,
-    'max_total_loss': 0.10,
-    'max_consecutive_losses': 3,
-    'position_limit': 5,
-    'emergency_stop_loss': 0.15
+    'max_position_size': 0.10,         # 0.30 → 0.10 (분산 투자)
+    'max_daily_loss': 0.05,            # 0.03 → 0.05
+    'max_total_loss': 0.15,            # 0.10 → 0.15
+    'max_consecutive_losses': 5,       # 3 → 5
+    'position_limit': 50,              # 5 → 50 (다중 종목)
+    'emergency_stop_loss': 0.20
 }
 
+# Q4. 동적 파라미터: 더 많은 종목 포착
 THRESHOLDS = {
-    'min_ai_score': 7.0,
-    'min_trading_volume': 100000,
-    'max_spread_pct': 0.02,
-    'min_market_cap': 100_000_000_000
+    'min_ai_score': 4.0,               # 7.0 → 4.0 (더 많은 기회)
+    'min_trading_volume': 50000,       # 100000 → 50000
+    'max_spread_pct': 0.05,            # 0.02 → 0.05
+    'min_market_cap': 10_000_000_000   # 100B → 10B (소형주 포함)
 }
 
+# Q5. 다중 종목 동시 매매: 스캔당 매수 수 확대
 BUY_SCORE_THRESHOLDS = {
-    'ai_buy': 150,
-    'ai_hold': 220,
+    'ai_buy': 100,                     # 150 → 100 (더 많은 기회)
+    'ai_hold': 180,                    # 220 → 180
     'max_score': 440,
-    'max_buys_per_scan': 3
+    'max_buys_per_scan': 15            # 3 → 15 (동시 매수)
 }
 
 RETRY_CONFIG = {

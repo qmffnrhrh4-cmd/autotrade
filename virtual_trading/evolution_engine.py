@@ -171,9 +171,9 @@ class StrategyEvolutionEngine:
         self,
         virtual_manager,
         data_fetcher,
-        population_size: int = 20,
-        elite_ratio: float = 0.3,
-        mutation_rate: float = 0.1,
+        population_size: int = 50,  # Q6. 20 → 50 (더 많은 전략 동시 테스트)
+        elite_ratio: float = 0.25,  # Q6. 0.3 → 0.25 (상위 25%만 엘리트)
+        mutation_rate: float = 0.15,  # Q6. 0.1 → 0.15 (더 많은 돌연변이로 탐색 범위 확대)
         initial_capital: float = 10000000
     ):
         """
@@ -189,8 +189,14 @@ class StrategyEvolutionEngine:
         self.data_fetcher = data_fetcher
         self.population_size = population_size
         self.elite_ratio = elite_ratio
+        self.base_mutation_rate = mutation_rate  # Q6. 기본 돌연변이율
         self.mutation_rate = mutation_rate
         self.initial_capital = initial_capital
+
+        # Q6. 적응형 돌연변이 파라미터
+        self.stagnation_count = 0  # 정체 세대 수
+        self.last_best_score = 0.0  # 이전 최고 점수
+        self.adaptive_mutation_enabled = True  # 적응형 돌연변이 활성화
 
         # 현재 세대 (기존 전략에서 최대 세대 번호를 계승)
         self.generation = self._get_max_generation()
@@ -383,6 +389,32 @@ class StrategyEvolutionEngine:
 
         return fitness_results
 
+    def _update_adaptive_mutation_rate(self, fitness_results: List[StrategyFitness]):
+        """Q6. 적응형 돌연변이율 업데이트 - 정체 시 돌연변이 증가"""
+        if not fitness_results or not self.adaptive_mutation_enabled:
+            return
+
+        current_best_score = fitness_results[0].total_score if fitness_results else 0
+
+        # 개선 여부 확인
+        if current_best_score > self.last_best_score * 1.02:  # 2% 이상 개선
+            self.stagnation_count = 0
+            self.mutation_rate = self.base_mutation_rate  # 기본 돌연변이율로 복귀
+            logger.info(f"📈 성능 개선! 돌연변이율 유지: {self.mutation_rate*100:.1f}%")
+        else:
+            self.stagnation_count += 1
+            # 정체 시 돌연변이율 점진적 증가 (최대 50%)
+            self.mutation_rate = min(0.50, self.base_mutation_rate + (self.stagnation_count * 0.05))
+            logger.info(f"⚠️ 정체 {self.stagnation_count}세대 → 돌연변이율 증가: {self.mutation_rate*100:.1f}%")
+
+        # 극도로 정체될 경우 대격변 (Cataclysm)
+        if self.stagnation_count >= 10:
+            logger.warning("🌋 대격변 발동! 하위 70% 전략 교체 + 돌연변이율 최대화")
+            self.mutation_rate = 0.70  # 70% 돌연변이
+            self.stagnation_count = 0  # 리셋
+
+        self.last_best_score = current_best_score
+
     def evolve_generation(self) -> List[int]:
         """
         다음 세대로 진화
@@ -394,6 +426,9 @@ class StrategyEvolutionEngine:
 
         # 1. 적합도 평가
         fitness_results = self.evaluate_fitness()
+
+        # Q6. 적응형 돌연변이율 업데이트
+        self._update_adaptive_mutation_rate(fitness_results)
 
         # 2. 엘리트 선택 (상위 30%)
         elite_count = max(1, int(len(fitness_results) * self.elite_ratio))
@@ -821,9 +856,9 @@ def get_evolution_engine(virtual_manager=None, data_fetcher=None) -> Optional[St
         _evolution_engine = StrategyEvolutionEngine(
             virtual_manager=virtual_manager,
             data_fetcher=data_fetcher,
-            population_size=20,
-            elite_ratio=0.3,
-            mutation_rate=0.1,
+            population_size=50,  # Q6. 20 → 50 (더 많은 전략)
+            elite_ratio=0.25,    # Q6. 0.3 → 0.25
+            mutation_rate=0.15,  # Q6. 0.1 → 0.15
             initial_capital=5000000  # 500만원씩
         )
 
