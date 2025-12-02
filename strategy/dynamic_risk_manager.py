@@ -2,9 +2,10 @@
 strategy/dynamic_risk_manager.py
 통합 동적 리스크 관리 시스템
 성과에 따라 자동으로 모드 전환 + 정적 리스크 체크 통합
+Q10. 적응형 전략 선택: 시장 상황에 따른 자동 모드 전환
 """
 from typing import Dict, Any, Optional, List, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 
@@ -14,6 +15,17 @@ from config.manager import get_config
 
 
 logger = get_logger()
+
+
+# Q10. 시장 상황 열거형
+class MarketCondition(Enum):
+    """시장 상황"""
+    STRONG_BULL = "strong_bull"    # 강세장 (KOSPI/KOSDAQ 2% 이상 상승)
+    BULL = "bull"                  # 상승장 (1~2% 상승)
+    NEUTRAL = "neutral"            # 보합세 (-0.5% ~ 0.5%)
+    BEAR = "bear"                  # 하락장 (-2% ~ -0.5%)
+    STRONG_BEAR = "strong_bear"    # 강세 하락 (-2% 이하)
+    HIGH_VOLATILITY = "high_volatility"  # 변동성 장세
 
 
 class RiskMode(Enum):
@@ -85,6 +97,12 @@ class DynamicRiskManager(BaseManager):
 
         # 거래 이력
         self.trade_history: List[Dict[str, Any]] = []
+
+        # Q10. 시장 상황 추적
+        self.current_market_condition = MarketCondition.NEUTRAL
+        self.market_condition_updated_at = datetime.now()
+        self.market_api = None  # 시장 API (외부 주입)
+        self.adaptive_mode_enabled = True  # Q10. 적응형 모드 활성화
 
         # 모드별 설정 로드
         self._load_mode_configs()
@@ -186,8 +204,111 @@ class DynamicRiskManager(BaseManager):
             return 0.0
         return (self.current_capital - self.initial_capital) / self.initial_capital
 
+    def set_market_api(self, market_api):
+        """Q10. 시장 API 설정 (외부 주입)"""
+        self.market_api = market_api
+        self.logger.info("📊 시장 API 연결됨 - 적응형 전략 선택 활성화")
+
+    def _detect_market_condition(self) -> MarketCondition:
+        """Q10. 시장 상황 감지"""
+        if not self.market_api:
+            return MarketCondition.NEUTRAL
+
+        try:
+            # KOSPI/KOSDAQ 지수 데이터 조회
+            kospi_data = self.market_api.get_index_data('001')
+            kosdaq_data = self.market_api.get_index_data('101')
+
+            if not kospi_data or not kosdaq_data:
+                return self.current_market_condition
+
+            kospi_change = float(kospi_data.get('change_rate', 0))
+            kosdaq_change = float(kosdaq_data.get('change_rate', 0))
+            avg_change = (kospi_change + kosdaq_change) / 2
+
+            # 변동성 체크 (KOSPI와 KOSDAQ 방향이 다르면 변동성 장세)
+            if (kospi_change > 0.5 and kosdaq_change < -0.5) or (kospi_change < -0.5 and kosdaq_change > 0.5):
+                return MarketCondition.HIGH_VOLATILITY
+
+            # 시장 상황 판단
+            if avg_change >= 2.0:
+                return MarketCondition.STRONG_BULL
+            elif avg_change >= 1.0:
+                return MarketCondition.BULL
+            elif avg_change > -0.5:
+                return MarketCondition.NEUTRAL
+            elif avg_change >= -2.0:
+                return MarketCondition.BEAR
+            else:
+                return MarketCondition.STRONG_BEAR
+
+        except Exception as e:
+            self.logger.warning(f"시장 상황 감지 실패: {e}")
+            return self.current_market_condition
+
+    def _get_mode_for_market_condition(self, market_condition: MarketCondition) -> RiskMode:
+        """Q10. 시장 상황에 따른 최적 모드 결정"""
+        market_mode_map = {
+            MarketCondition.STRONG_BULL: RiskMode.AGGRESSIVE,
+            MarketCondition.BULL: RiskMode.NORMAL,
+            MarketCondition.NEUTRAL: RiskMode.NORMAL,
+            MarketCondition.BEAR: RiskMode.CONSERVATIVE,
+            MarketCondition.STRONG_BEAR: RiskMode.VERY_CONSERVATIVE,
+            MarketCondition.HIGH_VOLATILITY: RiskMode.CONSERVATIVE,  # 변동성 장세는 보수적으로
+        }
+        return market_mode_map.get(market_condition, RiskMode.NORMAL)
+
+    def update_market_condition(self) -> MarketCondition:
+        """Q10. 시장 상황 업데이트 및 모드 자동 전환"""
+        if not self.adaptive_mode_enabled:
+            return self.current_market_condition
+
+        # 1분에 한 번만 업데이트
+        if (datetime.now() - self.market_condition_updated_at).total_seconds() < 60:
+            return self.current_market_condition
+
+        new_condition = self._detect_market_condition()
+
+        if new_condition != self.current_market_condition:
+            self.logger.info(
+                f"📊 시장 상황 변화: {self.current_market_condition.value} → {new_condition.value}"
+            )
+            self.current_market_condition = new_condition
+            self.market_condition_updated_at = datetime.now()
+
+            # 시장 상황에 따른 모드 자동 전환
+            market_suggested_mode = self._get_mode_for_market_condition(new_condition)
+
+            # 수익률 기반 모드와 시장 기반 모드 중 더 보수적인 것 선택
+            return_rate = self.get_return_rate()
+            return_based_mode = self._determine_mode(return_rate)
+
+            # 모드 우선순위: VERY_CONSERVATIVE > CONSERVATIVE > NORMAL > AGGRESSIVE
+            mode_priority = {
+                RiskMode.VERY_CONSERVATIVE: 4,
+                RiskMode.CONSERVATIVE: 3,
+                RiskMode.NORMAL: 2,
+                RiskMode.AGGRESSIVE: 1,
+            }
+
+            # 더 보수적인 모드 선택
+            if mode_priority[market_suggested_mode] > mode_priority[return_based_mode]:
+                final_mode = market_suggested_mode
+                self.logger.info(f"🎯 시장 상황 기반 모드 적용: {final_mode.value}")
+            else:
+                final_mode = return_based_mode
+                self.logger.info(f"🎯 수익률 기반 모드 유지: {final_mode.value}")
+
+            if final_mode != self.current_mode:
+                self._switch_mode(final_mode, return_rate)
+
+        return self.current_market_condition
+
     def _evaluate_mode(self):
         """모드 재평가 및 전환"""
+        # Q10. 시장 상황도 함께 고려
+        self.update_market_condition()
+
         return_rate = self.get_return_rate()
         new_mode = self._determine_mode(return_rate)
 
@@ -684,4 +805,4 @@ class DynamicRiskManager(BaseManager):
         }
 
 
-__all__ = ['DynamicRiskManager', 'RiskMode', 'RiskModeConfig']
+__all__ = ['DynamicRiskManager', 'RiskMode', 'RiskModeConfig', 'MarketCondition']

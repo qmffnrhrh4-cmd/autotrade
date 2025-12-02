@@ -2,6 +2,7 @@
 research/scanner_pipeline.py
 3단계 스캐닝 파이프라인 (Fast → Deep → AI)
 Enhanced  Virtual trading learning integration, adaptive scanning
+Q8. AI 분석 병렬화 적용
 """
 import time
 from typing import List, Dict, Any, Optional, Tuple
@@ -10,6 +11,7 @@ from datetime import datetime, time as dt_time
 from pathlib import Path
 from collections import deque
 import json
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.logger_new import get_logger
 
@@ -18,9 +20,13 @@ from config.manager import get_config
 
 logger = get_logger()
 
+# Q8. AI 분석 병렬화: 최대 워커 수
+AI_ANALYSIS_MAX_WORKERS = 5  # AI API 동시 호출 제한 (rate limit 고려)
+
 
 _deep_scan_cache = {}
-CACHE_TTL_SECONDS = 10  # 10초로 단축 (실시간 매매 결정용)
+# Q3. 캐시 최적화: 2초로 단축 (초고속 실시간 매매)
+CACHE_TTL_SECONDS = 2
 
 
 @dataclass
@@ -134,20 +140,20 @@ class ScannerPipeline:
         self.deep_scan_interval = get_scan_value('deep_scan', 'interval', 60)
         self.ai_scan_interval = get_scan_value('ai_scan', 'interval', 300)
 
-        # 최대 후보 수
-        self.fast_max_candidates = get_scan_value('fast_scan', 'max_candidates', 50)
-        self.deep_max_candidates = get_scan_value('deep_scan', 'max_candidates', 20)
-        self.ai_max_candidates = get_scan_value('ai_scan', 'max_candidates', 5)
+        # Q1. 동시 분석 종목 수 극대화: 200/100/30으로 확대
+        self.fast_max_candidates = get_scan_value('fast_scan', 'max_candidates', 200)
+        self.deep_max_candidates = get_scan_value('deep_scan', 'max_candidates', 100)
+        self.ai_max_candidates = get_scan_value('ai_scan', 'max_candidates', 30)
 
         # 스캔 상태
         self.last_fast_scan = 0
         self.last_deep_scan = 0
         self.last_ai_scan = 0
 
-        # 후보 캐시
-        self.fast_scan_results = deque(maxlen=500)
-        self.deep_scan_results = deque(maxlen=200)
-        self.ai_scan_results = deque(maxlen=100)
+        # Q1. 후보 캐시 확대: 더 많은 종목 추적
+        self.fast_scan_results = deque(maxlen=2000)
+        self.deep_scan_results = deque(maxlen=1000)
+        self.ai_scan_results = deque(maxlen=500)
 
         self.best_strategy_cache = {}
         self.market_condition_cache = None
@@ -619,11 +625,69 @@ class ScannerPipeline:
 
         return score
 
+    def _analyze_single_stock(self, candidate: StockCandidate, min_score: float, min_confidence: str, scan_time: datetime) -> Optional[StockCandidate]:
+        """Q8. 단일 종목 AI 분석 (병렬 처리용)"""
+        try:
+            # 종목 데이터 준비
+            stock_data = {
+                'stock_code': candidate.code,
+                'stock_name': candidate.name,
+                'current_price': candidate.price,
+                'volume': candidate.volume,
+                'change_rate': candidate.rate,
+                'institutional_net_buy': candidate.institutional_net_buy,
+                'foreign_net_buy': candidate.foreign_net_buy,
+                'bid_ask_ratio': candidate.bid_ask_ratio,
+            }
+
+            # AI 분석 실행
+            analysis = self.ai_analyzer.analyze_stock(stock_data)
+
+            # 결과 저장
+            candidate.ai_score = analysis.get('score', 0)
+            candidate.ai_signal = analysis.get('signal', 'hold')
+            candidate.ai_confidence = analysis.get('confidence', 'Low')
+            candidate.ai_reasons = analysis.get('reasons', [])
+            candidate.ai_risks = analysis.get('risks', [])
+            candidate.ai_scan_time = scan_time
+
+            # 최종 점수 계산 (Deep Scan 70% + AI 30%)
+            candidate.final_score = (
+                candidate.deep_scan_score * 0.7 +
+                candidate.ai_score * 10 * 0.3
+            )
+
+            # AI 승인 조건 확인
+            confidence_level = {'Low': 1, 'Medium': 2, 'High': 3}
+            min_conf_level = confidence_level.get(min_confidence, 2)
+            ai_conf_level = confidence_level.get(candidate.ai_confidence, 1)
+
+            if (
+                candidate.ai_signal == 'buy' and
+                candidate.ai_score >= min_score and
+                ai_conf_level >= min_conf_level
+            ):
+                logger.info(
+                    f"✅ AI 승인: {candidate.name} "
+                    f"(점수: {candidate.ai_score:.1f}, 신뢰도: {candidate.ai_confidence})"
+                )
+                return candidate
+
+            logger.debug(
+                f"❌ AI 거부: {candidate.name} "
+                f"(점수: {candidate.ai_score:.1f}, 신뢰도: {candidate.ai_confidence})"
+            )
+            return None
+
+        except Exception as e:
+            logger.error(f"종목 {candidate.code} AI 분석 실패: {e}")
+            return None
+
     def run_ai_scan(self, candidates: Optional[List[StockCandidate]] = None) -> List[StockCandidate]:
         """
-        AI Scan (5분 주기)
+        AI Scan (5분 주기) - Q8. 병렬 처리 적용
         - AI 분석을 통한 최종 매수 추천
-        - 목표: 5종목 선정
+        - 목표: 30종목 선정 (5 → 30 확대)
 
         Args:
             candidates: 분석할 종목 리스트 (None이면 Deep Scan 결과 사용)
@@ -631,8 +695,8 @@ class ScannerPipeline:
         Returns:
             선정된 종목 리스트
         """
-        print("📍 run_ai_scan() 메서드 진입")
-        logger.info("🤖 AI Scan 시작...")
+        print("📍 run_ai_scan() 메서드 진입 (병렬 처리)")
+        logger.info("🤖 AI Scan 시작 (병렬 처리)...")
         start_time = time.time()
 
         try:
@@ -648,86 +712,38 @@ class ScannerPipeline:
 
             ai_config = self.scan_config.get('ai_scan', {})
             scan_time = datetime.now()
-            # AI 승인 조건 완화: 7.0 → 5.0, Medium → Low
-            min_score = ai_config.get('min_analysis_score', 5.0)  # 더 많은 신호 생성
-            min_confidence = ai_config.get('min_confidence', 'Low')  # 낮은 신뢰도도 허용
+            min_score = ai_config.get('min_analysis_score', 5.0)
+            min_confidence = ai_config.get('min_confidence', 'Low')
 
             print(f"📍 AI 분석기 타입: {type(self.ai_analyzer).__name__}")
-            print(f"📍 AI 분석 시작 - {len(candidates)}개 종목 처리 예정")
+            print(f"📍 AI 분석 시작 - {len(candidates)}개 종목 병렬 처리")
 
-            # AI 분석 수행
+            # Q8. 병렬 AI 분석
             ai_approved = []
 
-            for idx, candidate in enumerate(candidates, 1):
-                try:
-                    print(f"📍 [{idx}/{len(candidates)}] AI 분석 중: {candidate.name} ({candidate.code})")
-                    logger.info(f"🤖 AI 분석 중: {candidate.name} ({candidate.code})")
+            with ThreadPoolExecutor(max_workers=AI_ANALYSIS_MAX_WORKERS) as executor:
+                # 모든 종목에 대해 병렬로 AI 분석 제출
+                future_to_candidate = {
+                    executor.submit(
+                        self._analyze_single_stock,
+                        candidate, min_score, min_confidence, scan_time
+                    ): candidate
+                    for candidate in candidates
+                }
 
-                    # 종목 데이터 준비 (AI Analyzer 필수 필드: stock_code, current_price, change_rate)
-                    stock_data = {
-                        'stock_code': candidate.code,
-                        'stock_name': candidate.name,
-                        'current_price': candidate.price,
-                        'volume': candidate.volume,
-                        'change_rate': candidate.rate,
-                        'institutional_net_buy': candidate.institutional_net_buy,
-                        'foreign_net_buy': candidate.foreign_net_buy,
-                        'bid_ask_ratio': candidate.bid_ask_ratio,
-                    }
-
-                    # AI 분석 실행
-                    print(f"    📍 stock_data 준비 완료:")
-                    print(f"       - stock_code: {stock_data.get('stock_code')}")
-                    print(f"       - current_price: {stock_data.get('current_price')}")
-                    print(f"       - change_rate: {stock_data.get('change_rate')}")
-                    print(f"       - 전체 키: {list(stock_data.keys())}")
-                    print(f"    📍 analyze_stock() 호출 중...")
-                    analysis = self.ai_analyzer.analyze_stock(stock_data)
-                    print(f"    📍 analyze_stock() 완료: {analysis}")
-
-                    # 결과 저장
-                    candidate.ai_score = analysis.get('score', 0)
-                    candidate.ai_signal = analysis.get('signal', 'hold')
-                    candidate.ai_confidence = analysis.get('confidence', 'Low')
-                    candidate.ai_reasons = analysis.get('reasons', [])
-                    candidate.ai_risks = analysis.get('risks', [])
-                    candidate.ai_scan_time = scan_time
-
-                    # 최종 점수 계산 (Deep Scan 70% + AI 30%)
-                    candidate.final_score = (
-                        candidate.deep_scan_score * 0.7 +
-                        candidate.ai_score * 10 * 0.3  # AI 점수는 0~10이므로 10을 곱함
-                    )
-
-                    # AI 승인 조건 확인
-                    confidence_level = {'Low': 1, 'Medium': 2, 'High': 3}
-                    min_conf_level = confidence_level.get(min_confidence, 2)
-                    ai_conf_level = confidence_level.get(candidate.ai_confidence, 1)
-
-                    if (
-                        candidate.ai_signal == 'buy' and
-                        candidate.ai_score >= min_score and
-                        ai_conf_level >= min_conf_level
-                    ):
-                        ai_approved.append(candidate)
-                        logger.info(
-                            f"✅ AI 승인: {candidate.name} "
-                            f"(점수: {candidate.ai_score:.1f}, 신뢰도: {candidate.ai_confidence})"
-                        )
-                    else:
-                        logger.info(
-                            f"❌ AI 거부: {candidate.name} "
-                            f"(점수: {candidate.ai_score:.1f}, 신뢰도: {candidate.ai_confidence})"
-                        )
-
-                    time.sleep(1)  # AI API 호출 간격
-
-                except Exception as e:
-                    print(f"    ❌ AI 분석 중 에러 발생: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    logger.error(f"종목 {candidate.code} AI 분석 실패: {e}", exc_info=True)
-                    continue
+                # 완료된 작업 수집
+                completed = 0
+                for future in as_completed(future_to_candidate):
+                    completed += 1
+                    candidate = future_to_candidate[future]
+                    try:
+                        result = future.result()
+                        if result:
+                            ai_approved.append(result)
+                        if completed % 10 == 0:
+                            logger.info(f"🤖 AI 분석 진행: {completed}/{len(candidates)}")
+                    except Exception as e:
+                        logger.error(f"AI 분석 Future 오류 ({candidate.name}): {e}")
 
             # 최종 점수 기준 정렬
             ai_approved = sorted(
@@ -746,7 +762,7 @@ class ScannerPipeline:
             elapsed = time.time() - start_time
             logger.info(
                 f"🤖 AI Scan 완료: {len(ai_approved)}종목 선정 "
-                f"(소요시간: {elapsed:.2f}초)"
+                f"(소요시간: {elapsed:.2f}초, 병렬처리)"
             )
 
             return ai_approved
