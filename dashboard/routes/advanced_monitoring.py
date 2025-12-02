@@ -532,7 +532,8 @@ def get_dashboard_overview():
             from core.emergency_controller import get_emergency_controller
             controller = get_emergency_controller()
             result['emergency'] = controller.get_status()
-        except:
+        except Exception as e:
+            logger.debug(f"긴급 상태 조회 실패: {e}")
             result['emergency'] = {'level': 'unknown'}
 
         # 리스크 상태
@@ -540,7 +541,8 @@ def get_dashboard_overview():
             from core.risk_validation_pipeline import get_risk_pipeline
             pipeline = get_risk_pipeline()
             result['risk'] = pipeline.get_validation_summary()
-        except:
+        except Exception as e:
+            logger.debug(f"리스크 상태 조회 실패: {e}")
             result['risk'] = {}
 
         # 성능 요약
@@ -548,7 +550,8 @@ def get_dashboard_overview():
             from core.performance_analyzer import get_performance_analyzer
             analyzer = get_performance_analyzer()
             result['performance'] = analyzer.get_summary()
-        except:
+        except Exception as e:
+            logger.debug(f"성능 요약 조회 실패: {e}")
             result['performance'] = {}
 
         # A/B 테스트
@@ -556,7 +559,8 @@ def get_dashboard_overview():
             from core.strategy_ab_test import get_ab_test_manager
             manager = get_ab_test_manager()
             result['ab_test'] = manager.get_summary()
-        except:
+        except Exception as e:
+            logger.debug(f"A/B 테스트 조회 실패: {e}")
             result['ab_test'] = {}
 
         # 이벤트 통계
@@ -564,7 +568,8 @@ def get_dashboard_overview():
             from core.event_bus import get_event_bus
             bus = get_event_bus()
             result['events'] = bus.get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"이벤트 통계 조회 실패: {e}")
             result['events'] = {}
 
         return jsonify({
@@ -719,35 +724,40 @@ def get_optimization_stats():
         try:
             from core.smart_cache import get_smart_cache
             result['smart_cache'] = get_smart_cache().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"스마트 캐시 조회 실패: {e}")
             result['smart_cache'] = {}
 
         # 배치 가격 조회
         try:
             from core.batch_price_fetcher import get_batch_price_fetcher
             result['batch_price_fetcher'] = get_batch_price_fetcher().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"배치 가격 조회 실패: {e}")
             result['batch_price_fetcher'] = {}
 
         # 주문 멱등성
         try:
             from core.order_idempotency import get_order_idempotency
             result['order_idempotency'] = get_order_idempotency().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"주문 멱등성 조회 실패: {e}")
             result['order_idempotency'] = {}
 
         # DB 트랜잭션
         try:
             from core.db_transaction import get_transaction_manager
             result['db_transaction'] = get_transaction_manager().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"DB 트랜잭션 조회 실패: {e}")
             result['db_transaction'] = {}
 
         # 스케줄러
         try:
             from core.async_scheduler import get_async_scheduler
             result['scheduler'] = get_async_scheduler().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"스케줄러 조회 실패: {e}")
             result['scheduler'] = {}
 
         return jsonify({
@@ -1015,35 +1025,40 @@ def get_full_system_status():
         try:
             from core.circuit_breaker import get_all_circuit_stats
             result['circuit_breakers'] = get_all_circuit_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"서킷 브레이커 조회 실패: {e}")
             result['circuit_breakers'] = {}
 
         # 자가 치유 엔진
         try:
             from core.self_healing_engine import get_healing_engine
             result['health'] = get_healing_engine().get_status()
-        except:
+        except Exception as e:
+            logger.debug(f"자가 치유 엔진 조회 실패: {e}")
             result['health'] = {}
 
         # 자율 최적화
         try:
             from core.autonomous_optimizer import get_autonomous_optimizer
             result['optimizer'] = get_autonomous_optimizer().get_status()
-        except:
+        except Exception as e:
+            logger.debug(f"자율 최적화 조회 실패: {e}")
             result['optimizer'] = {}
 
         # 거래 코디네이터
         try:
             from core.trade_coordinator import get_trade_coordinator
             result['coordinator'] = get_trade_coordinator().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"거래 코디네이터 조회 실패: {e}")
             result['coordinator'] = {}
 
         # 데이터 매니저
         try:
             from core.intelligent_data_manager import get_data_manager
             result['data_manager'] = get_data_manager().get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"데이터 매니저 조회 실패: {e}")
             result['data_manager'] = {}
 
         # 리스크 파이프라인
@@ -1051,7 +1066,8 @@ def get_full_system_status():
             from core.risk_validation_pipeline import get_risk_pipeline
             pipeline = get_risk_pipeline()
             result['risk_pipeline'] = pipeline.get_stats()
-        except:
+        except Exception as e:
+            logger.debug(f"리스크 파이프라인 조회 실패: {e}")
             result['risk_pipeline'] = {}
 
         # 긴급 정지
@@ -1063,7 +1079,8 @@ def get_full_system_status():
                 'trading_allowed': controller.is_trading_allowed(),
                 'new_buy_allowed': controller.is_new_buy_allowed()
             }
-        except:
+        except Exception as e:
+            logger.debug(f"긴급 정지 조회 실패: {e}")
             result['emergency'] = {}
 
         return jsonify({
