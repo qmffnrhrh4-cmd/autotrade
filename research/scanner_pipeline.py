@@ -14,6 +14,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from utils.logger_new import get_logger
+from utils.time_utils import is_market_hours, get_trading_session
 
 from config.manager import get_config
 
@@ -193,15 +194,30 @@ class ScannerPipeline:
             fast_config = self.scan_config.get('fast_scan', {})
             filters = fast_config.get('filters', {})
 
+            # 장 시간 확인
+            market_open = is_market_hours()
+            session = get_trading_session()
+
+            # 장외 시간에는 등락률 필터 완화 (모든 종목 포함)
+            if market_open:
+                # 장 중: 설정된 필터 사용
+                min_rate = filters.get('min_rate', 1.0)
+                max_rate = filters.get('max_rate', 15.0)
+            else:
+                # 장외: 등락률 필터 완화 (-30% ~ +30%)
+                min_rate = -30.0  # 하한선 확장
+                max_rate = 30.0   # 상한선 확장
+                logger.info(f"⏰ 장외 시간({session}): 등락률 필터 완화 ({min_rate}% ~ {max_rate}%)")
+
             filter_params = {
                 'min_price': filters.get('min_price', 1000),
                 'max_price': filters.get('max_price', 1000000),
                 'min_volume': filters.get('min_volume', 100000),
-                'min_rate': filters.get('min_rate', 1.0),
-                'max_rate': filters.get('max_rate', 15.0),
+                'min_rate': min_rate,
+                'max_rate': max_rate,
                 'min_market_cap': filters.get('min_market_cap', 0),
             }
-            print(f"📍 Fast Scan 필터: {filter_params}")
+            print(f"📍 Fast Scan 필터: {filter_params} (장중: {market_open})")
 
             # 기본 필터로 종목 스크리닝
             print("📍 screener.screen_stocks() 호출 중...")
