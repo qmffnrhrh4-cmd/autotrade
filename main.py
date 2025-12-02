@@ -46,6 +46,22 @@ except ImportError as e:
     is_trading_allowed = lambda: True
     get_performance_analyzer = lambda: None
 
+# v8.2: 고급 자동화 및 안정성 모듈
+try:
+    from core.circuit_breaker import get_circuit_breaker, CircuitBreaker, CircuitOpenError
+    from core.intelligent_data_manager import get_data_manager
+    from core.self_healing_engine import get_healing_engine, ComponentType
+    from core.autonomous_optimizer import get_optimizer, MarketCondition
+    from core.trade_coordinator import get_trade_coordinator
+    _v82_modules_available = True
+except ImportError as e:
+    _v82_modules_available = False
+    get_circuit_breaker = lambda name, **kwargs: None
+    get_data_manager = lambda: None
+    get_healing_engine = lambda: None
+    get_optimizer = lambda: None
+    get_trade_coordinator = lambda: None
+
 # 거래 실행 로거 (진단용)
 try:
     from utils.trade_logger import get_trade_logger, log_buy, log_sell, log_success, log_failure
@@ -87,7 +103,8 @@ class AutoTradingBot:
 
     def __init__(self):
         logger.info("="*80)
-        logger.info("오토트레이드 프로 - 고급 AI 트레이딩 시스템")
+        logger.info("오토트레이드 프로 v8.2 - 고급 AI 트레이딩 시스템")
+        logger.info("v8.2: 서킷 브레이커, 자가 치유, 자율 최적화, 지능형 캐싱")
         logger.info("="*80)
 
         # Fix v6.1.3: 시스템 자가 진단 실행
@@ -155,6 +172,13 @@ class AutoTradingBot:
         self.event_bus = None
         self.emergency_controller = None
         self.performance_analyzer = None
+
+        # v8.2: 고급 자동화 및 안정성 모듈
+        self.circuit_breaker_api = None      # API 호출용 서킷 브레이커
+        self.intelligent_data_manager = None  # 5단계 캐싱 데이터 관리자
+        self.self_healing_engine = None       # 자가 치유 엔진
+        self.autonomous_optimizer = None      # 자율 최적화 엔진
+        self.trade_coordinator = None         # 통합 거래 코디네이터
 
         self.monitor = get_monitor()
         self.alert_manager = get_alert_manager()
@@ -629,6 +653,91 @@ class AutoTradingBot:
             except Exception as e:
                 logger.warning(f"리스크 관리 시스템 초기화 실패: {e}")
 
+            # v8.2: 고급 자동화 및 안정성 시스템 초기화
+            logger.info("v8.2 고급 자동화 시스템 초기화 중...")
+            try:
+                if _v82_modules_available:
+                    # 1. 서킷 브레이커 (API 안정성)
+                    self.circuit_breaker_api = get_circuit_breaker(
+                        "kiwoom_api",
+                        failure_threshold=5,
+                        recovery_timeout=60.0,
+                        failure_rate_threshold=0.5
+                    )
+                    logger.info("  ✅ 서킷 브레이커 (API 장애 격리)")
+
+                    # 2. 지능형 데이터 매니저 (5단계 캐싱)
+                    self.intelligent_data_manager = get_data_manager()
+                    if self.client:
+                        self.intelligent_data_manager.set_api_client(self.client)
+                    logger.info("  ✅ 지능형 데이터 매니저 (5단계 캐싱)")
+
+                    # 3. 자가 치유 엔진
+                    self.self_healing_engine = get_healing_engine()
+
+                    # 컴포넌트 건강 체크 등록
+                    def check_api_health():
+                        try:
+                            deposit = self.account_api.get_deposit() if self.account_api else None
+                            return deposit is not None
+                        except:
+                            return False
+
+                    def check_db_health():
+                        try:
+                            if self.db_session:
+                                self.db_session.execute("SELECT 1")
+                                return True
+                            return False
+                        except:
+                            return False
+
+                    def check_websocket_health():
+                        return self.websocket_manager is not None and self.websocket_manager.is_connected
+
+                    self.self_healing_engine.register_component(
+                        name="kiwoom_api",
+                        component_type=ComponentType.API,
+                        check_func=check_api_health,
+                        interval=60.0,
+                        failure_threshold=3
+                    )
+                    self.self_healing_engine.register_component(
+                        name="database",
+                        component_type=ComponentType.DATABASE,
+                        check_func=check_db_health,
+                        interval=120.0,
+                        failure_threshold=2
+                    )
+                    self.self_healing_engine.register_component(
+                        name="websocket",
+                        component_type=ComponentType.WEBSOCKET,
+                        check_func=check_websocket_health,
+                        interval=30.0,
+                        failure_threshold=5
+                    )
+                    self.self_healing_engine.start()
+                    logger.info("  ✅ 자가 치유 엔진 (자동 복구)")
+
+                    # 4. 자율 최적화 엔진
+                    self.autonomous_optimizer = get_optimizer()
+                    if self.dynamic_risk_manager:
+                        self.autonomous_optimizer.set_risk_manager(self.dynamic_risk_manager)
+                    self.autonomous_optimizer.start()
+                    logger.info("  ✅ 자율 최적화 엔진 (자동 튜닝)")
+
+                    # 5. 통합 거래 코디네이터
+                    self.trade_coordinator = get_trade_coordinator()
+                    if self.order_api:
+                        self.trade_coordinator.set_order_api(self.order_api)
+                    logger.info("  ✅ 통합 거래 코디네이터 (분할 주문/부분 청산)")
+
+                    logger.info("v8.2 고급 자동화 시스템 초기화 완료")
+                else:
+                    logger.warning("v8.2 모듈 사용 불가 - 기본 모드로 실행")
+            except Exception as e:
+                logger.warning(f"v8.2 시스템 초기화 실패 (무시하고 계속): {e}")
+
             self._initialize_control_file()
             self._restore_state()
 
@@ -821,7 +930,7 @@ class AutoTradingBot:
             return
 
         print("\n" + "="*80)
-        print("오토트레이드 프로 - 메인 루프 시작됨")
+        print("오토트레이드 프로 v8.2 - 메인 루프 시작됨")
         print("="*80)
         logger.info("="*80)
         logger.info("오토트레이드 프로 실행 시작")
@@ -876,6 +985,31 @@ class AutoTradingBot:
     def stop(self):
         logger.info("오토트레이드 프로 중단 중...")
         self.is_running = False
+
+        # v8.2: 자동화 시스템 정지
+        if self.self_healing_engine:
+            try:
+                logger.info("자가 치유 엔진 중지 중...")
+                self.self_healing_engine.stop()
+                logger.info("자가 치유 엔진 중지 완료")
+            except Exception as e:
+                logger.warning(f"자가 치유 엔진 중지 실패: {e}")
+
+        if self.autonomous_optimizer:
+            try:
+                logger.info("자율 최적화 엔진 중지 중...")
+                self.autonomous_optimizer.stop()
+                logger.info("자율 최적화 엔진 중지 완료")
+            except Exception as e:
+                logger.warning(f"자율 최적화 엔진 중지 실패: {e}")
+
+        if self.intelligent_data_manager:
+            try:
+                logger.info("데이터 매니저 캐시 통계...")
+                stats = self.intelligent_data_manager.get_cache_stats()
+                logger.info(f"  캐시 적중률: {stats.get('hit_rate', 0):.1f}%")
+            except Exception as e:
+                logger.warning(f"데이터 매니저 통계 조회 실패: {e}")
 
         if self.emergency_manager:
             try:
