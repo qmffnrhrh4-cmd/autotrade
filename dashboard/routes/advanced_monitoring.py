@@ -10,6 +10,7 @@ dashboard/routes/advanced_monitoring.py
 - 실시간 이벤트
 """
 from flask import Blueprint, jsonify, request
+from datetime import datetime
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1071,3 +1072,7 @@ def get_full_system_status():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# Alias for backward compatibility with app.py imports
+advanced_bp = bp
