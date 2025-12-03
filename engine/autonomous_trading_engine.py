@@ -416,24 +416,38 @@ class AutonomousTradingEngine:
         return result
 
     def _parallel_analyze(self, stock_codes: List[str]) -> List[TradingSignal]:
-        """병렬 종목 분석"""
+        """병렬 종목 분석 (타임아웃 개선)"""
         signals = []
+
+        # 종목 수 제한 (너무 많으면 타임아웃)
+        codes_to_analyze = stock_codes[:50]  # 최대 50개로 제한
 
         # 병렬 분석 실행
         futures = {}
-        for code in stock_codes:
+        for code in codes_to_analyze:
             future = self.executor.submit(self._analyze_single_stock, code)
             futures[future] = code
 
-        # 결과 수집
-        for future in as_completed(futures, timeout=30):
-            try:
-                signal = future.result()
-                if signal and signal.confidence >= 70:
-                    signals.append(signal)
-            except Exception as e:
-                code = futures[future]
-                logger.debug(f"{code} 분석 실패: {e}")
+        # 결과 수집 (타임아웃 60초, 실패해도 계속 진행)
+        completed_count = 0
+        try:
+            for future in as_completed(futures, timeout=60):
+                try:
+                    signal = future.result(timeout=5)  # 개별 결과도 타임아웃
+                    if signal and signal.confidence >= 70:
+                        signals.append(signal)
+                    completed_count += 1
+                except Exception as e:
+                    code = futures[future]
+                    logger.debug(f"{code} 분석 실패: {e}")
+        except TimeoutError:
+            # 타임아웃 발생해도 지금까지 수집된 결과 사용
+            logger.warning(f"⚠️ 분석 타임아웃: {completed_count}/{len(codes_to_analyze)} 완료, {len(signals)}개 신호")
+
+        # 미완료 futures 취소
+        for future in futures:
+            if not future.done():
+                future.cancel()
 
         # 신뢰도순 정렬
         signals.sort(key=lambda s: s.confidence, reverse=True)

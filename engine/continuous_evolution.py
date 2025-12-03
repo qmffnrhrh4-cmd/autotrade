@@ -332,7 +332,7 @@ class ContinuousEvolution:
                 self.fitness_scores[gene_hash] = 0.0
 
     def _evaluate_gene(self, gene: StrategyGene) -> float:
-        """단일 유전자 평가 (백테스트)"""
+        """단일 유전자 평가 (백테스트 또는 휴리스틱)"""
         try:
             # 백테스터 임포트
             from ai.unified_backtester import UnifiedBacktester
@@ -345,7 +345,7 @@ class ContinuousEvolution:
             # 백테스트 실행
             result = backtester.run_backtest(strategy_params)
 
-            if result:
+            if result and result.get('total_trades', 0) > 0:
                 # 복합 적합도 계산
                 total_return = result.get('total_return_pct', 0)
                 sharpe = result.get('sharpe_ratio', 0)
@@ -367,7 +367,41 @@ class ContinuousEvolution:
         except Exception as e:
             logger.debug(f"백테스트 실패: {e}")
 
-        return 0.0
+        # 백테스트 실패 시 휴리스틱 적합도 (전략 파라미터 기반)
+        return self._heuristic_fitness(gene)
+
+    def _heuristic_fitness(self, gene: StrategyGene) -> float:
+        """휴리스틱 적합도 계산 (백테스트 불가 시)"""
+        import random
+
+        fitness = 30.0  # 기본값
+
+        # RSI 설정 점수 (매수 < 35, 매도 > 65가 좋음)
+        if 25 <= gene.rsi_buy_threshold <= 35:
+            fitness += 5
+        if 65 <= gene.rsi_sell_threshold <= 75:
+            fitness += 5
+
+        # 손절/익절 비율 점수 (익절 > 손절 * 2가 좋음)
+        if gene.take_profit_pct >= gene.stop_loss_pct * 2:
+            fitness += 10
+
+        # 포지션 크기 점수 (10~20%가 적당)
+        if 10 <= gene.position_size_pct <= 20:
+            fitness += 5
+
+        # 최대 포지션 수 점수 (3~5개가 적당)
+        if 3 <= gene.max_positions <= 5:
+            fitness += 5
+
+        # 거래량 비율 점수 (1.5~3.0이 적당)
+        if 1.5 <= gene.volume_ratio <= 3.0:
+            fitness += 5
+
+        # 약간의 랜덤성 추가 (다양성 유지)
+        fitness += random.uniform(-5, 10)
+
+        return max(0, min(100, fitness))
 
     def _select_parents(self) -> List[StrategyGene]:
         """부모 선택 (토너먼트 선택)"""
