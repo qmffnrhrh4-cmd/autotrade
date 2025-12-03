@@ -325,10 +325,11 @@ class APIDataAggregator:
                 return ranking.get_foreign_period_trading_rank(market='KOSPI', trade_type='buy', limit=30)
             elif api_id == 'ka90009':  # 외국인기관 매매 상위
                 return ranking.get_foreign_institution_trading_rank(market='KOSPI', limit=30)
-            elif api_id == 'ka10020':  # 호가 잔량 상위
-                return ranking.get_orderbook_rank(market='ALL', limit=30)
-            elif api_id == 'ka20001':  # 업종 현재가
-                return ranking.get_sector_price(market='KOSPI')
+            elif api_id == 'ka10065':  # 장중 투자자별 매매 상위
+                return ranking.get_foreign_institution_trading_rank(market='KOSPI', investor_type='institution_buy', limit=30)
+            elif api_id == 'ka10045':  # 기관 매매
+                return ranking.get_foreign_institution_trading_rank(market='KOSPI', investor_type='institution_buy', limit=30)
+            # ka10020 (호가 잔량)과 ka20001 (업종)은 RankingAPI에 없으므로 fallback 사용
 
         except Exception as e:
             logger.debug(f"RankingAPI {api_id} 실패: {e}")
@@ -386,80 +387,102 @@ class APIDataAggregator:
 
     def _analyze_foreign_data(self, api_id: str, data: Dict) -> Optional[MarketSignal]:
         """외국인 데이터 분석"""
-        # 외국인 순매수 상위 종목에서 신호 추출
-        if api_id == 'ka10034':
-            items = data.get('frgn_list', [])
-            if items:
-                total_buy = sum(int(item.get('net_buy', 0)) for item in items[:10])
+        # RankingAPI 응답 또는 기존 API 응답 모두 처리
+        items = data.get('items', []) or data.get('frgn_list', [])
 
-                if total_buy > 100000000000:  # 1000억 이상 순매수
-                    return MarketSignal(
-                        signal_type='bullish',
-                        strength=min(100, total_buy / 10000000000),  # 100억당 10점
-                        source=api_id,
-                        description=f"외국인 대량 순매수: {total_buy/100000000:.0f}억원",
-                        metadata={'total_buy': total_buy, 'top_stocks': items[:5]}
-                    )
-                elif total_buy < -100000000000:  # 1000억 이상 순매도
-                    return MarketSignal(
-                        signal_type='bearish',
-                        strength=min(100, abs(total_buy) / 10000000000),
-                        source=api_id,
-                        description=f"외국인 대량 순매도: {abs(total_buy)/100000000:.0f}억원",
-                        metadata={'total_sell': abs(total_buy), 'top_stocks': items[:5]}
-                    )
+        if items and len(items) >= 3:
+            # 순매수금액 합계 (net_buy_amt 또는 net_buy 키 사용)
+            total_buy = 0
+            for item in items[:10]:
+                amt = item.get('net_buy_amt', item.get('net_buy', 0))
+                try:
+                    total_buy += int(str(amt).replace(',', ''))
+                except:
+                    pass
+
+            # 임계값 낮춤: 100억 이상이면 신호 생성
+            if total_buy > 10000000000:  # 100억 이상 순매수
+                return MarketSignal(
+                    signal_type='bullish',
+                    strength=min(100, 50 + total_buy / 10000000000 * 5),
+                    source=api_id,
+                    description=f"외국인 순매수: {total_buy/100000000:.0f}억원",
+                    metadata={'total_buy': total_buy, 'top_stocks': items[:5]}
+                )
+            elif total_buy < -10000000000:  # 100억 이상 순매도
+                return MarketSignal(
+                    signal_type='bearish',
+                    strength=min(100, 50 + abs(total_buy) / 10000000000 * 5),
+                    source=api_id,
+                    description=f"외국인 순매도: {abs(total_buy)/100000000:.0f}억원",
+                    metadata={'total_sell': abs(total_buy), 'top_stocks': items[:5]}
+                )
 
         return None
 
     def _analyze_institution_data(self, api_id: str, data: Dict) -> Optional[MarketSignal]:
         """기관 데이터 분석"""
-        if api_id == 'ka10045':
-            items = data.get('inst_list', [])
-            if items:
-                total_buy = sum(int(item.get('net_buy', 0)) for item in items[:10])
+        items = data.get('items', []) or data.get('inst_list', [])
 
-                if total_buy > 50000000000:  # 500억 이상
-                    return MarketSignal(
-                        signal_type='bullish',
-                        strength=min(80, total_buy / 5000000000),
-                        source=api_id,
-                        description=f"기관 대량 순매수: {total_buy/100000000:.0f}억원",
-                        metadata={'total_buy': total_buy}
-                    )
+        if items and len(items) >= 3:
+            total_buy = 0
+            for item in items[:10]:
+                amt = item.get('net_buy_amt', item.get('net_buy', 0))
+                try:
+                    total_buy += int(str(amt).replace(',', ''))
+                except:
+                    pass
+
+            if total_buy > 5000000000:  # 50억 이상
+                return MarketSignal(
+                    signal_type='bullish',
+                    strength=min(80, 50 + total_buy / 5000000000 * 3),
+                    source=api_id,
+                    description=f"기관 순매수: {total_buy/100000000:.0f}억원",
+                    metadata={'total_buy': total_buy}
+                )
+            elif total_buy < -5000000000:  # 50억 이상 순매도
+                return MarketSignal(
+                    signal_type='bearish',
+                    strength=min(80, 50 + abs(total_buy) / 5000000000 * 3),
+                    source=api_id,
+                    description=f"기관 순매도: {abs(total_buy)/100000000:.0f}억원",
+                    metadata={'total_sell': abs(total_buy)}
+                )
 
         return None
 
     def _analyze_program_data(self, api_id: str, data: Dict) -> Optional[MarketSignal]:
         """프로그램 매매 분석"""
-        if api_id == 'ka90005':
-            program_buy = int(data.get('program_buy', 0))
-            program_sell = int(data.get('program_sell', 0))
-            net = program_buy - program_sell
+        items = data.get('items', [])
+        program_buy = int(data.get('program_buy', 0))
+        program_sell = int(data.get('program_sell', 0))
+        net = program_buy - program_sell
 
-            if abs(net) > 30000000000:  # 300억 이상
-                signal_type = 'bullish' if net > 0 else 'bearish'
-                return MarketSignal(
-                    signal_type=signal_type,
-                    strength=min(70, abs(net) / 5000000000),
-                    source=api_id,
-                    description=f"프로그램 {'순매수' if net > 0 else '순매도'}: {abs(net)/100000000:.0f}억원",
-                    metadata={'net': net, 'buy': program_buy, 'sell': program_sell}
-                )
+        if abs(net) > 5000000000:  # 50억 이상
+            signal_type = 'bullish' if net > 0 else 'bearish'
+            return MarketSignal(
+                signal_type=signal_type,
+                strength=min(70, 50 + abs(net) / 5000000000 * 2),
+                source=api_id,
+                description=f"프로그램 {'순매수' if net > 0 else '순매도'}: {abs(net)/100000000:.0f}억원",
+                metadata={'net': net, 'buy': program_buy, 'sell': program_sell}
+            )
 
         return None
 
     def _analyze_volume_data(self, api_id: str, data: Dict) -> Optional[MarketSignal]:
         """거래량 분석"""
-        if api_id == 'ka10023':  # 거래량 급증
-            items = data.get('vol_surge_list', [])
-            if len(items) > 20:  # 급증 종목 20개 이상
-                return MarketSignal(
-                    signal_type='bullish',
-                    strength=min(60, len(items) * 2),
-                    source=api_id,
-                    description=f"거래량 급증 종목 다수: {len(items)}개",
-                    metadata={'count': len(items), 'stocks': items[:10]}
-                )
+        items = data.get('items', []) or data.get('vol_surge_list', [])
+
+        if items and len(items) >= 5:  # 5개 이상
+            return MarketSignal(
+                signal_type='bullish',
+                strength=min(60, 40 + len(items) * 2),
+                source=api_id,
+                description=f"거래량 상위 종목: {len(items)}개",
+                metadata={'count': len(items), 'stocks': items[:10]}
+            )
 
         return None
 
