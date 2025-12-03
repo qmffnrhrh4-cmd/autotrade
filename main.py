@@ -55,6 +55,9 @@ try:
     from core.trade_coordinator import get_trade_coordinator
     _v82_modules_available = True
 except ImportError as e:
+    import traceback
+    print(f"⚠️ v8.2 모듈 import 실패: {e}")
+    traceback.print_exc()
     _v82_modules_available = False
     get_circuit_breaker = lambda name, **kwargs: None
     get_data_manager = lambda: None

@@ -277,8 +277,20 @@ class APIDataAggregator:
             logger.debug("일부 API 수집 타임아웃 - 다음 주기에 재시도")
 
     def _fetch_single_api(self, api_id: str, category: str, description: str) -> Optional[Dict]:
-        """단일 API 호출"""
+        """단일 API 호출 (RankingAPI 우선 사용)"""
         try:
+            # RankingAPI로 직접 호출 시도 (더 안정적)
+            result = self._call_ranking_api(api_id)
+
+            if result:
+                return {
+                    'data': {'items': result, 'return_code': 0},
+                    'timestamp': datetime.now(),
+                    'category': category,
+                    'description': description
+                }
+
+            # fallback: call_verified_api 사용
             result = self.client.call_verified_api(
                 api_id=api_id,
                 variant_idx=1
@@ -294,6 +306,32 @@ class APIDataAggregator:
 
         except Exception as e:
             logger.debug(f"API {api_id} 호출 실패: {e}")
+
+        return None
+
+    def _call_ranking_api(self, api_id: str) -> Optional[List]:
+        """RankingAPI로 직접 호출"""
+        try:
+            from api.market.ranking import RankingAPI
+            ranking = RankingAPI(self.client)
+
+            if api_id == 'ka10031':  # 거래량 상위
+                return ranking.get_volume_rank(market='ALL', limit=50)
+            elif api_id == 'ka10032':  # 거래대금 상위
+                return ranking.get_trading_value_rank(market='ALL', limit=50)
+            elif api_id == 'ka10027':  # 등락률 상위
+                return ranking.get_price_change_rank(market='ALL', sort='rise', limit=50)
+            elif api_id == 'ka10034':  # 외인 기간별 매매
+                return ranking.get_foreign_period_trading_rank(market='KOSPI', trade_type='buy', limit=30)
+            elif api_id == 'ka90009':  # 외국인기관 매매 상위
+                return ranking.get_foreign_institution_trading_rank(market='KOSPI', limit=30)
+            elif api_id == 'ka10020':  # 호가 잔량 상위
+                return ranking.get_orderbook_rank(market='ALL', limit=30)
+            elif api_id == 'ka20001':  # 업종 현재가
+                return ranking.get_sector_price(market='KOSPI')
+
+        except Exception as e:
+            logger.debug(f"RankingAPI {api_id} 실패: {e}")
 
         return None
 
