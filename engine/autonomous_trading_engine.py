@@ -307,35 +307,73 @@ class AutonomousTradingEngine:
                 time.sleep(5)
 
     def _get_scan_candidates(self) -> List[str]:
-        """스캔 대상 종목 수집"""
+        """스캔 대상 종목 수집 (RankingAPI 사용)"""
         candidates = set()
 
         try:
+            from api.market.ranking import RankingAPI
+            ranking_api = RankingAPI(self.client)
+
             # 1. 거래량 상위 (ka10031)
-            volume_top = self._call_api_safe('ka10031', {})
-            if volume_top:
-                for item in volume_top.get('volume_list', [])[:50]:
-                    candidates.add(item.get('stk_cd', ''))
+            try:
+                volume_list = ranking_api.get_volume_rank(market='ALL', limit=50)
+                for item in volume_list:
+                    code = item.get('code', '')
+                    if code:
+                        candidates.add(code)
+                logger.debug(f"거래량 상위: {len(volume_list)}개")
+            except Exception as e:
+                logger.debug(f"거래량 순위 조회 실패: {e}")
 
             # 2. 등락률 상위 (ka10027)
-            change_top = self._call_api_safe('ka10027', {})
-            if change_top:
-                for item in change_top.get('rate_list', [])[:30]:
-                    candidates.add(item.get('stk_cd', ''))
+            try:
+                rise_list = ranking_api.get_price_change_rank(market='ALL', sort='rise', limit=30)
+                for item in rise_list:
+                    code = item.get('code', '')
+                    if code:
+                        candidates.add(code)
+                logger.debug(f"상승률 상위: {len(rise_list)}개")
+            except Exception as e:
+                logger.debug(f"등락률 순위 조회 실패: {e}")
 
-            # 3. 외국인 순매수 (ka10034)
-            foreign_buy = self._call_api_safe('ka10034', {'prd_tp': '0'})
-            if foreign_buy:
-                for item in foreign_buy.get('frgn_list', [])[:20]:
-                    candidates.add(item.get('stk_cd', ''))
+            # 3. 거래대금 상위 (ka10032)
+            try:
+                value_list = ranking_api.get_trading_value_rank(market='ALL', limit=30)
+                for item in value_list:
+                    code = item.get('code', '')
+                    if code:
+                        candidates.add(code)
+                logger.debug(f"거래대금 상위: {len(value_list)}개")
+            except Exception as e:
+                logger.debug(f"거래대금 순위 조회 실패: {e}")
 
-            # 4. 기관 순매수 (ka10065)
-            inst_buy = self._call_api_safe('ka10065', {'invst_tp': '3'})
-            if inst_buy:
-                for item in inst_buy.get('invst_list', [])[:20]:
-                    candidates.add(item.get('stk_cd', ''))
+            # 4. 외국인 순매수 (ka10034)
+            try:
+                foreign_list = ranking_api.get_foreign_period_trading_rank(
+                    market='KOSPI', trade_type='buy', period_days=1, limit=20
+                )
+                for item in foreign_list:
+                    code = item.get('code', '')
+                    if code:
+                        candidates.add(code)
+                logger.debug(f"외국인 순매수: {len(foreign_list)}개")
+            except Exception as e:
+                logger.debug(f"외국인 순매수 조회 실패: {e}")
 
-            # 5. 현재 보유 종목
+            # 5. 기관 순매수 (ka90009)
+            try:
+                inst_list = ranking_api.get_foreign_institution_trading_rank(
+                    market='KOSPI', investor_type='institution_buy', limit=20
+                )
+                for item in inst_list:
+                    code = item.get('code', '')
+                    if code:
+                        candidates.add(code)
+                logger.debug(f"기관 순매수: {len(inst_list)}개")
+            except Exception as e:
+                logger.debug(f"기관 순매수 조회 실패: {e}")
+
+            # 6. 현재 보유 종목
             with self._positions_lock:
                 for code in self.current_positions.keys():
                     candidates.add(code)
@@ -647,16 +685,42 @@ class AutonomousTradingEngine:
 
     def _simple_evolution(self, fitness_scores: Dict[str, float]) -> List[Dict]:
         """간단한 진화 로직 (fallback)"""
+        new_generation = []
+
+        # fitness_scores가 비어있으면 초기 전략 생성
+        if not fitness_scores:
+            logger.info("📊 초기 전략 생성 중...")
+            base_strategies = [
+                {'id': 'momentum_01', 'type': 'momentum', 'rsi_threshold': 30, 'volume_ratio': 1.5},
+                {'id': 'mean_reversion_01', 'type': 'mean_reversion', 'bb_threshold': 2.0, 'rsi_oversold': 25},
+                {'id': 'trend_follow_01', 'type': 'trend_follow', 'ma_period': 20, 'breakout_pct': 2.0},
+                {'id': 'volume_spike_01', 'type': 'volume_spike', 'volume_mult': 3.0, 'price_change': 1.5},
+                {'id': 'foreign_follow_01', 'type': 'foreign_follow', 'net_buy_threshold': 10000},
+            ]
+            for strategy in base_strategies:
+                strategy['fitness'] = random.uniform(20, 50)  # 초기 fitness
+                strategy['mutation_rate'] = random.uniform(0.1, 0.3)
+                strategy['generation'] = self.evolution_state.generation
+                new_generation.append(strategy)
+
+                # strategy_performance에도 등록
+                self.strategy_performance[strategy['id']] = StrategyPerformance(
+                    strategy_id=strategy['id']
+                )
+            logger.info(f"✅ 초기 전략 {len(new_generation)}개 생성 완료")
+            return new_generation
+
         # 상위 전략 기반으로 변이 생성
         sorted_strategies = sorted(fitness_scores.items(), key=lambda x: x[1], reverse=True)
-        new_generation = []
 
         for strategy_id, fitness in sorted_strategies[:5]:
             # 변이 전략 생성
             mutated = {
+                'id': f"{strategy_id}_gen{self.evolution_state.generation}",
                 'parent_id': strategy_id,
-                'fitness': fitness,
-                'mutation_rate': random.uniform(0.05, 0.2)
+                'fitness': fitness * random.uniform(0.9, 1.2),  # 약간의 변이
+                'mutation_rate': random.uniform(0.05, 0.2),
+                'generation': self.evolution_state.generation
             }
             new_generation.append(mutated)
 
