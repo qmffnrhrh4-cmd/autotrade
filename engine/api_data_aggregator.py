@@ -256,18 +256,25 @@ class APIDataAggregator:
             )
             futures[future] = (api_id, category)
 
-        for future in as_completed(futures, timeout=30):
-            try:
-                api_id, category = futures[future]
-                result = future.result()
+        try:
+            for future in as_completed(futures, timeout=30):
+                try:
+                    api_id, category = futures[future]
+                    result = future.result()
 
-                if result:
-                    self._process_result(api_id, category, result)
-                    self.last_fetch_time[api_id] = datetime.now()
+                    if result:
+                        self._process_result(api_id, category, result)
+                        self.last_fetch_time[api_id] = datetime.now()
 
-            except Exception as e:
-                api_id, _ = futures[future]
-                logger.debug(f"API {api_id} 수집 실패: {e}")
+                except Exception as e:
+                    api_id, _ = futures[future]
+                    logger.debug(f"API {api_id} 수집 실패: {e}")
+        except TimeoutError:
+            # 타임아웃 시 미완료 futures 취소
+            for future in futures:
+                if not future.done():
+                    future.cancel()
+            logger.debug("일부 API 수집 타임아웃 - 다음 주기에 재시도")
 
     def _fetch_single_api(self, api_id: str, category: str, description: str) -> Optional[Dict]:
         """단일 API 호출"""
