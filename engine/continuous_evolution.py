@@ -395,7 +395,7 @@ class ContinuousEvolution:
             fitness += 5
 
         # 거래량 비율 점수 (1.5~3.0이 적당)
-        if 1.5 <= gene.volume_ratio <= 3.0:
+        if 1.5 <= gene.volume_ratio_min <= 3.0:
             fitness += 5
 
         # 약간의 랜덤성 추가 (다양성 유지)

@@ -482,13 +482,13 @@ class AutonomousTradingEngine:
                 price_data, orderbook, execution, investor_data, technical
             )
 
-            # 7. 신호 생성
-            if score >= 70:
+            # 7. 신호 생성 (임계값 완화: 70 → 65)
+            if score >= 65:
                 action = 'buy'
-                priority = 1 if score >= 90 else 2 if score >= 80 else 3
-            elif score <= 30:
+                priority = 1 if score >= 85 else 2 if score >= 75 else 3
+            elif score <= 35:
                 action = 'sell'
-                priority = 1 if score <= 10 else 2 if score <= 20 else 3
+                priority = 1 if score <= 15 else 2 if score <= 25 else 3
             else:
                 return None  # hold
 
@@ -1165,55 +1165,61 @@ class AutonomousTradingEngine:
         investor: Dict,
         technical: Dict
     ) -> tuple:
-        """종합 점수 계산"""
-        score = 50  # 기본 점수
+        """종합 점수 계산 (매매 활성화를 위해 완화된 기준)"""
+        score = 55  # 기본 점수 상향 (50 → 55)
         breakdown = {}
 
-        # 1. 등락률 (20점)
+        # 1. 등락률 (20점) - 조건 완화
         change_rate = price_data.get('change_rate', 0)
-        if 2 <= change_rate <= 10:
+        if 1 <= change_rate <= 15:  # 1~15% 범위 확대
             score += 15
             breakdown['change_rate'] = 15
-        elif change_rate > 10:
+        elif 0 < change_rate < 1:  # 소폭 상승도 +5
+            score += 5
+            breakdown['change_rate'] = 5
+        elif change_rate > 15:
             score -= 5  # 과열
             breakdown['change_rate'] = -5
         elif change_rate < -5:
             score -= 10
             breakdown['change_rate'] = -10
 
-        # 2. 호가 불균형 (15점)
+        # 2. 호가 불균형 (15점) - 조건 완화
         if orderbook:
-            buy_volume = sum(int(orderbook.get(f'ask_rq{i}', 0)) for i in range(1, 6))
-            sell_volume = sum(int(orderbook.get(f'bid_rq{i}', 0)) for i in range(1, 6))
+            buy_volume = sum(int(orderbook.get(f'ask_rq{i}', orderbook.get(f'매수호가잔량{i}', 0))) for i in range(1, 6))
+            sell_volume = sum(int(orderbook.get(f'bid_rq{i}', orderbook.get(f'매도호가잔량{i}', 0))) for i in range(1, 6))
             if buy_volume + sell_volume > 0:
                 imbalance = (buy_volume - sell_volume) / (buy_volume + sell_volume)
-                if imbalance > 0.3:
-                    score += 15
-                    breakdown['orderbook'] = 15
+                if imbalance > 0.1:  # 0.3 → 0.1로 완화
+                    score += 10
+                    breakdown['orderbook'] = 10
                 elif imbalance < -0.3:
-                    score -= 10
-                    breakdown['orderbook'] = -10
+                    score -= 5  # -10 → -5로 완화
+                    breakdown['orderbook'] = -5
 
-        # 3. 체결강도 (15점)
+        # 3. 체결강도 (15점) - 조건 완화
         if execution:
-            strength = float(execution.get('cntr_strg', 100))
-            if strength > 120:
-                score += 15
-                breakdown['execution'] = 15
-            elif strength < 80:
-                score -= 10
-                breakdown['execution'] = -10
+            strength = float(execution.get('cntr_strg', execution.get('체결강도', 100)))
+            if strength > 100:  # 120 → 100으로 완화
+                score += 10
+                breakdown['execution'] = 10
+            elif strength < 70:  # 80 → 70으로 조정
+                score -= 5
+                breakdown['execution'] = -5
 
-        # 4. 외국인/기관 (15점)
+        # 4. 외국인/기관 (15점) - 조건 완화
         if investor:
-            foreign = int(investor.get('frgn_net', 0))
-            inst = int(investor.get('inst_net', 0))
-            if foreign > 0 and inst > 0:
-                score += 15
+            foreign = int(investor.get('frgn_net', investor.get('외국인순매수', 0)))
+            inst = int(investor.get('inst_net', investor.get('기관순매수', 0)))
+            if foreign > 0 or inst > 0:  # 둘 중 하나만 순매수여도 점수
+                score += 10
+                breakdown['investor'] = 10
+            if foreign > 0 and inst > 0:  # 둘 다 순매수면 추가 점수
+                score += 5
                 breakdown['investor'] = 15
             elif foreign < 0 and inst < 0:
-                score -= 10
-                breakdown['investor'] = -10
+                score -= 5  # -10 → -5로 완화
+                breakdown['investor'] = -5
 
         # 5. 기술적 분석 (10점)
         if technical:

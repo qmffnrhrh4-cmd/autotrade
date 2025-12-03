@@ -51,7 +51,7 @@ try:
     from core.circuit_breaker import get_circuit_breaker, CircuitBreaker, CircuitOpenError
     from core.intelligent_data_manager import get_data_manager
     from core.self_healing_engine import get_healing_engine, ComponentType
-    from core.autonomous_optimizer import get_optimizer, MarketCondition
+    from core.autonomous_optimizer import get_autonomous_optimizer, MarketCondition
     from core.trade_coordinator import get_trade_coordinator
     _v82_modules_available = True
 except ImportError as e:
@@ -62,7 +62,7 @@ except ImportError as e:
     get_circuit_breaker = lambda name, **kwargs: None
     get_data_manager = lambda: None
     get_healing_engine = lambda: None
-    get_optimizer = lambda: None
+    get_autonomous_optimizer = lambda: None
     get_trade_coordinator = lambda: None
 
 # 거래 실행 로거 (진단용)
@@ -727,9 +727,7 @@ class AutoTradingBot:
                     logger.info("  ✅ 자가 치유 엔진 (자동 복구)")
 
                     # 4. 자율 최적화 엔진
-                    self.autonomous_optimizer = get_optimizer()
-                    if self.dynamic_risk_manager:
-                        self.autonomous_optimizer.set_risk_manager(self.dynamic_risk_manager)
+                    self.autonomous_optimizer = get_autonomous_optimizer()
                     self.autonomous_optimizer.start()
                     logger.info("  ✅ 자율 최적화 엔진 (자동 튜닝)")
 
