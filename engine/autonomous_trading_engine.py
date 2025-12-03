@@ -117,7 +117,13 @@ class AutonomousTradingEngine:
         # 신호 큐 (우선순위 기반)
         self.signal_queue = PriorityQueue()
 
-        # 상태 관리
+        # 스레드 안전성을 위한 락 (v8.3: 동시성 보호)
+        self._positions_lock = threading.RLock()
+        self._orders_lock = threading.RLock()
+        self._cache_lock = threading.RLock()
+        self._activity_lock = threading.RLock()
+
+        # 상태 관리 (락으로 보호됨)
         self.is_running = False
         self.current_positions: Dict[str, Dict] = {}  # stock_code -> position_info
         self.pending_orders: Dict[str, Dict] = {}  # order_no -> order_info
@@ -129,7 +135,7 @@ class AutonomousTradingEngine:
         # 진화 상태
         self.evolution_state = EvolutionState()
 
-        # 데이터 캐시 (초단기)
+        # 데이터 캐시 (초단기, 락으로 보호됨)
         self.price_cache: Dict[str, Dict] = {}  # stock_code -> {price, time}
         self.cache_ttl = 2  # 2초
 
@@ -137,7 +143,7 @@ class AutonomousTradingEngine:
         self.daily_trades: List[Dict] = []
         self.hourly_stats = defaultdict(lambda: {'trades': 0, 'profit': 0, 'signals': 0})
 
-        # 활동 로그 (대시보드 표시용)
+        # 활동 로그 (대시보드 표시용, 락으로 보호됨)
         self.activity_log: deque = deque(maxlen=100)  # 최근 100개 활동
 
         # 백그라운드 태스크
@@ -152,17 +158,19 @@ class AutonomousTradingEngine:
         logger.info(f"🚀 자율 진화형 엔진 초기화: workers={max_workers}, positions={max_positions}")
 
     def add_activity(self, activity_type: str, title: str, detail: str = ""):
-        """활동 로그 추가 (대시보드 표시용)"""
-        self.activity_log.append({
-            'type': activity_type,  # scan, signal, trade, evolution, data, system
-            'title': title,
-            'detail': detail,
-            'time': datetime.now()
-        })
+        """활동 로그 추가 (대시보드 표시용, 스레드 안전)"""
+        with self._activity_lock:
+            self.activity_log.append({
+                'type': activity_type,  # scan, signal, trade, evolution, data, system
+                'title': title,
+                'detail': detail,
+                'time': datetime.now()
+            })
 
     def get_recent_activities(self, limit: int = 20) -> List[Dict]:
-        """최근 활동 로그 조회"""
-        activities = list(self.activity_log)
+        """최근 활동 로그 조회 (스레드 안전)"""
+        with self._activity_lock:
+            activities = list(self.activity_log)
         activities.reverse()  # 최신순
         return activities[:limit]
 

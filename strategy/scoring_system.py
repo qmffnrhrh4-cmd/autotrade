@@ -418,48 +418,36 @@ class ScoringSystem:
         # avg_volume이 있으면 비율 계산
         if avg_volume and avg_volume > 0:
             volume_ratio = volume / avg_volume
-            print(f"   [거래량] {stock_code}: 현재={volume:,}주, 평균={avg_volume:,.0f}주, 비율={volume_ratio:.2f}배", end="")
 
             if volume_ratio >= 5.0:
-                print(f" → {max_score}점 (5배 이상)")
                 return max_score
             elif volume_ratio >= 3.0:
                 score = max_score * 0.75
-                print(f" → {score:.0f}점 (3배 이상)")
                 return score
             elif volume_ratio >= 2.0:
                 score = max_score * 0.5
-                print(f" → {score:.0f}점 (2배 이상)")
                 return score
             elif volume_ratio >= 1.0:
                 score = max_score * 0.25
-                print(f" → {score:.0f}점 (평균 이상)")
                 return score
             else:
-                print(f" → 0점 (평균 미만)")
                 return 0.0
 
         # avg_volume이 없으면 절대값 기준
-        print(f"   [거래량] {stock_code}: 현재={volume:,}주 (평균 데이터 없음)", end="")
 
         if volume >= 5_000_000:
             score = max_score * 0.8
-            print(f" → {score:.0f}점 (500만주 이상)")
             return score
         elif volume >= 2_000_000:
             score = max_score * 0.6
-            print(f" → {score:.0f}점 (200만주 이상)")
             return score
         elif volume >= 1_000_000:
             score = max_score * 0.4
-            print(f" → {score:.0f}점 (100만주 이상)")
             return score
         elif volume >= 500_000:
             score = max_score * 0.2
-            print(f" → {score:.0f}점 (50만주 이상)")
             return score
 
-        print(f" → 0점 (50만주 미만)")
         return 0.0
 
     def _score_price_momentum(self, stock_data: Dict[str, Any]) -> float:
@@ -518,7 +506,6 @@ class ScoringSystem:
         min_net_buy = config.get('min_net_buy', 10_000_000)
 
         stock_code = stock_data.get('stock_code', 'Unknown')
-        print(f"   [기관매수] {stock_code}: 기관={institutional_net_buy:,}원, 외국인={foreign_net_buy:,}원", end="")
 
         score = 0.0
         score_details = []
@@ -568,9 +555,7 @@ class ScoringSystem:
 
         final_score = min(score, max_score)
         if score_details:
-            print(f" → {final_score:.0f}점 ({', '.join(score_details)})")
         else:
-            print(f" → 0점 (기준 미달)")
 
         return final_score
 
@@ -621,17 +606,14 @@ class ScoringSystem:
 
         # 디버그: 체결강도 값 확인
         stock_code = stock_data.get('stock_code', 'Unknown')
-        print(f"[DEBUG 체결강도] {stock_code}: execution_intensity={execution_intensity} (type={type(execution_intensity)})")
 
         # execution_intensity 데이터가 없으면 0점
         if execution_intensity is None or execution_intensity == 0:
-            print(f"[DEBUG 체결강도] {stock_code}: 데이터 없음 또는 0 → 0점")
             return 0.0
 
         # 체결강도 기준 점수 계산
         config = self.criteria_config.get('execution_intensity', {})
         min_value = config.get('min_value', 50)
-        print(f"[DEBUG 체결강도] {stock_code}: min_value={min_value} (설정: {config.get('min_value', 'default')})")
 
         if execution_intensity >= min_value * 3.0:  # 150 이상
             score = max_score
@@ -644,7 +626,6 @@ class ScoringSystem:
         else:
             score = 0.0
 
-        print(f"[DEBUG 체결강도] {stock_code}: {execution_intensity} → {score}점")
         return score
 
     def _score_broker_activity(self, stock_data: Dict[str, Any]) -> float:
@@ -693,16 +674,13 @@ class ScoringSystem:
 
         # 디버그: 프로그램매매 값 확인
         stock_code = stock_data.get('stock_code', 'Unknown')
-        print(f"[DEBUG 프로그램] {stock_code}: program_net_buy={program_net_buy} (type={type(program_net_buy)})")
 
         # 데이터가 없으면 0점
         if program_net_buy is None:
-            print(f"[DEBUG 프로그램] {stock_code}: 데이터 없음 → 0점")
             return 0.0
 
         # 양수(순매수)만 점수, 음수(순매도)는 0점
         if program_net_buy <= 0:
-            print(f"[DEBUG 프로그램] {stock_code}: 음수 또는 0 → 0점")
             return 0.0
 
         # 프로그램 순매수 금액 기준 (원 단위)
@@ -717,7 +695,6 @@ class ScoringSystem:
         else:
             score = 0.0
 
-        print(f"[DEBUG 프로그램] {stock_code}: {program_net_buy:,}원 → {score}점")
         return score
 
     def _score_technical_indicators(self, stock_data: Dict[str, Any]) -> float:
@@ -821,9 +798,7 @@ class ScoringSystem:
                 score_parts.append(f"MA추정+{ma_score:.0f}")
 
         if score_parts:
-            print(f"   [기술지표] {stock_code}: {', '.join(score_parts)} = {score:.0f}점")
         else:
-            print(f"   [기술지표] {stock_code}: 0점 (데이터 없음)")
 
         return score
 

@@ -1896,8 +1896,12 @@ class AutoTradingBot:
                     scoring_percentage=scoring_result.percentage,
                     is_virtual=False  # v6.1.1: Mark as real trade
                 )
-                self.db_session.add(trade)
-                self.db_session.commit()
+                try:
+                    self.db_session.add(trade)
+                    self.db_session.commit()
+                except Exception as db_error:
+                    self.db_session.rollback()
+                    logger.error(f"거래 기록 DB 저장 실패: {db_error}")
 
                 logger.info(f"{stock_name} 매수 성공 (주문번호: {order_no})")
 
@@ -2167,8 +2171,12 @@ class AutoTradingBot:
                     notes=reason,
                     is_virtual=False  # v6.1.1: Mark as real trade
                 )
-                self.db_session.add(trade)
-                self.db_session.commit()
+                try:
+                    self.db_session.add(trade)
+                    self.db_session.commit()
+                except Exception as db_error:
+                    self.db_session.rollback()
+                    logger.error(f"거래 기록 DB 저장 실패: {db_error}")
 
                 log_level = 'success' if profit_loss >= 0 else 'warning'
                 logger.info(f"{stock_name} 매도 성공 (주문번호: {order_no})")
@@ -2241,8 +2249,12 @@ class AutoTradingBot:
                 risk_mode=self.dynamic_risk_manager.current_mode.value
             )
 
-            self.db_session.add(snapshot)
-            self.db_session.commit()
+            try:
+                self.db_session.add(snapshot)
+                self.db_session.commit()
+            except Exception as db_error:
+                self.db_session.rollback()
+                logger.error(f"스냅샷 DB 저장 실패: {db_error}")
 
         except Exception as e:
             logger.error(f"포트폴리오 스냅샷 저장 실패: {e}")
