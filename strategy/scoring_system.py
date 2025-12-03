@@ -554,8 +554,9 @@ class ScoringSystem:
                 logger.debug(f"institutional_trend 파싱 실패: {e}")
 
         final_score = min(score, max_score)
+        # score_details는 디버깅용으로 로깅
         if score_details:
-        else:
+            logger.debug(f"점수 상세: {', '.join(score_details)}")
 
         return final_score
 
@@ -798,7 +799,7 @@ class ScoringSystem:
                 score_parts.append(f"MA추정+{ma_score:.0f}")
 
         if score_parts:
-        else:
+            logger.debug(f"MA 점수 상세: {', '.join(score_parts)}")
 
         return score
 
