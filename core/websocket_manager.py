@@ -473,7 +473,9 @@ async def test_websocket():
         await asyncio.wait_for(ws_manager.receive_loop(), timeout=30.0)
 
     except asyncio.TimeoutError:
+        pass  # 타임아웃은 정상 종료
     except KeyboardInterrupt:
+        pass  # 사용자 중단
     finally:
         # 연결 종료
         await ws_manager.disconnect()
