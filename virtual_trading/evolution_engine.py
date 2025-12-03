@@ -193,6 +193,10 @@ class StrategyEvolutionEngine:
         self.mutation_rate = mutation_rate
         self.initial_capital = initial_capital
 
+        # 실행 상태 플래그
+        self.is_running = False
+        self._evolution_thread = None
+
         # Q6. 적응형 돌연변이 파라미터
         self.stagnation_count = 0  # 정체 세대 수
         self.last_best_score = 0.0  # 이전 최고 점수
@@ -222,6 +226,20 @@ class StrategyEvolutionEngine:
         self._sync_gene_pool_from_db()
 
         logger.info(f"진화 엔진 초기화: 모집단={population_size}, 엘리트={elite_ratio*100}%, 돌연변이={mutation_rate*100}%")
+
+    def start(self):
+        """진화 엔진 시작"""
+        if self.is_running:
+            logger.warning("진화 엔진이 이미 실행 중입니다")
+            return
+
+        self.is_running = True
+        logger.info("🧬 진화 엔진 시작됨")
+
+    def stop(self):
+        """진화 엔진 중지"""
+        self.is_running = False
+        logger.info("🛑 진화 엔진 중지됨")
 
     def _sync_gene_pool_from_db(self):
         """DB에서 기존 활성 전략을 로드하여 gene_pool 동기화"""
