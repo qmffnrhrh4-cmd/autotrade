@@ -601,37 +601,21 @@ class DataFetcher:
         limit: int = 20
     ) -> List[Dict[str, Any]]:
         """
-        거래대금 순위 조회
+        거래대금 순위 조회 (키움증권 ka10032 API 사용)
 
         Args:
-            market: 시장구분
+            market: 시장구분 ('ALL', 'KOSPI', 'KOSDAQ')
             limit: 조회 건수
 
         Returns:
             거래대금 순위 리스트
         """
         try:
-            from api.market import MarketAPI
-            market_api = MarketAPI(self.client)
-            # 거래대금은 거래량 API에서 sort 타입을 변경하여 조회
-            body = {
-                "market": market,
-                "limit": limit,
-                "sort": "trading_value"
-            }
-            response = market_api.client.request(
-                api_id="DOSK_0010",
-                body=body,
-                path="/api/dostk/inquire/rank"
-            )
-
-            if response and response.get('return_code') == 0:
-                rank_list = response.get('output', [])
-                logger.info(f"거래대금 순위 {len(rank_list)}개 조회 완료")
-                return rank_list
-            else:
-                logger.error(f"거래대금 순위 조회 실패: {response.get('return_msg')}")
-                return []
+            from api.market.ranking import RankingAPI
+            ranking_api = RankingAPI(self.client)
+            rank_list = ranking_api.get_trading_value_rank(market=market, limit=limit)
+            logger.info(f"거래대금 순위 {len(rank_list)}개 조회 완료")
+            return rank_list
         except Exception as e:
             logger.error(f"거래대금 순위 조회 실패: {e}")
             return []
@@ -644,7 +628,7 @@ class DataFetcher:
         date: str = None
     ) -> Optional[Dict[str, Any]]:
         """
-        투자자별 매매 동향 조회 (외국인, 기관)
+        투자자별 매매 동향 조회 (키움증권 ka10059 API 사용)
 
         Args:
             stock_code: 종목코드
@@ -653,33 +637,21 @@ class DataFetcher:
         Returns:
             투자자별 매매 동향
             {
-                'foreign_net': 10000,      # 외국인 순매수
-                'institution_net': 5000,   # 기관 순매수
-                'individual_net': -15000,  # 개인 순매수
-                'foreign_hold_rate': 52.5  # 외국인 보유 비율
+                '기관_순매수': 10000,      # 기관 순매수
+                '외국인_순매수': 5000,     # 외국인 순매수
+                '개인_순매수': -15000,     # 개인 순매수
+                ...
             }
         """
-        # 날짜 자동 계산
-        if not date:
-            date = get_last_trading_date()
-
-        body = {
-            "stock_code": stock_code,
-            "date": date
-        }
-
-        response = self.client.request(
-            api_id="DOSK_0040",
-            body=body,
-            path="/api/dostk/inquire/investor"
-        )
-
-        if response and response.get('return_code') == 0:
-            investor_info = response.get('output', {})
-            logger.info(f"{stock_code} 투자자별 매매 동향 조회 완료 (날짜: {date})")
-            return investor_info
-        else:
-            logger.error(f"투자자별 매매 동향 조회 실패: {response.get('return_msg')}")
+        try:
+            from api.market.investor_data import InvestorDataAPI
+            investor_api = InvestorDataAPI(self.client)
+            result = investor_api.get_investor_trading(stock_code=stock_code, date=date)
+            if result:
+                logger.info(f"{stock_code} 투자자별 매매 동향 조회 완료")
+            return result
+        except Exception as e:
+            logger.error(f"투자자별 매매 동향 조회 실패: {e}")
             return None
 
     #  외국인/기관 매매 순위 조회

@@ -262,7 +262,7 @@ class AutoPilot:
         try:
             # 진화 한 세대 실행
             if self.evolution_engine.is_running:
-                self.evolution_engine.evolve_one_generation()
+                self.evolution_engine.evolve_generation()
                 self.state.last_evolution_cycle = datetime.now()
 
                 # 최고 성과 업데이트
