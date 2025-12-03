@@ -336,14 +336,46 @@ class AutonomousTradingEngine:
                     candidates.add(item.get('stk_cd', ''))
 
             # 5. 현재 보유 종목
-            for code in self.current_positions.keys():
-                candidates.add(code)
+            with self._positions_lock:
+                for code in self.current_positions.keys():
+                    candidates.add(code)
 
         except Exception as e:
             logger.error(f"후보 수집 오류: {e}")
 
         candidates.discard('')
-        return list(candidates)[:100]  # 최대 100종목
+
+        # 폴백: API 실패 시 주요 대형주 추가
+        if len(candidates) < 10:
+            logger.warning(f"⚠️ API에서 종목 수집 부족 ({len(candidates)}개) - 주요 종목 폴백 사용")
+            fallback_stocks = [
+                '005930',  # 삼성전자
+                '000660',  # SK하이닉스
+                '035420',  # NAVER
+                '005380',  # 현대차
+                '051910',  # LG화학
+                '006400',  # 삼성SDI
+                '035720',  # 카카오
+                '068270',  # 셀트리온
+                '207940',  # 삼성바이오로직스
+                '000270',  # 기아
+                '005490',  # POSCO홀딩스
+                '028260',  # 삼성물산
+                '012330',  # 현대모비스
+                '066570',  # LG전자
+                '003550',  # LG
+            ]
+            for code in fallback_stocks:
+                candidates.add(code)
+
+        result = list(candidates)[:100]  # 최대 100종목
+
+        if result:
+            logger.info(f"📊 스캔 대상 종목: {len(result)}개")
+        else:
+            logger.warning("⚠️ 스캔할 종목이 없습니다")
+
+        return result
 
     def _parallel_analyze(self, stock_codes: List[str]) -> List[TradingSignal]:
         """병렬 종목 분석"""
