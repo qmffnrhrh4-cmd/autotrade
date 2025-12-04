@@ -434,7 +434,8 @@ class AutonomousTradingEngine:
             for future in as_completed(futures, timeout=60):
                 try:
                     signal = future.result(timeout=5)  # 개별 결과도 타임아웃
-                    if signal and signal.confidence >= 70:
+                    # Fix: 신호 생성 임계값(65)과 통일 - 이전에 70으로 필터링하여 많은 신호 무시됨
+                    if signal and signal.confidence >= 65:
                         signals.append(signal)
                     completed_count += 1
                 except Exception as e:
@@ -554,9 +555,9 @@ class AutonomousTradingEngine:
 
     def _validate_signal(self, signal: TradingSignal) -> bool:
         """신호 유효성 검증"""
-        # 1. 시간 검증 (3초 이내)
+        # 1. 시간 검증 (10초 이내로 확대 - 3초는 너무 짧아서 대부분 신호 무시됨)
         age = (datetime.now() - signal.signal_time).total_seconds()
-        if age > 3:
+        if age > 10:
             logger.debug(f"오래된 신호 무시: {signal.stock_code} ({age:.1f}초)")
             return False
 
