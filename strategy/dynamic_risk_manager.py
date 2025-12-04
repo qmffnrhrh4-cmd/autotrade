@@ -12,6 +12,7 @@ from enum import Enum
 from utils.logger_new import get_logger
 from utils.base_manager import BaseManager
 from config.manager import get_config
+from config.constants import RISK_MODES
 
 
 logger = get_logger()
@@ -131,49 +132,57 @@ class DynamicRiskManager(BaseManager):
             except:
                 return default
 
+        # Fix: constants.py의 RISK_MODES에서 기본값 가져오기 (일관성 보장)
+        # 이전에는 여기 하드코딩된 값(6.5~8.0)이 constants.py 값(4.0~6.0)과 달라
+        # config 로드 실패시 너무 높은 기본값이 적용되어 대부분 신호가 거부됨
+
         # Aggressive 모드
+        aggressive_defaults = RISK_MODES.get('aggressive', {})
         self.mode_configs[RiskMode.AGGRESSIVE] = RiskModeConfig(
             mode=RiskMode.AGGRESSIVE,
-            max_open_positions=get_risk_value('aggressive', 'max_open_positions', 12),
-            risk_per_trade_ratio=get_risk_value('aggressive', 'risk_per_trade_ratio', 0.25),
-            take_profit_ratio=get_risk_value('aggressive', 'take_profit_ratio', 0.15),
-            stop_loss_ratio=get_risk_value('aggressive', 'stop_loss_ratio', -0.07),
-            ai_min_score=get_risk_value('aggressive', 'ai_min_score', 6.5),
+            max_open_positions=get_risk_value('aggressive', 'max_open_positions', aggressive_defaults.get('max_open_positions', 50)),
+            risk_per_trade_ratio=get_risk_value('aggressive', 'risk_per_trade_ratio', aggressive_defaults.get('risk_per_trade_ratio', 0.10)),
+            take_profit_ratio=get_risk_value('aggressive', 'take_profit_ratio', aggressive_defaults.get('take_profit_ratio', 0.15)),
+            stop_loss_ratio=get_risk_value('aggressive', 'stop_loss_ratio', aggressive_defaults.get('stop_loss_ratio', -0.07)),
+            ai_min_score=get_risk_value('aggressive', 'ai_min_score', aggressive_defaults.get('ai_min_score', 4.0)),
             trigger_return_min=get_risk_value('aggressive', 'trigger_return', 0.05),
         )
 
         # Normal 모드
+        normal_defaults = RISK_MODES.get('normal', {})
         self.mode_configs[RiskMode.NORMAL] = RiskModeConfig(
             mode=RiskMode.NORMAL,
-            max_open_positions=get_risk_value('normal', 'max_open_positions', 10),
-            risk_per_trade_ratio=get_risk_value('normal', 'risk_per_trade_ratio', 0.20),
-            take_profit_ratio=get_risk_value('normal', 'take_profit_ratio', 0.10),
-            stop_loss_ratio=get_risk_value('normal', 'stop_loss_ratio', -0.05),
-            ai_min_score=get_risk_value('normal', 'ai_min_score', 7.0),
+            max_open_positions=get_risk_value('normal', 'max_open_positions', normal_defaults.get('max_open_positions', 30)),
+            risk_per_trade_ratio=get_risk_value('normal', 'risk_per_trade_ratio', normal_defaults.get('risk_per_trade_ratio', 0.08)),
+            take_profit_ratio=get_risk_value('normal', 'take_profit_ratio', normal_defaults.get('take_profit_ratio', 0.10)),
+            stop_loss_ratio=get_risk_value('normal', 'stop_loss_ratio', normal_defaults.get('stop_loss_ratio', -0.05)),
+            ai_min_score=get_risk_value('normal', 'ai_min_score', normal_defaults.get('ai_min_score', 5.0)),
             trigger_return_min=get_risk_value('normal', 'trigger_return_min', -0.05),
             trigger_return_max=get_risk_value('normal', 'trigger_return_max', 0.05),
         )
 
         # Conservative 모드
+        conservative_defaults = RISK_MODES.get('conservative', {})
         self.mode_configs[RiskMode.CONSERVATIVE] = RiskModeConfig(
             mode=RiskMode.CONSERVATIVE,
-            max_open_positions=get_risk_value('conservative', 'max_open_positions', 7),
-            risk_per_trade_ratio=get_risk_value('conservative', 'risk_per_trade_ratio', 0.15),
-            take_profit_ratio=get_risk_value('conservative', 'take_profit_ratio', 0.08),
-            stop_loss_ratio=get_risk_value('conservative', 'stop_loss_ratio', -0.04),
-            ai_min_score=get_risk_value('conservative', 'ai_min_score', 7.5),
+            max_open_positions=get_risk_value('conservative', 'max_open_positions', conservative_defaults.get('max_open_positions', 20)),
+            risk_per_trade_ratio=get_risk_value('conservative', 'risk_per_trade_ratio', conservative_defaults.get('risk_per_trade_ratio', 0.05)),
+            take_profit_ratio=get_risk_value('conservative', 'take_profit_ratio', conservative_defaults.get('take_profit_ratio', 0.08)),
+            stop_loss_ratio=get_risk_value('conservative', 'stop_loss_ratio', conservative_defaults.get('stop_loss_ratio', -0.03)),
+            ai_min_score=get_risk_value('conservative', 'ai_min_score', conservative_defaults.get('ai_min_score', 5.5)),
             trigger_return_min=get_risk_value('conservative', 'trigger_return_min', -0.10),
             trigger_return_max=get_risk_value('conservative', 'trigger_return_max', -0.05),
         )
 
         # Very Conservative 모드
+        very_conservative_defaults = RISK_MODES.get('very_conservative', {})
         self.mode_configs[RiskMode.VERY_CONSERVATIVE] = RiskModeConfig(
             mode=RiskMode.VERY_CONSERVATIVE,
-            max_open_positions=get_risk_value('very_conservative', 'max_open_positions', 5),
-            risk_per_trade_ratio=get_risk_value('very_conservative', 'risk_per_trade_ratio', 0.10),
-            take_profit_ratio=get_risk_value('very_conservative', 'take_profit_ratio', 0.05),
-            stop_loss_ratio=get_risk_value('very_conservative', 'stop_loss_ratio', -0.03),
-            ai_min_score=get_risk_value('very_conservative', 'ai_min_score', 8.0),
+            max_open_positions=get_risk_value('very_conservative', 'max_open_positions', very_conservative_defaults.get('max_open_positions', 10)),
+            risk_per_trade_ratio=get_risk_value('very_conservative', 'risk_per_trade_ratio', very_conservative_defaults.get('risk_per_trade_ratio', 0.03)),
+            take_profit_ratio=get_risk_value('very_conservative', 'take_profit_ratio', very_conservative_defaults.get('take_profit_ratio', 0.06)),
+            stop_loss_ratio=get_risk_value('very_conservative', 'stop_loss_ratio', very_conservative_defaults.get('stop_loss_ratio', -0.02)),
+            ai_min_score=get_risk_value('very_conservative', 'ai_min_score', very_conservative_defaults.get('ai_min_score', 6.0)),
             trigger_return_max=get_risk_value('very_conservative', 'trigger_return', -0.10),
         )
 

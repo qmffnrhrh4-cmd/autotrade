@@ -139,8 +139,9 @@ class AutonomousTradingEngine:
         self.price_cache: Dict[str, Dict] = {}  # stock_code -> {price, time}
         self.cache_ttl = 2  # 2초
 
-        # 성과 추적
+        # 성과 추적 (메모리 누수 방지를 위해 최대 1000개 제한)
         self.daily_trades: List[Dict] = []
+        self._max_daily_trades = 1000  # 메모리 누수 방지
         self.hourly_stats = defaultdict(lambda: {'trades': 0, 'profit': 0, 'signals': 0})
 
         # 활동 로그 (대시보드 표시용, 락으로 보호됨)
@@ -1274,6 +1275,10 @@ class AutonomousTradingEngine:
             'profit': profit,
             'time': datetime.now()
         })
+
+        # 메모리 누수 방지: 최대 개수 초과시 오래된 기록 제거
+        if len(self.daily_trades) > self._max_daily_trades:
+            self.daily_trades = self.daily_trades[-self._max_daily_trades:]
 
         # 전략 성과 업데이트
         perf = self.strategy_performance.get(signal.strategy_id)

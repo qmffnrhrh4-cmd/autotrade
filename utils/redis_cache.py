@@ -107,8 +107,8 @@ class RedisCacheManager:
                     db=db,
                     password=password,
                     decode_responses=False,  # Pickle을 위해 False
-                    socket_connect_timeout=5,
-                    socket_timeout=5
+                    socket_connect_timeout=30,  # 5 → 30초 (타임아웃 오류 방지)
+                    socket_timeout=30           # 5 → 30초 (타임아웃 오류 방지)
                 )
 
                 # 연결 테스트
