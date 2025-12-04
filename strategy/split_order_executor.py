@@ -651,15 +651,47 @@ class SplitOrderExecutor:
         return group
 
     def _get_current_price(self, stock_code: str) -> Optional[float]:
-        """현재가 조회"""
+        """현재가 조회 (폴백 로직 포함)"""
         if not self.data_fetcher:
-            logger.warning("DataFetcher not available, using fallback price")
-            return 10000.0  # 임시 가격
+            logger.warning("DataFetcher not available")
+            return None
 
         try:
+            # 1차 시도: 현재가 조회
             price_info = self.data_fetcher.get_current_price(stock_code)
             if price_info:
-                return float(price_info.get('stck_prpr', 10000))
+                # Fix: 올바른 키 사용 (current_price 또는 stck_prpr)
+                price = price_info.get('current_price') or price_info.get('stck_prpr')
+                if price:
+                    return float(price)
+
+            # 2차 시도: 호가 정보에서 현재가 추출
+            logger.warning(f"{stock_code} 현재가 없음, 호가 정보로 폴백 시도")
+            orderbook = self.data_fetcher.get_orderbook(stock_code)
+            if orderbook:
+                # 매수1호가와 매도1호가의 중간값 사용
+                bids = orderbook.get('bids') or orderbook.get('buy_hoga', [])
+                asks = orderbook.get('asks') or orderbook.get('sell_hoga', [])
+                if bids and asks:
+                    best_bid = bids[0].get('price', 0)
+                    best_ask = asks[0].get('price', 0)
+                    if best_bid and best_ask:
+                        mid_price = (best_bid + best_ask) / 2
+                        logger.info(f"{stock_code} 호가 중간값 사용: {mid_price:,.0f}원")
+                        return float(mid_price)
+                elif bids:
+                    best_bid = bids[0].get('price', 0)
+                    if best_bid:
+                        logger.info(f"{stock_code} 매수1호가 사용: {best_bid:,}원")
+                        return float(best_bid)
+                elif asks:
+                    best_ask = asks[0].get('price', 0)
+                    if best_ask:
+                        logger.info(f"{stock_code} 매도1호가 사용: {best_ask:,}원")
+                        return float(best_ask)
+
+            logger.warning(f"{stock_code} 현재가 및 호가 조회 실패")
+
         except Exception as e:
             logger.error(f"Failed to get current price: {e}")
 
