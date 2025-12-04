@@ -378,8 +378,8 @@ class Screener:
         min_volume: int = 100000,
         min_price: int = 1000,
         max_price: int = 1000000,
-        min_rate: float = 1.0,
-        max_rate: float = 15.0,
+        min_rate: float = -10.0,  # Fix: 1.0 → -10.0 (하락 종목도 포함)
+        max_rate: float = 30.0,   # Fix: 15.0 → 30.0 (더 넓은 범위)
         min_market_cap: int = 0,
         market: str = 'ALL',
         limit: int = 100
@@ -415,8 +415,8 @@ class Screener:
         min_volume: int = 100000,
         min_price: int = 1000,
         max_price: int = 1000000,
-        min_rate: float = 1.0,
-        max_rate: float = 15.0,
+        min_rate: float = -10.0,  # Fix: 1.0 → -10.0 (하락 종목도 포함)
+        max_rate: float = 30.0,   # Fix: 15.0 → 30.0 (더 넓은 범위)
         market: str = 'ALL',
         limit: int = 100
     ) -> List[Dict[str, Any]]:

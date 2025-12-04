@@ -198,16 +198,13 @@ class ScannerPipeline:
             market_open = is_market_hours()
             session = get_trading_session()
 
-            # 장외 시간에는 등락률 필터 완화 (모든 종목 포함)
-            if market_open:
-                # 장 중: 설정된 필터 사용
-                min_rate = filters.get('min_rate', 1.0)
-                max_rate = filters.get('max_rate', 15.0)
-            else:
-                # 장외: 등락률 필터 완화 (-30% ~ +30%)
-                min_rate = -30.0  # 하한선 확장
-                max_rate = 30.0   # 상한선 확장
-                logger.info(f"⏰ 장외 시간({session}): 등락률 필터 완화 ({min_rate}% ~ {max_rate}%)")
+            # Fix: 등락률 필터 대폭 완화 - 이전 min_rate=1.0이 너무 엄격해서 후보가 0개였음
+            # 장중/장외 모두 -10% ~ +30% 범위로 확대
+            min_rate = filters.get('min_rate', -10.0)  # 1.0 → -10.0 (하락 종목도 포함)
+            max_rate = filters.get('max_rate', 30.0)   # 15.0 → 30.0 (더 넓은 범위)
+
+            if not market_open:
+                logger.info(f"⏰ 장외 시간({session}): 등락률 필터 ({min_rate}% ~ {max_rate}%)")
 
             filter_params = {
                 'min_price': filters.get('min_price', 1000),

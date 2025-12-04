@@ -242,7 +242,7 @@ class StrategyEvolutionEngine:
         logger.info("🛑 진화 엔진 중지됨")
 
     def _sync_gene_pool_from_db(self):
-        """DB에서 기존 활성 전략을 로드하여 gene_pool 동기화"""
+        """DB에서 기존 활성 전략을 로드하여 gene_pool 동기화 (유전자 복원 포함)"""
         try:
             import re
             strategies = self.virtual_manager.db.get_all_strategies()
@@ -255,12 +255,26 @@ class StrategyEvolutionEngine:
 
             if evolution_strategies:
                 self.gene_pool = []
+                restored_count = 0
+                random_count = 0
+
                 for strategy in evolution_strategies:
-                    # 기본 유전자 생성 (description에서 복원 시도)
-                    gene = self._generate_random_gene()  # 기본값으로 사용
+                    description = strategy.get('description', '')
+
+                    # Fix: description에서 유전자 복원 시도
+                    gene = self._description_to_gene(description)
+
+                    if gene:
+                        restored_count += 1
+                    else:
+                        # 복원 실패 시 랜덤 생성 (기존 전략과 호환성)
+                        gene = self._generate_random_gene()
+                        random_count += 1
+
                     self.gene_pool.append((strategy['id'], gene))
 
-                logger.info(f"📊 DB에서 {len(self.gene_pool)}개 기존 진화 전략 로드 완료")
+                logger.info(f"📊 DB에서 {len(self.gene_pool)}개 기존 진화 전략 로드 완료 "
+                          f"(복원: {restored_count}개, 새로생성: {random_count}개)")
             else:
                 logger.info("📊 기존 진화 전략 없음 - 새로 생성 필요")
 
@@ -831,15 +845,32 @@ class StrategyEvolutionEngine:
         return min(score, 100)
 
     def _gene_to_description(self, gene: StrategyGene) -> str:
-        """유전자를 설명 문자열로 변환"""
+        """유전자를 설명 문자열로 변환 (JSON 포함)"""
+        import json
+        # 유전자 정보를 JSON으로 저장 (복원 가능하도록)
+        gene_json = json.dumps(gene.to_dict(), ensure_ascii=False)
         return (
             f"진화 전략 📊\n"
             f"매수: RSI {gene.rsi_min:.1f}-{gene.rsi_max:.1f}, "
             f"거래량 {gene.volume_ratio_min:.2f}x 이상\n"
             f"매도: 익절 +{gene.take_profit_pct:.1f}%, "
             f"손절 -{gene.stop_loss_pct:.1f}%\n"
-            f"포지션: {gene.position_size_pct:.1f}% (최대 {gene.max_positions}개)"
+            f"포지션: {gene.position_size_pct:.1f}% (최대 {gene.max_positions}개)\n"
+            f"---GENE_DATA---\n{gene_json}"
         )
+
+    def _description_to_gene(self, description: str) -> Optional[StrategyGene]:
+        """설명 문자열에서 유전자 복원"""
+        import json
+        try:
+            if "---GENE_DATA---" not in description:
+                return None
+            gene_json = description.split("---GENE_DATA---")[1].strip()
+            data = json.loads(gene_json)
+            return StrategyGene(**data)
+        except Exception as e:
+            logger.debug(f"유전자 복원 실패: {e}")
+            return None
 
     def get_best_strategy_info(self) -> Optional[Dict[str, Any]]:
         """최고 성과 전략 정보 반환"""
