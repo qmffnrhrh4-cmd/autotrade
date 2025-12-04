@@ -373,11 +373,18 @@ class EmergencyController:
         return self.current_level in [EmergencyLevel.NORMAL, EmergencyLevel.WARNING]
 
     def is_new_buy_allowed(self) -> bool:
-        """신규 매수 허용 여부"""
+        """신규 매수 허용 여부
+
+        - NORMAL: 정상 거래
+        - WARNING: 경고 (모니터링 강화, 매수 허용)
+        - ALERT 이상: 신규 매수 중지
+        """
         if self.manual_stop:
             return False
 
-        return self.current_level == EmergencyLevel.NORMAL
+        # Fix: WARNING 수준에서도 매수 허용 (경고는 모니터링만 강화)
+        # 이전: NORMAL만 허용 → WARNING에서 불필요하게 매수 차단됨
+        return self.current_level in [EmergencyLevel.NORMAL, EmergencyLevel.WARNING]
 
     def can_sell(self) -> bool:
         """매도 허용 여부 (위험 수준에서도 매도는 가능)"""
