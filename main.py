@@ -132,6 +132,11 @@ class AutoTradingBot:
         self.market_status = {}
         self.start_time = datetime.now()
 
+        # Fix: 컨트롤 플래그 초기화 (AttributeError 방지)
+        self.pause_buy = False
+        self.pause_sell = False
+        self.test_mode_active = False
+
         self.control_file = Path('data/control.json')
         self.state_file = Path('data/strategy_state.json')
 

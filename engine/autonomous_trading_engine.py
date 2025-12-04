@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from collections import defaultdict, deque
-from queue import Queue, PriorityQueue
+from queue import Queue, PriorityQueue, Empty as QueueEmpty
 import random
 
 logger = logging.getLogger(__name__)
@@ -528,7 +528,7 @@ class AutonomousTradingEngine:
                 # 큐에서 신호 가져오기 (1초 타임아웃)
                 try:
                     priority, signal = self.signal_queue.get(timeout=1)
-                except:
+                except QueueEmpty:  # Fix: bare except → 명시적 예외 지정
                     continue
 
                 # 신호 유효성 검증

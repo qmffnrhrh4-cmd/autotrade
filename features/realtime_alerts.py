@@ -100,8 +100,9 @@ class RealtimeAlertSystem:
         Args:
             max_history: 최대 히스토리 보관 개수
         """
+        from collections import deque
         self.alerts: List[Alert] = []
-        self.alert_history: List[Alert] = []
+        self.alert_history: deque = deque(maxlen=max_history)  # Fix: deque maxlen으로 자동 관리
         self.max_history = max_history
 
         # 알림 콜백 (WebSocket broadcast 등)
@@ -169,10 +170,8 @@ class RealtimeAlertSystem:
             # 활성 알림에 추가
             self.alerts.append(alert)
 
-            # 히스토리에 추가
+            # 히스토리에 추가 (Fix: deque maxlen으로 자동 관리)
             self.alert_history.append(alert)
-            if len(self.alert_history) > self.max_history:
-                self.alert_history.pop(0)
 
         # 콜백 실행 (WebSocket broadcast)
         self._trigger_callbacks(alert)

@@ -83,8 +83,9 @@ class AutoRebalancer:
         # 마지막 리밸런싱 시간
         self.last_rebalance = None
 
-        # 리밸런싱 히스토리
-        self.rebalance_history: List[Dict[str, Any]] = []
+        # 리밸런싱 히스토리 (Fix: deque maxlen으로 자동 관리)
+        from collections import deque
+        self.rebalance_history: deque = deque(maxlen=100)
 
         logger.info(f"Auto Rebalancer initialized - Strategy: {strategy.value}")
 
@@ -430,10 +431,7 @@ class AutoRebalancer:
 
     def _save_rebalance_history(self, record: Dict[str, Any]):
         """리밸런싱 히스토리 저장"""
-        self.rebalance_history.append(record)
-        # 최근 100개만 보관
-        if len(self.rebalance_history) > 100:
-            self.rebalance_history.pop(0)
+        self.rebalance_history.append(record)  # Fix: deque maxlen으로 자동 관리됨
 
 
 # Singleton instance

@@ -142,7 +142,7 @@ class AIStrategyManager:
 
                 logger.info(
                     f"📊 {metrics.get('name')}: "
-                    f"수익률 {metrics.get('total_return_rate', 0):.2f}%, "
+                    f"수익률 {metrics.get('return_rate', 0):.2f}%, "  # Fix: 올바른 키 이름
                     f"승률 {metrics.get('win_rate', 0):.1f}%, "
                     f"평가 {evaluation['grade']}"
                 )
@@ -169,7 +169,7 @@ class AIStrategyManager:
         Returns:
             평가 결과
         """
-        total_return = metrics.get('total_return_rate', 0)
+        total_return = metrics.get('return_rate', 0)  # Fix: 올바른 키 이름
         win_rate = metrics.get('win_rate', 0)
         trade_count = metrics.get('trade_count', 0)
 

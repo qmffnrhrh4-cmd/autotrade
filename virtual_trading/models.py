@@ -484,13 +484,11 @@ class VirtualTradingDB:
 
         cursor = self.conn.cursor()
 
-        # 포지션 정보 조회
+        # 포지션 정보 조회 (Fix: 중복 쿼리 제거)
         cursor.execute("""
             SELECT * FROM virtual_positions WHERE id = ?
         """, (position_id,))
-        position = cursor.execute("""
-            SELECT * FROM virtual_positions WHERE id = ?
-        """, (position_id,)).fetchone()
+        position = cursor.fetchone()
 
         if not position:
             logger.error(f"포지션을 찾을 수 없음: {position_id}")

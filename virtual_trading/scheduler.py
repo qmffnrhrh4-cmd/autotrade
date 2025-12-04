@@ -294,7 +294,7 @@ class VirtualTradingScheduler:
                 try:
                     strategies = self.virtual_manager.db.get_all_strategies()
                     positions = self.virtual_manager.get_positions()
-                    trades = self.virtual_manager.get_trades()
+                    trades = self.virtual_manager.get_trade_history()  # Fix: 올바른 메서드명
 
                     log_health_snapshot(
                         evolution_generation=self.evolution_engine.generation,
