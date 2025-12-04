@@ -242,9 +242,14 @@ class ContinuousEvolution:
         self.is_running = True
         self._stop_event.clear()
 
-        # 초기 개체군 생성
+        # 저장된 상태 복원 시도
         if not self.population:
-            self.initialize_population()
+            loaded = self.load_state()
+            if loaded and self.population:
+                logger.info(f"🔄 이전 진화 상태에서 계속: gen={self.generation}, pop={len(self.population)}")
+            else:
+                # 상태 복원 실패 또는 빈 개체군 - 새로 시작
+                self.initialize_population()
 
         # 진화 스레드 시작
         thread = threading.Thread(
@@ -258,9 +263,11 @@ class ContinuousEvolution:
 
     def stop(self):
         """진화 중지"""
+        # 상태 저장 (중지 전)
+        self.save_state()
         self.is_running = False
         self._stop_event.set()
-        logger.info("🛑 진화 중지")
+        logger.info("🛑 진화 중지 (상태 저장 완료)")
 
     def _evolution_loop(self):
         """진화 루프 (24시간 연속)"""
@@ -289,6 +296,10 @@ class ContinuousEvolution:
 
                 # 7. 자동 배포 (조건 충족 시)
                 self._auto_deploy()
+
+                # 8. 상태 자동 저장 (5세대마다)
+                if self.generation % 5 == 0:
+                    self.save_state()
 
                 # 세대 완료 로그
                 logger.info(
@@ -572,6 +583,86 @@ class ContinuousEvolution:
 
                 if self.on_strategy_deployed:
                     self.on_strategy_deployed(strategy_id, self.best_gene)
+
+    # ========== 상태 저장/복원 ==========
+
+    STATE_FILE = "data/evolution_state.json"
+
+    def save_state(self):
+        """진화 상태를 파일에 저장"""
+        try:
+            from pathlib import Path
+            state_path = Path(self.STATE_FILE)
+            state_path.parent.mkdir(parents=True, exist_ok=True)
+
+            state = {
+                'generation': self.generation,
+                'best_fitness': self.best_fitness,
+                'best_gene': self.best_gene.to_dict() if self.best_gene else None,
+                'population': [g.to_dict() for g in self.population],
+                'fitness_scores': {str(k): v for k, v in self.fitness_scores.items()},
+                'deployed_strategies': {
+                    k: v.to_dict() for k, v in self.deployed_strategies.items()
+                },
+                'saved_at': datetime.now().isoformat()
+            }
+
+            with open(state_path, 'w', encoding='utf-8') as f:
+                json.dump(state, f, ensure_ascii=False, indent=2)
+
+            logger.info(f"💾 진화 상태 저장 완료: gen={self.generation}, best_fitness={self.best_fitness:.2f}")
+            print(f"💾 진화 상태 저장 완료: gen={self.generation}, best_fitness={self.best_fitness:.2f}")
+
+        except Exception as e:
+            logger.error(f"진화 상태 저장 실패: {e}")
+
+    def load_state(self) -> bool:
+        """파일에서 진화 상태를 복원"""
+        try:
+            from pathlib import Path
+            state_path = Path(self.STATE_FILE)
+
+            if not state_path.exists():
+                logger.info("저장된 진화 상태 없음 - 새로 시작")
+                return False
+
+            with open(state_path, 'r', encoding='utf-8') as f:
+                state = json.load(f)
+
+            # 상태 복원
+            self.generation = state.get('generation', 0)
+            self.best_fitness = state.get('best_fitness', 0.0)
+
+            if state.get('best_gene'):
+                self.best_gene = StrategyGene.from_dict(state['best_gene'])
+
+            if state.get('population'):
+                self.population = [
+                    StrategyGene.from_dict(g) for g in state['population']
+                ]
+
+            if state.get('fitness_scores'):
+                self.fitness_scores = {
+                    int(k): v for k, v in state['fitness_scores'].items()
+                }
+
+            if state.get('deployed_strategies'):
+                self.deployed_strategies = {
+                    k: StrategyGene.from_dict(v)
+                    for k, v in state['deployed_strategies'].items()
+                }
+
+            saved_at = state.get('saved_at', '알 수 없음')
+            logger.info(f"✅ 진화 상태 복원 완료: gen={self.generation}, best_fitness={self.best_fitness:.2f}, saved_at={saved_at}")
+            print(f"✅ 진화 상태 복원 완료: gen={self.generation}, best_fitness={self.best_fitness:.2f}")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"진화 상태 복원 실패: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
 
     # ========== 공개 메서드 ==========
 
