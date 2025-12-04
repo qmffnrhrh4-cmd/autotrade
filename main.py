@@ -167,6 +167,7 @@ class AutoTradingBot:
         self.virtual_trader = None
         self.trade_logger = None
         self.virtual_trading_manager = None
+        self.trading_api = None  # Fix: dashboard에서 필요로 하는 속성 추가
         self.virtual_trading_scheduler = None
         self.autopilot = None  # v6.3 AutoPilot (완전 자동화)
 
@@ -389,6 +390,7 @@ class AutoTradingBot:
             self.account_api = AccountAPI(self.client)
             self.market_api = MarketAPI(self.client)
             self.order_api = OrderAPI(self.client)
+            self.trading_api = self.order_api  # Fix: dashboard 호환성
             self.execution_api = ExecutionAPI(self.client)
             self.order_tracker = OrderTracker(self.execution_api)
             self.data_fetcher = DataFetcher(self.client)
@@ -676,7 +678,8 @@ class AutoTradingBot:
                     # 2. 지능형 데이터 매니저 (5단계 캐싱)
                     self.intelligent_data_manager = get_data_manager()
                     if self.client:
-                        self.intelligent_data_manager.set_api_client(self.client)
+                        # Fix: set_api_client → set_apis (올바른 메서드명)
+                        self.intelligent_data_manager.set_apis(market_api=self.client, account_api=self.account_api)
                     logger.info("  ✅ 지능형 데이터 매니저 (5단계 캐싱)")
 
                     # 3. 자가 치유 엔진
@@ -1098,8 +1101,13 @@ class AutoTradingBot:
                 if not self.pause_sell:
                     self._check_sell_signals()
 
+                # Debug: 스캔 실행 전 상태 출력
+                print(f"[DEBUG] pause_buy={self.pause_buy}")
                 if not self.pause_buy:
+                    print("[DEBUG] _run_scanning_pipeline 호출 중...")
                     self._run_scanning_pipeline()
+                else:
+                    print("[DEBUG] pause_buy가 True여서 스캔 건너뜀")
 
                 self._save_portfolio_snapshot()
                 self._print_statistics()
@@ -1282,15 +1290,19 @@ class AutoTradingBot:
         try:
             can_add = self.portfolio_manager.can_add_position()
             positions = self.portfolio_manager.get_positions()
+            print(f"[DEBUG] can_add_position={can_add}, position_count={len(positions)}, max_positions={self.portfolio_manager.max_positions}")
             if not can_add:
                 logger.info("최대 포지션 도달")
+                print(f"[DEBUG] 최대 포지션 도달 - 스캔 스킵")
                 return
 
             current_positions = len(positions)
             should_open = self.dynamic_risk_manager.should_open_position(current_positions)
+            print(f"[DEBUG] should_open_position={should_open}, current_mode={self.dynamic_risk_manager.current_mode}")
 
             if not should_open:
                 logger.info("리스크 관리자: 포지션 진입 불가")
+                print(f"[DEBUG] 리스크 관리자가 포지션 진입 불가 - 스캔 스킵")
                 return
 
             logger.info("시장 스캔 시작...")
