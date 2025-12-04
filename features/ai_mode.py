@@ -146,7 +146,10 @@ class AIAgent:
                 with open(self.decisions_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     if 'decisions' in data:
-                        self.decisions_history = [AIDecision(**d) for d in data['decisions'][-DECISIONS_TO_KEEP:]]
+                        # Fix: deque 타입 유지 (list로 재할당하면 안됨)
+                        self.decisions_history.clear()
+                        for d in data['decisions'][-DECISIONS_TO_KEEP:]:
+                            self.decisions_history.append(AIDecision(**d))
                     logger.info(f"Loaded {len(self.decisions_history)} AI decisions")
 
         except Exception as e:

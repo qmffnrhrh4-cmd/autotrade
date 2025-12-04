@@ -331,7 +331,8 @@ class NewsMonitor:
         # 캐시 확인
         if use_cache and stock_code in self.cache:
             cached_data, cached_time = self.cache[stock_code]
-            if (datetime.now() - cached_time).seconds < self.cache_ttl:
+            # Fix: .seconds → total_seconds()
+            if (datetime.now() - cached_time).total_seconds() < self.cache_ttl:
                 return cached_data
 
         # 뉴스 수집
