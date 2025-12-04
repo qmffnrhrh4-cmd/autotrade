@@ -32,7 +32,7 @@ CACHE_TTL_SECONDS = 2
 
 @dataclass
 class StockCandidate:
-    """종목 후보 데이터 클래스"""
+    """종목 후보 데이터 클래스 (v2 - 46+ API 통합)"""
 
     code: str
     name: str
@@ -45,20 +45,105 @@ class StockCandidate:
     fast_scan_time: Optional[datetime] = None
     fast_scan_breakdown: Dict[str, float] = field(default_factory=dict)  # 점수 상세
 
-    # Deep Scan 데이터
-    institutional_net_buy: int = 0
-    foreign_net_buy: int = 0
-    bid_ask_ratio: float = 0.0
-    institutional_trend: Optional[Dict[str, Any]] = None  # ka10045 기관매매추이 데이터
-    avg_volume: Optional[float] = None  # 평균 거래량 (20일)
-    volatility: Optional[float] = None  # 변동성 (20일 표준편차)
-    top_broker_buy_count: int = 0  # 주요 증권사 순매수 카운트
-    top_broker_net_buy: int = 0  # 주요 증권사 순매수 총액
-    execution_intensity: Optional[float] = None  # 체결강도 (ka10047)
-    program_net_buy: Optional[int] = None  # 프로그램순매수금액 (ka90013)
+    # =========================================================================
+    # Deep Scan 데이터 - 기본 (7가지 API)
+    # =========================================================================
+    institutional_net_buy: int = 0          # ka10059: 기관 순매수
+    foreign_net_buy: int = 0                # ka10059: 외국인 순매수
+    individual_net_buy: int = 0             # ka10059: 개인 순매수
+    bid_ask_ratio: float = 0.0              # ka10004: 호가비율 (매수/매도)
+    bid_total: int = 0                      # ka10004: 매수 총잔량
+    ask_total: int = 0                      # ka10004: 매도 총잔량
+    institutional_trend: Optional[Dict[str, Any]] = None  # ka10045: 기관매매추이 데이터
+    avg_volume: Optional[float] = None      # ka10006: 평균 거래량 (20일)
+    volatility: Optional[float] = None      # ka10006: 변동성 (20일 표준편차)
+    top_broker_buy_count: int = 0           # ka10078: 주요 증권사 순매수 카운트
+    top_broker_net_buy: int = 0             # ka10078: 주요 증권사 순매수 총액
+    execution_intensity: Optional[float] = None  # ka10047: 체결강도
+    program_net_buy: Optional[int] = None   # ka90013: 프로그램순매수금액
+
+    # =========================================================================
+    # Deep Scan 데이터 - 기술적 지표 (일봉 기반)
+    # =========================================================================
+    rsi: Optional[float] = None             # RSI (14일)
+    macd: Optional[Dict[str, float]] = None  # MACD {macd, ema12, ema26}
+    bollinger_bands: Optional[Dict[str, float]] = None  # {upper, middle, lower, position}
+    ma5: Optional[float] = None             # 5일 이동평균
+    ma20: Optional[float] = None            # 20일 이동평균
+    ma60: Optional[float] = None            # 60일 이동평균
+    price_position: Optional[str] = None    # 이평선 대비 위치 (above_all, between, below_all)
+
+    # =========================================================================
+    # Deep Scan 데이터 - 확장 API (46+ API)
+    # =========================================================================
+    # 외국인 심화
+    foreign_continuous_days: int = 0        # ka10035: 외국인 연속 순매수 일수
+    foreign_holding_ratio: Optional[float] = None  # 외국인 보유비율
+    foreign_limit_ratio: Optional[float] = None    # ka10036: 외국인 한도소진율
+
+    # 기관 심화
+    institution_continuous_days: int = 0    # ka10131: 기관 연속 순매수 일수
+    financial_net_buy: int = 0              # 금융투자 순매수
+    insurance_net_buy: int = 0              # 보험 순매수
+    pension_net_buy: int = 0                # 연기금 순매수
+
+    # 프로그램매매 심화
+    program_buy: int = 0                    # ka90004: 프로그램 매수금액
+    program_sell: int = 0                   # ka90004: 프로그램 매도금액
+    program_ratio: Optional[float] = None   # 프로그램 비중
+
+    # 거래량/거래대금
+    volume_ratio: Optional[float] = None    # ka10023: 거래량 급증 비율 (vs 평균)
+    trading_value: int = 0                  # 거래대금
+    volume_surge_rank: Optional[int] = None # 거래량 급증 순위
+
+    # 공매도/대차
+    short_sell_volume: int = 0              # ka10014: 공매도량
+    short_sell_ratio: Optional[float] = None  # 공매도 비율
+    lending_volume: int = 0                 # ka10068: 대차거래량
+
+    # 신용
+    credit_ratio: Optional[float] = None    # ka10033: 신용비율
+    credit_balance: int = 0                 # 신용잔고
+
+    # 시장 정보
+    market_cap: int = 0                     # 시가총액
+    per: Optional[float] = None             # PER
+    pbr: Optional[float] = None             # PBR
+    eps: Optional[float] = None             # EPS
+
+    # 업종/테마
+    sector_code: str = ''                   # 업종코드
+    sector_name: str = ''                   # 업종명
+    sector_rank: Optional[int] = None       # 업종 내 순위
+    themes: List[str] = field(default_factory=list)  # 소속 테마
+
+    # =========================================================================
+    # OpenAPI Comprehensive Data (20가지)
+    # =========================================================================
+    openapi_data: Optional[Dict[str, Any]] = None  # 전체 OpenAPI 종합 데이터
+    daily_trend: Optional[str] = None       # 일봉 추세 (up/down)
+    minute_trend: Optional[str] = None      # 분봉 추세 (strong_up/weak_up/neutral/weak_down/strong_down)
+    minute_data_count: int = 0              # 수집된 분봉 데이터 수
+
+    # =========================================================================
+    # 시장 흐름 신호 (API Aggregator)
+    # =========================================================================
+    market_signals: List[str] = field(default_factory=list)  # 감지된 시장 신호
+    foreign_flow_signal: Optional[str] = None    # 외국인 자금 흐름 신호
+    institution_flow_signal: Optional[str] = None  # 기관 자금 흐름 신호
+    program_flow_signal: Optional[str] = None    # 프로그램 자금 흐름 신호
+    combined_buy_signal: bool = False       # 외국인+기관 동시 순매수 여부
+
+    # =========================================================================
+    # 점수 및 메타
+    # =========================================================================
     deep_scan_score: float = 0.0
     deep_scan_time: Optional[datetime] = None
     deep_scan_breakdown: Dict[str, float] = field(default_factory=dict)  # 점수 상세
+    data_quality_score: float = 0.0         # 데이터 수집 품질 점수 (0-100)
+    api_success_count: int = 0              # 성공한 API 호출 수
+    api_total_count: int = 0                # 시도한 API 호출 수
 
     # AI Scan 데이터
     ai_score: float = 0.0
@@ -72,28 +157,96 @@ class StockCandidate:
     final_score: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
-        """딕셔너리로 변환"""
+        """딕셔너리로 변환 (전체 필드)"""
         return {
+            # 기본 정보
             'code': self.code,
             'name': self.name,
             'price': self.price,
             'volume': self.volume,
             'rate': self.rate,
+
+            # Fast Scan
             'fast_scan_score': self.fast_scan_score,
+
+            # Deep Scan 기본
             'institutional_net_buy': self.institutional_net_buy,
             'foreign_net_buy': self.foreign_net_buy,
+            'individual_net_buy': self.individual_net_buy,
+            'bid_ask_ratio': self.bid_ask_ratio,
+            'avg_volume': self.avg_volume,
+            'volatility': self.volatility,
+            'execution_intensity': self.execution_intensity,
+            'program_net_buy': self.program_net_buy,
+
+            # 기술적 지표
+            'rsi': self.rsi,
+            'macd': self.macd,
+            'bollinger_bands': self.bollinger_bands,
+            'ma5': self.ma5,
+            'ma20': self.ma20,
+            'price_position': self.price_position,
+
+            # 확장 API
+            'foreign_continuous_days': self.foreign_continuous_days,
+            'institution_continuous_days': self.institution_continuous_days,
+            'volume_ratio': self.volume_ratio,
+            'short_sell_ratio': self.short_sell_ratio,
+            'credit_ratio': self.credit_ratio,
+
+            # 시장 정보
+            'market_cap': self.market_cap,
+            'per': self.per,
+            'sector_name': self.sector_name,
+            'themes': self.themes,
+
+            # 시장 신호
+            'combined_buy_signal': self.combined_buy_signal,
+            'market_signals': self.market_signals,
+
+            # 점수
             'deep_scan_score': self.deep_scan_score,
+            'data_quality_score': self.data_quality_score,
+            'api_success_count': self.api_success_count,
+            'api_total_count': self.api_total_count,
+
+            # AI
             'ai_score': self.ai_score,
             'ai_signal': self.ai_signal,
             'ai_confidence': self.ai_confidence,
             'ai_reasons': self.ai_reasons,
             'ai_risks': self.ai_risks,
+
+            # 최종
             'final_score': self.final_score,
         }
 
+    def get_summary(self) -> str:
+        """간략한 요약 문자열"""
+        signals = []
+        if self.combined_buy_signal:
+            signals.append("외+기")
+        if self.rsi and self.rsi < 30:
+            signals.append("RSI과매도")
+        if self.rsi and self.rsi > 70:
+            signals.append("RSI과매수")
+        if self.volume_ratio and self.volume_ratio > 3:
+            signals.append("거래량급증")
+        if self.foreign_continuous_days >= 3:
+            signals.append(f"외인{self.foreign_continuous_days}연속")
+
+        signal_str = ", ".join(signals) if signals else "없음"
+        return (
+            f"{self.name}({self.code}): "
+            f"점수={self.deep_scan_score:.1f}, "
+            f"품질={self.data_quality_score:.0f}%, "
+            f"API={self.api_success_count}/{self.api_total_count}, "
+            f"신호=[{signal_str}]"
+        )
+
 
 class ScannerPipeline:
-    """3단계 스캐닝 파이프라인"""
+    """3단계 스캐닝 파이프라인 (v2 - 46+ API 통합)"""
 
     def __init__(
         self,
@@ -101,7 +254,9 @@ class ScannerPipeline:
         screener,
         ai_analyzer,
         scoring_system=None,
-        performance_tracker=None
+        performance_tracker=None,
+        api_aggregator=None,
+        enable_comprehensive_scan: bool = True
     ):
         """
         초기화
@@ -112,12 +267,16 @@ class ScannerPipeline:
             ai_analyzer: AI 분석기
             scoring_system: 스코어링 시스템 (선택)
             performance_tracker: 가상매매 성과 추적기 (선택)
+            api_aggregator: APIDataAggregator 인스턴스 (선택, 46개 API 연동)
+            enable_comprehensive_scan: 46+ API 통합 스캔 활성화 (기본: True)
         """
         self.market_api = market_api
         self.screener = screener
         self.ai_analyzer = ai_analyzer
         self.scoring_system = scoring_system
         self.performance_tracker = performance_tracker
+        self.api_aggregator = api_aggregator
+        self.enable_comprehensive_scan = enable_comprehensive_scan
 
         self.config = get_config()
         self.scan_config = self.config.scanning
@@ -162,7 +321,47 @@ class ScannerPipeline:
 
         self._load_learning_data()
 
-        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료")
+        # API Aggregator 자동 초기화 (제공되지 않은 경우)
+        if self.api_aggregator is None and self.enable_comprehensive_scan:
+            self._init_api_aggregator()
+
+        logger.info("🔍 3단계 스캐닝 파이프라인 초기화 완료 (v2 - 46+ API)")
+        if self.api_aggregator:
+            logger.info("   📊 API Aggregator: 활성화 (46개 API 실시간 수집)")
+
+    def _init_api_aggregator(self):
+        """API Aggregator 자동 초기화"""
+        try:
+            from engine.api_data_aggregator import APIDataAggregator
+
+            # market_api에서 client 추출
+            if hasattr(self.market_api, 'client'):
+                client = self.market_api.client
+                self.api_aggregator = APIDataAggregator(
+                    client=client,
+                    max_workers=5,
+                    enable_all_apis=True
+                )
+                # 백그라운드 수집 시작
+                self.api_aggregator.start()
+                logger.info("   ✅ API Aggregator 자동 초기화 및 시작")
+            else:
+                logger.warning("   ⚠️ market_api에 client 없음 - API Aggregator 비활성화")
+        except Exception as e:
+            logger.warning(f"   ⚠️ API Aggregator 초기화 실패: {e}")
+            self.api_aggregator = None
+
+    def set_api_aggregator(self, aggregator):
+        """API Aggregator 설정 (외부에서 주입)"""
+        self.api_aggregator = aggregator
+        if aggregator:
+            logger.info("📊 API Aggregator 연결됨")
+
+    def get_api_coverage_stats(self) -> Dict[str, Any]:
+        """API 수집 커버리지 통계 조회"""
+        if self.api_aggregator:
+            return self.api_aggregator.get_api_coverage_stats()
+        return {'total_apis': 0, 'collected_apis': 0, 'coverage_rate': 0}
 
     def should_run_fast_scan(self) -> bool:
         """Fast Scan 실행 여부 확인"""
@@ -359,18 +558,22 @@ class ScannerPipeline:
 
     def run_deep_scan(self, candidates: Optional[List[StockCandidate]] = None) -> List[StockCandidate]:
         """
-        Deep Scan (1분 주기)
-        - 기관/외국인 매매 흐름 분석
-        - 호가 강도 분석
-        - 목표: 20종목 선정
+        Deep Scan v2 - 46+ API 통합 수집 (1분 주기)
+
+        수집 데이터:
+        - 기본 7가지 API (투자자, 호가, 기관추이, 일봉, 증권사, 체결강도, 프로그램)
+        - 기술적 지표 (RSI, MACD, 볼린저밴드, 이동평균)
+        - 확장 API (외인연속, 신용비율, 거래량급증)
+        - OpenAPI 종합 데이터 (20가지) - 선택
+        - API Aggregator 시장 신호 (46개) - 선택
 
         Args:
             candidates: 분석할 종목 리스트 (None이면 Fast Scan 결과 사용)
 
         Returns:
-            선정된 종목 리스트
+            선정된 종목 리스트 (enrichment 완료)
         """
-        logger.info("🔬 Deep Scan 시작...")
+        logger.info("🔬 Comprehensive Deep Scan v2 시작 (46+ API)...")
         start_time = time.time()
 
         try:
@@ -381,227 +584,139 @@ class ScannerPipeline:
                 logger.warning("Deep Scan 대상 종목 없음")
                 return []
 
-            deep_config = self.scan_config.get('deep_scan', {})
-            scan_time = datetime.now()
+            # 통합 Deep Scanner 사용
+            from research.comprehensive_deep_scan import ComprehensiveDeepScanner
 
-            # 각 종목에 대해 심층 분석
-            for candidate in candidates:
-                try:
-                    print(f"📍 Deep Scan: {candidate.name} ({candidate.code})")
+            # OpenAPI 클라이언트 가져오기 (선택)
+            openapi_client = None
+            try:
+                from core.openapi_client import get_openapi_client
+                openapi_client = get_openapi_client(auto_connect=False)
+                if openapi_client and openapi_client.is_connected:
+                    logger.info("   📡 OpenAPI 클라이언트 연결됨")
+                else:
+                    openapi_client = None
+            except Exception as e:
+                logger.debug(f"OpenAPI 클라이언트 사용 불가: {e}")
 
-                    # 기관/외국인 매매 데이터 조회
-                    print(f"   📊 투자자 매매 조회 중...")
-                    investor_data = self.market_api.get_investor_data(candidate.code)
+            # API Aggregator 가져오기 (선택)
+            api_aggregator = None
+            try:
+                if hasattr(self, 'api_aggregator') and self.api_aggregator:
+                    api_aggregator = self.api_aggregator
+                    logger.info("   📊 API Aggregator 연결됨")
+            except Exception as e:
+                logger.debug(f"API Aggregator 사용 불가: {e}")
 
-                    if investor_data:
-                        inst_buy = investor_data.get('기관_순매수', 0)
-                        frgn_buy = investor_data.get('외국인_순매수', 0)
-                        candidate.institutional_net_buy = inst_buy
-                        candidate.foreign_net_buy = frgn_buy
-                        print(f"   ✓ 투자자: 기관={inst_buy:,}, 외국인={frgn_buy:,}")
-                    else:
-                        print(f"   ⚠️  투자자 데이터 없음")
-                        candidate.institutional_net_buy = 0
-                        candidate.foreign_net_buy = 0
+            # ComprehensiveDeepScanner 인스턴스 생성
+            scanner = ComprehensiveDeepScanner(
+                market_api=self.market_api,
+                openapi_client=openapi_client,
+                api_aggregator=api_aggregator,
+                max_workers=10
+            )
 
-                    # 호가 데이터 조회
-                    print(f"   📊 호가 조회 중...")
-                    bid_ask_data = self.market_api.get_bid_ask(candidate.code)
-
-                    if bid_ask_data:
-                        bid_total = bid_ask_data.get('매수_총잔량', 1)
-                        ask_total = bid_ask_data.get('매도_총잔량', 1)
-                        candidate.bid_ask_ratio = bid_total / ask_total if ask_total > 0 else 0
-                        print(f"   ✓ 호가: 매수={bid_total:,}, 매도={ask_total:,}, 비율={candidate.bid_ask_ratio:.2f}")
-                    else:
-                        print(f"   ⚠️  호가 데이터 없음")
-                        candidate.bid_ask_ratio = 0
-
-                    # 일봉 데이터 조회 (평균 거래량, 변동성 계산)
-                    print(f"   📊 일봉 데이터 조회 중...")
-                    try:
-                        daily_data = self.market_api.get_daily_price(candidate.code, days=20)
-                        if daily_data and len(daily_data) > 0:
-                            # 평균 거래량 (20일)
-                            volumes = [row.get('volume', 0) for row in daily_data]
-                            candidate.avg_volume = sum(volumes) / len(volumes) if volumes else None
-
-                            # 변동성 계산 (20일 수익률 표준편차)
-                            prices = [row.get('close', 0) for row in daily_data]
-                            if len(prices) > 1:
-                                returns = [(prices[i] / prices[i+1] - 1) for i in range(len(prices)-1) if prices[i+1] > 0]
-                                if returns:
-                                    import statistics
-                                    candidate.volatility = statistics.stdev(returns) if len(returns) > 1 else 0.0
-
-                            avg_vol_str = f"{candidate.avg_volume:,.0f}" if candidate.avg_volume else "0"
-                            vol_str = f"{candidate.volatility:.4f}" if candidate.volatility else "0"
-                            print(f"   ✓ 일봉: avg_volume={avg_vol_str}, volatility={vol_str}")
-                        else:
-                            print(f"   ⚠️  일봉 데이터 없음")
-                    except Exception as e:
-                        print(f"   ⚠️  일봉 데이터 조회 실패: {e}")
-                        logger.debug(f"일봉 데이터 조회 실패: {e}")
-
-                    # 증권사별 매매동향 조회 (주요 증권사 5개)
-                    print(f"   📊 증권사별 매매동향 조회 중...")
-                    try:
-                        # 주요 증권사 코드 (상위 5개)
-                        major_firms = [
-                            ("040", "KB증권"),
-                            ("039", "교보증권"),
-                            ("001", "한국투자증권"),
-                            ("003", "미래에셋증권"),
-                            ("005", "삼성증권")
-                        ]
-
-                        broker_buy_count = 0
-                        broker_net_buy_total = 0
-
-                        for firm_code, firm_name in major_firms:
-                            try:
-                                firm_data = self.market_api.get_securities_firm_trading(
-                                    firm_code=firm_code,
-                                    stock_code=candidate.code,
-                                    days=1  # 당일만 조회
-                                )
-
-                                if firm_data and len(firm_data) > 0:
-                                    # 최근 데이터 (당일)
-                                    recent = firm_data[0]
-                                    net_qty = recent.get('net_qty', 0)
-
-                                    if net_qty > 0:  # 순매수인 경우
-                                        broker_buy_count += 1
-                                        broker_net_buy_total += net_qty
-
-                                time.sleep(0.05)  # API 호출 간격
-                            except Exception as e:
-                                logger.debug(f"증권사 {firm_name} 데이터 조회 실패: {e}")
-                                continue
-
-                        candidate.top_broker_buy_count = broker_buy_count
-                        candidate.top_broker_net_buy = broker_net_buy_total
-
-                        if broker_buy_count > 0:
-                            print(f"   ✓ 증권사: {broker_buy_count}/5개 순매수, 총 {broker_net_buy_total:,}주")
-                        else:
-                            print(f"   ⚠️  증권사: 순매수 없음")
-                    except Exception as e:
-                        print(f"   ⚠️  증권사 데이터 조회 실패: {e}")
-                        logger.debug(f"증권사 데이터 조회 실패: {e}")
-
-                    # 체결강도 조회 (ka10047) - 캐시 우선
-                    print(f"   📊 체결강도 조회 중...")
-                    cache_key_exec = f"execution_{candidate.code}"
-                    cached_exec = self._get_from_cache(cache_key_exec)
-
-                    if cached_exec:
-                        candidate.execution_intensity = cached_exec.get('execution_intensity')
-                        print(f"   ✓ 체결강도: {candidate.execution_intensity:.1f} [캐시]" if candidate.execution_intensity else "   ⚠️  체결강도: 0 [캐시]")
-                    else:
-                        try:
-                            execution_data = self.market_api.get_execution_intensity(
-                                stock_code=candidate.code
-                            )
-
-                            if execution_data:
-                                candidate.execution_intensity = execution_data.get('execution_intensity')
-                                self._save_to_cache(cache_key_exec, execution_data)
-                                print(f"   ✓ 체결강도: {candidate.execution_intensity:.1f}" if candidate.execution_intensity else "   ⚠️  체결강도: 0")
-                            else:
-                                print(f"   ⚠️  체결강도 데이터 없음")
-                        except Exception as e:
-                            print(f"   ⚠️  체결강도 조회 실패 (캐시도 없음): {e}")
-                            logger.debug(f"체결강도 조회 실패: {e}")
-
-                    # 프로그램매매 조회 (ka90013) - 캐시 우선
-                    print(f"   📊 프로그램매매 조회 중...")
-                    cache_key_prog = f"program_{candidate.code}"
-                    cached_prog = self._get_from_cache(cache_key_prog)
-
-                    if cached_prog:
-                        candidate.program_net_buy = cached_prog.get('program_net_buy')
-                        print(f"   ✓ 프로그램순매수: {candidate.program_net_buy:,}원 [캐시]" if candidate.program_net_buy else "   ⚠️  프로그램순매수: 0원 [캐시]")
-                    else:
-                        try:
-                            program_data = self.market_api.get_program_trading(
-                                stock_code=candidate.code
-                            )
-
-                            if program_data:
-                                candidate.program_net_buy = program_data.get('program_net_buy')
-                                self._save_to_cache(cache_key_prog, program_data)
-                                print(f"   ✓ 프로그램순매수: {candidate.program_net_buy:,}원" if candidate.program_net_buy else "   ⚠️  프로그램순매수: 0원")
-                            else:
-                                print(f"   ⚠️  프로그램매매 데이터 없음")
-                        except Exception as e:
-                            print(f"   ⚠️  프로그램매매 조회 실패 (캐시도 없음): {e}")
-                            logger.debug(f"프로그램매매 조회 실패: {e}")
-
-                    # Deep Scan 점수 계산
-                    candidate.deep_scan_score = self._calculate_deep_score(candidate)
-                    candidate.deep_scan_time = scan_time
-
-                    time.sleep(0.1)  # API 호출 간격
-
-                except Exception as e:
-                    print(f"   ❌ 오류: {e}")
-                    logger.error(f"종목 {candidate.code} Deep Scan 실패: {e}", exc_info=True)
-                    continue
+            # 46+ API 데이터 수집 실행
+            enriched_candidates = scanner.scan_candidates(
+                candidates=list(candidates),
+                max_candidates=self.deep_max_candidates,
+                verbose=True
+            )
 
             # 점수 기준 정렬
-            candidates = sorted(
-                candidates,
+            enriched_candidates = sorted(
+                enriched_candidates,
                 key=lambda x: x.deep_scan_score,
                 reverse=True
             )
 
-            # 필터링: 최소 기관 매수 조건
-            # 단, API 실패로 데이터가 없으면 필터링 스킵 (주말/비거래시간 대응)
-            # 기관/외국인 데이터 보너스 점수 (필터링 대신 가산점)
-            # 너무 엄격한 필터링으로 모든 후보가 제거되는 것을 방지
-            has_investor_data = any(
-                c.institutional_net_buy != 0 or c.foreign_net_buy != 0
-                for c in candidates
-            )
-
-            if has_investor_data:
-                # 기관/외국인 순매수가 있는 종목에 가산점 부여 (점수 기반)
-                min_institutional_buy = deep_config.get('min_institutional_net_buy', 1_000_000)  # 1M으로 완화
-                min_foreign_buy = deep_config.get('min_foreign_net_buy', 500_000)  # 0.5M으로 완화
-
-                for c in candidates:
-                    # 기관/외국인 매수 보너스 (deep_score에 가산)
-                    if c.institutional_net_buy >= min_institutional_buy:
-                        c.deep_score = getattr(c, 'deep_score', 0) + 20
-                    if c.foreign_net_buy >= min_foreign_buy:
-                        c.deep_score = getattr(c, 'deep_score', 0) + 15
-
-                # 점수순 정렬 (필터링 대신)
-                candidates.sort(key=lambda x: getattr(x, 'deep_score', 0), reverse=True)
-                logger.info(f"📊 기관/외국인 데이터 가산점 적용: {len(candidates)}개 (필터링 없음)")
-            else:
-                logger.warning("⚠️  기관/외국인 데이터 없음 (API 실패/장외시간) - 가산점 스킵")
-
             # 최대 개수 제한
-            candidates = candidates[:self.deep_max_candidates]
+            enriched_candidates = enriched_candidates[:self.deep_max_candidates]
 
             # 결과 저장
-            self.deep_scan_results = candidates
+            self.deep_scan_results = enriched_candidates
             self.last_deep_scan = time.time()
 
             elapsed = time.time() - start_time
+
+            # 통계 로그
+            total_api_success = sum(c.api_success_count for c in enriched_candidates)
+            total_api_calls = sum(c.api_total_count for c in enriched_candidates)
+            avg_quality = sum(c.data_quality_score for c in enriched_candidates) / len(enriched_candidates) if enriched_candidates else 0
+            combined_signals = sum(1 for c in enriched_candidates if c.combined_buy_signal)
+
             logger.info(
-                f"🔬 Deep Scan 완료: {len(candidates)}종목 선정 "
+                f"🔬 Comprehensive Deep Scan 완료: {len(enriched_candidates)}종목 선정 "
                 f"(소요시간: {elapsed:.2f}초)"
             )
+            logger.info(
+                f"   📊 API 통계: {total_api_success}/{total_api_calls} 성공, "
+                f"평균 품질: {avg_quality:.0f}%"
+            )
+            if combined_signals > 0:
+                logger.info(f"   🚨 외국인+기관 동시 순매수: {combined_signals}종목")
 
-            return candidates
+            # 상위 5종목 요약 출력
+            print("\n" + "="*60)
+            print("📊 Deep Scan 상위 5종목 요약")
+            print("="*60)
+            for idx, c in enumerate(enriched_candidates[:5], 1):
+                print(f"  [{idx}] {c.get_summary()}")
+            print("="*60 + "\n")
+
+            return enriched_candidates
+
+        except ImportError as e:
+            logger.error(f"comprehensive_deep_scan 모듈 임포트 실패: {e}")
+            logger.info("기존 Deep Scan 로직으로 폴백...")
+            return self._run_legacy_deep_scan(candidates)
 
         except Exception as e:
             logger.error(f"Deep Scan 실패: {e}", exc_info=True)
             return []
+
+    def _run_legacy_deep_scan(self, candidates: Optional[List[StockCandidate]] = None) -> List[StockCandidate]:
+        """기존 Deep Scan 로직 (폴백용)"""
+        if candidates is None:
+            candidates = self.fast_scan_results
+
+        if not candidates:
+            return []
+
+        scan_time = datetime.now()
+
+        for candidate in candidates:
+            try:
+                # 기관/외국인 매매 데이터
+                investor_data = self.market_api.get_investor_data(candidate.code)
+                if investor_data:
+                    candidate.institutional_net_buy = investor_data.get('기관_순매수', 0)
+                    candidate.foreign_net_buy = investor_data.get('외국인_순매수', 0)
+
+                # 호가 데이터
+                bid_ask = self.market_api.get_bid_ask(candidate.code)
+                if bid_ask:
+                    bid_total = bid_ask.get('매수_총잔량', 1)
+                    ask_total = bid_ask.get('매도_총잔량', 1)
+                    candidate.bid_ask_ratio = bid_total / ask_total if ask_total > 0 else 0
+
+                # 점수 계산
+                candidate.deep_scan_score = self._calculate_deep_score(candidate)
+                candidate.deep_scan_time = scan_time
+
+                time.sleep(0.1)
+
+            except Exception as e:
+                logger.error(f"Legacy Deep Scan 오류 ({candidate.code}): {e}")
+                continue
+
+        candidates = sorted(candidates, key=lambda x: x.deep_scan_score, reverse=True)
+        candidates = candidates[:self.deep_max_candidates]
+
+        self.deep_scan_results = candidates
+        self.last_deep_scan = time.time()
+
+        return candidates
 
     def _calculate_deep_score(self, candidate: StockCandidate) -> float:
         """
