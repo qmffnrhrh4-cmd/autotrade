@@ -183,9 +183,10 @@ class APIDataAggregator:
         self.data_store: Dict[str, Dict] = defaultdict(dict)
         self.last_fetch_time: Dict[str, datetime] = {}
 
-        # 시장 신호
-        self.market_signals: List[MarketSignal] = []
-        self.signal_history: List[MarketSnapshot] = []
+        # 시장 신호 (메모리 누수 방지를 위해 deque 사용)
+        from collections import deque
+        self.market_signals: deque = deque(maxlen=1000)  # 최대 1000개 신호
+        self.signal_history: deque = deque(maxlen=500)   # 최대 500개 스냅샷
 
         # 상태
         self.is_running = False

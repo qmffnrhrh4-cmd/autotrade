@@ -89,7 +89,8 @@ class AIAgent:
         self.enabled = False
         self.learning_mode = True
 
-        self.decisions_history: List[AIDecision] = []
+        from collections import deque
+        self.decisions_history: deque = deque(maxlen=500)  # 메모리 누수 방지
         self.strategies: List[AIStrategy] = []
         self.performance: AIPerformance = self._init_performance()
 

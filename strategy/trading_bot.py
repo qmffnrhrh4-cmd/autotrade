@@ -265,16 +265,17 @@ class AutomatedTradingBot:
         self.status = BotStatus.IDLE
         self.start_time: Optional[datetime] = None
 
-        # Positions and trades
+        # Positions and trades (메모리 누수 방지를 위해 deque 사용)
+        from collections import deque
         self.positions: Dict[str, Position] = {}
-        self.trade_history: List[Trade] = []
+        self.trade_history: deque = deque(maxlen=1000)
 
         # Strategies
         self.strategies: List[TradingStrategy] = []
 
-        # Performance tracking
-        self.equity_curve: List[Dict[str, Any]] = []
-        self.daily_returns: List[float] = []
+        # Performance tracking (메모리 누수 방지를 위해 deque 사용)
+        self.equity_curve: deque = deque(maxlen=500)
+        self.daily_returns: deque = deque(maxlen=365)  # 1년치
 
         # Emergency stop
         self.max_drawdown_limit = 0.20  # 20% max drawdown
