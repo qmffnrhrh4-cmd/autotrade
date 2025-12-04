@@ -1049,7 +1049,8 @@ class ScannerPipeline:
         try:
             if self.market_condition_cache:
                 cache_time = self.market_condition_cache.get('timestamp')
-                if cache_time and (datetime.now() - cache_time).seconds < 60:
+                # Fix: .seconds → total_seconds()
+                if cache_time and (datetime.now() - cache_time).total_seconds() < 60:
                     return self.market_condition_cache.get('condition', 'normal')
 
             kospi_data = self.market_api.get_index_data('001')

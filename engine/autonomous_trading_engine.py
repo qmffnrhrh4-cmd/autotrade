@@ -138,6 +138,7 @@ class AutonomousTradingEngine:
         # 데이터 캐시 (초단기, 락으로 보호됨)
         self.price_cache: Dict[str, Dict] = {}  # stock_code -> {price, time}
         self.cache_ttl = 2  # 2초
+        self._data_cache: Dict[str, Dict] = {}  # API 데이터 캐시 (인스턴스별로 분리)
 
         # 성과 추적 (메모리 누수 방지를 위해 최대 1000개 제한)
         self.daily_trades: List[Dict] = []
@@ -1187,9 +1188,10 @@ class AutonomousTradingEngine:
             breakdown['change_rate'] = -10
 
         # 2. 호가 불균형 (15점) - 조건 완화
+        # Fix: Ask=매도호가, Bid=매수호가 (이전 코드가 반대로 되어있었음)
         if orderbook:
-            buy_volume = sum(int(orderbook.get(f'ask_rq{i}', orderbook.get(f'매수호가잔량{i}', 0))) for i in range(1, 6))
-            sell_volume = sum(int(orderbook.get(f'bid_rq{i}', orderbook.get(f'매도호가잔량{i}', 0))) for i in range(1, 6))
+            buy_volume = sum(int(orderbook.get(f'bid_rq{i}', orderbook.get(f'매수호가잔량{i}', 0))) for i in range(1, 6))
+            sell_volume = sum(int(orderbook.get(f'ask_rq{i}', orderbook.get(f'매도호가잔량{i}', 0))) for i in range(1, 6))
             if buy_volume + sell_volume > 0:
                 imbalance = (buy_volume - sell_volume) / (buy_volume + sell_volume)
                 if imbalance > 0.1:  # 0.3 → 0.1로 완화
@@ -1291,9 +1293,6 @@ class AutonomousTradingEngine:
         """히스토리컬 데이터 저장"""
         # TODO: 데이터베이스에 저장
         pass
-
-    # 데이터 캐시 초기화
-    _data_cache = {}
 
 
 # 편의 함수

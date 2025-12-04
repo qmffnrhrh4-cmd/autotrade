@@ -816,7 +816,8 @@ class AIAdaptiveSplitExecutor:
 
             logger.info(f"   🔍 체결 확인 시작: 주문번호={order_number}")
 
-            while (datetime.now() - start_time).seconds < max_wait_seconds:
+            # Fix: .seconds → total_seconds()
+            while (datetime.now() - start_time).total_seconds() < max_wait_seconds:
                 try:
                     # CRITICAL: 실제 API로 미체결 주문 조회
                     pending_orders = self.account_api.get_pending_orders(stock_code=stock_code)

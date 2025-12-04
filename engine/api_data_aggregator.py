@@ -508,9 +508,10 @@ class APIDataAggregator:
         """현재 시장 스냅샷 조회"""
         with self._lock:
             # 최근 신호들
+            # Fix: .seconds는 0-86399 범위만 반환. total_seconds() 사용해야 함
             recent_signals = [
                 s for s in self.market_signals
-                if (datetime.now() - s.timestamp).seconds < 300
+                if (datetime.now() - s.timestamp).total_seconds() < 300
             ]
 
             # 시장 심리 판단

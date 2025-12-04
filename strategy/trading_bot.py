@@ -645,9 +645,8 @@ class AutomatedTradingBot:
             'num_positions': len(self.positions)
         })
 
-        MAX_EQUITY_POINTS = 1000
-        if len(self.equity_curve) > MAX_EQUITY_POINTS:
-            self.equity_curve.pop(0)
+        # Fix: deque는 maxlen으로 자동 관리되므로 수동 제거 불필요
+        # 기존 pop(0)은 deque에서 작동하지 않음 (popleft() 사용해야 함)
 
         if len(self.equity_curve) > 1:
             prev_equity = self.equity_curve[-2]['equity']
