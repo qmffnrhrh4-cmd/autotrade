@@ -122,8 +122,8 @@ class MarketAnalyzer:
                 return {'trend': 'neutral', 'change': 0.0, 'volume_ratio': 1.0}
 
             change_rate = float(index_data.get('change_rate', 0))
-            volume = int(float(index_data.get('volume', 0))
-            avg_volume = int(float(index_data.get('avg_volume', volume))
+            volume = int(float(index_data.get('volume', 0)))
+            avg_volume = int(float(index_data.get('avg_volume', volume)))
 
             volume_ratio = volume / avg_volume if avg_volume > 0 else 1.0
 
@@ -278,7 +278,7 @@ class MarketAnalyzer:
         if not self.last_analysis:
             return False
 
-        elapsed = (datetime.now() - self.last_analysis.timestamp).seconds
+        elapsed = (datetime.now() - self.last_analysis.timestamp).total_seconds()
         return elapsed < self.analysis_cache_ttl
 
     def _get_default_condition(self) -> MarketCondition:

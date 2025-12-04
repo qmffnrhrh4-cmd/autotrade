@@ -38,8 +38,8 @@ class PortfolioManager:
         self.config = config or {}
         
         # 기본 설정
-        # Fix v6.1.5: 최대 포지션 수 제한 제거 (5 → 100)
-        self.max_positions = self.config.get('max_positions', 100)
+        # Fix v6.1.6: 최대 포지션 수 무제한 (100 → 999999)
+        self.max_positions = self.config.get('max_positions', 999999)
         self.max_position_size = self.config.get('max_position_size', 0.30)
         self.cash_reserve_ratio = self.config.get('cash_reserve_ratio', 0.10)
         self.rebalance_threshold = self.config.get('rebalance_threshold', 0.05)

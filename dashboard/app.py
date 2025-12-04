@@ -57,6 +57,7 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.WARNING)
 app.logger.setLevel(logging.WARNING)
+logger = logging.getLogger('autotrade_dashboard')  # Fix: logger 객체 정의
 
 # Global state
 bot_instance = None

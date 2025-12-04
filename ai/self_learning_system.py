@@ -426,9 +426,9 @@ class SelfLearningSystem:
         new_pattern['avg_reward'] = new_pattern['reward']
         pattern_list.append(new_pattern)
 
-        # 최대 100개 유지
+        # 최대 100개 유지 (Fix: pop(0) O(n) → 슬라이싱으로 변경)
         if len(pattern_list) > 100:
-            pattern_list.pop(0)
+            del pattern_list[:-100]  # 오래된 항목 일괄 삭제
 
     def _is_similar_pattern(self, pattern1: Dict, pattern2: Dict) -> bool:
         """패턴 유사도 판단"""

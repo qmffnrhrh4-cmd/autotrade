@@ -13,11 +13,11 @@ AI_MODELS = {
     'fallback': 'gemini-pro'
 }
 
-# Q5. 다중 종목 동시 매매: 포지션 수 대폭 확대
+# Q5. 다중 종목 동시 매매: 포지션 수 무제한
 # Q7. 위험 관리 자동화: 시장 상황에 따라 유기적 조절
 RISK_MODES = {
     'very_conservative': {
-        'max_open_positions': 10,      # 3 → 10
+        'max_open_positions': 999999,  # 무제한
         'risk_per_trade_ratio': 0.03,  # 포지션당 3%
         'take_profit_ratio': 0.06,
         'stop_loss_ratio': -0.02,
@@ -25,7 +25,7 @@ RISK_MODES = {
         'volatility_multiplier': 0.5   # Q4. 변동성 기반 조절
     },
     'conservative': {
-        'max_open_positions': 20,      # 5 → 20
+        'max_open_positions': 999999,  # 무제한
         'risk_per_trade_ratio': 0.05,
         'take_profit_ratio': 0.08,
         'stop_loss_ratio': -0.03,
@@ -33,7 +33,7 @@ RISK_MODES = {
         'volatility_multiplier': 0.7
     },
     'normal': {
-        'max_open_positions': 30,      # 8 → 30
+        'max_open_positions': 999999,  # 무제한
         'risk_per_trade_ratio': 0.08,
         'take_profit_ratio': 0.10,
         'stop_loss_ratio': -0.05,
@@ -41,7 +41,7 @@ RISK_MODES = {
         'volatility_multiplier': 1.0
     },
     'aggressive': {
-        'max_open_positions': 50,      # 12 → 50
+        'max_open_positions': 999999,  # 무제한
         'risk_per_trade_ratio': 0.10,
         'take_profit_ratio': 0.15,
         'stop_loss_ratio': -0.07,
@@ -125,13 +125,13 @@ PROFIT_LOSS_RATIOS = {
     }
 }
 
-# Q5. 다중 종목 동시 매매 지원
+# Q5. 다중 종목 동시 매매 지원 - 포지션 무제한
 RISK_LIMITS = {
     'max_position_size': 0.10,         # 0.30 → 0.10 (분산 투자)
     'max_daily_loss': 0.05,            # 0.03 → 0.05
     'max_total_loss': 0.15,            # 0.10 → 0.15
     'max_consecutive_losses': 5,       # 3 → 5
-    'position_limit': 50,              # 5 → 50 (다중 종목)
+    'position_limit': 999999,          # 무제한
     'emergency_stop_loss': 0.20
 }
 

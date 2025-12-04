@@ -76,8 +76,9 @@ class SelfHealingEngine:
         self._component_health: Dict[str, ComponentHealth] = {}
         self._lock = threading.RLock()
 
-        # 복구 큐
-        self._recovery_queue: List[str] = []
+        # 복구 큐 (Fix: deque 사용으로 O(1) popleft)
+        from collections import deque
+        self._recovery_queue: deque = deque()
         self._recovery_lock = threading.Lock()
 
         # 이벤트 콜백
@@ -308,7 +309,7 @@ class SelfHealingEngine:
 
                 with self._recovery_lock:
                     if self._recovery_queue:
-                        name_to_recover = self._recovery_queue.pop(0)
+                        name_to_recover = self._recovery_queue.popleft()  # Fix: O(1) 연산
 
                 if name_to_recover:
                     self._attempt_recovery(name_to_recover)
