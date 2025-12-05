@@ -435,60 +435,82 @@ class Screener:
         Returns:
             필터링된 종목 리스트
         """
+        print("📍 [screen_combined] 시작")
         logger.info(f"복합 조건 스크리닝 시작 (다중 소스)...")
         logger.info(f"  - 거래량: {min_volume:,}주 이상")
         logger.info(f"  - 가격: {min_price:,}원 ~ {max_price:,}원")
         logger.info(f"  - 등락률: {min_rate}% ~ {max_rate}%")
+        print(f"📍 [screen_combined] 필터: vol>={min_volume}, price={min_price}~{max_price}, rate={min_rate}%~{max_rate}%")
 
         # 다중 API 소스에서 데이터 수집 (장외에도 데이터 확보)
         all_candidates = {}
 
         # 1. 거래량 순위 (기본)
+        print("📍 [screen_combined] 거래량 순위 조회 시작...")
         try:
             volume_rank = self.fetcher.get_volume_rank(market, limit * 2)  # limit 2배로
+            print(f"📍 [screen_combined] 거래량 순위 응답: {len(volume_rank) if volume_rank else 0}개")
             for stock in volume_rank:
                 code = stock.get('code', '')
                 if code and code not in all_candidates:
                     all_candidates[code] = stock
             logger.info(f"  📊 거래량 순위: {len(volume_rank)}개")
         except Exception as e:
+            print(f"❌ [screen_combined] 거래량 순위 조회 실패: {e}")
             logger.warning(f"거래량 순위 조회 실패: {e}")
 
         # 2. 거래대금 순위 (추가 데이터 확보)
+        print("📍 [screen_combined] 거래대금 순위 조회 시작...")
         try:
             trading_value_rank = self.fetcher.get_trading_value_rank(market, limit)
+            print(f"📍 [screen_combined] 거래대금 순위 응답: {len(trading_value_rank) if trading_value_rank else 0}개")
             for stock in trading_value_rank:
                 code = stock.get('code', '')
                 if code and code not in all_candidates:
                     all_candidates[code] = stock
             logger.info(f"  💰 거래대금 순위: {len(trading_value_rank)}개")
         except Exception as e:
+            print(f"❌ [screen_combined] 거래대금 순위 조회 실패: {e}")
             logger.warning(f"거래대금 순위 조회 실패: {e}")
 
         # 3. 등락률 순위 (추가 데이터 확보)
+        print("📍 [screen_combined] 등락률 순위 조회 시작...")
         try:
             price_change_rank = self.fetcher.get_price_change_rank(market, 'rise', limit)
+            print(f"📍 [screen_combined] 등락률 순위 응답: {len(price_change_rank) if price_change_rank else 0}개")
             for stock in price_change_rank:
                 code = stock.get('code', '')
                 if code and code not in all_candidates:
                     all_candidates[code] = stock
             logger.info(f"  📈 등락률 순위: {len(price_change_rank)}개")
         except Exception as e:
+            print(f"❌ [screen_combined] 등락률 순위 조회 실패: {e}")
             logger.warning(f"등락률 순위 조회 실패: {e}")
 
         candidates = list(all_candidates.values())
+        print(f"📍 [screen_combined] 1단계 후보 (통합): {len(candidates)}개")
         logger.info(f"1단계 후보 (통합): {len(candidates)}개")
 
         # 2단계: 복합 필터 적용
+        print("📍 [screen_combined] 2단계 필터 적용 시작...")
         filtered = []
+        excluded_reasons = {'volume': 0, 'price_low': 0, 'price_high': 0, 'rate_low': 0, 'rate_high': 0}
         for stock in candidates:
             volume = int(float(stock.get('volume', 0)))
             price = int(float(stock.get('current_price', stock.get('price', 0))))
             change_rate = float(stock.get('change_rate', stock.get('rate', 0)))
 
-            if (volume >= min_volume and
-                min_price <= price <= max_price and
-                min_rate <= change_rate <= max_rate):
+            if volume < min_volume:
+                excluded_reasons['volume'] += 1
+            elif price < min_price:
+                excluded_reasons['price_low'] += 1
+            elif price > max_price:
+                excluded_reasons['price_high'] += 1
+            elif change_rate < min_rate:
+                excluded_reasons['rate_low'] += 1
+            elif change_rate > max_rate:
+                excluded_reasons['rate_high'] += 1
+            else:
                 stock['volume'] = volume
                 stock['current_price'] = price
                 stock['price'] = price
@@ -496,7 +518,10 @@ class Screener:
                 stock['rate'] = change_rate
                 filtered.append(stock)
 
+        print(f"📍 [screen_combined] 2단계 필터 결과: {len(filtered)}개 통과")
+        print(f"📍 [screen_combined] 제외 사유: {excluded_reasons}")
         logger.info(f"복합 조건 스크리닝 완료: {len(filtered)}개 종목")
+        print(f"📍 [screen_combined] 완료 - {len(filtered)}개 종목 반환")
         return filtered
     
     def screen_with_filters(

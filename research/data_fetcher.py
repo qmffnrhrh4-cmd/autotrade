@@ -558,14 +558,21 @@ class DataFetcher:
         Returns:
             거래량 순위 리스트
         """
+        print(f"📍 [DataFetcher.get_volume_rank] 시작 market={market}, limit={limit}")
         try:
             from api.market import MarketAPI
+            print(f"📍 [DataFetcher.get_volume_rank] MarketAPI 생성 중...")
             market_api = MarketAPI(self.client)
+            print(f"📍 [DataFetcher.get_volume_rank] market_api.get_volume_rank 호출 중...")
             rank_list = market_api.get_volume_rank(market, limit)
+            print(f"📍 [DataFetcher.get_volume_rank] 결과: {len(rank_list) if rank_list else 0}개")
             logger.info(f"거래량 순위 {len(rank_list)}개 조회 완료")
             return rank_list
         except Exception as e:
+            print(f"❌ [DataFetcher.get_volume_rank] 실패: {e}")
             logger.error(f"거래량 순위 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def get_price_change_rank(
@@ -585,16 +592,21 @@ class DataFetcher:
         Returns:
             등락률 순위 리스트
         """
+        print(f"📍 [DataFetcher.get_price_change_rank] 시작 market={market}, sort={sort}, limit={limit}")
         try:
             from api.market import MarketAPI
             market_api = MarketAPI(self.client)
             rank_list = market_api.get_price_change_rank(market, sort, limit)
+            print(f"📍 [DataFetcher.get_price_change_rank] 결과: {len(rank_list) if rank_list else 0}개")
             logger.info(f"등락률 순위 {len(rank_list)}개 조회 완료")
             return rank_list
         except Exception as e:
+            print(f"❌ [DataFetcher.get_price_change_rank] 실패: {e}")
             logger.error(f"등락률 순위 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return []
-    
+
     def get_trading_value_rank(
         self,
         market: str = 'ALL',
@@ -610,14 +622,19 @@ class DataFetcher:
         Returns:
             거래대금 순위 리스트
         """
+        print(f"📍 [DataFetcher.get_trading_value_rank] 시작 market={market}, limit={limit}")
         try:
             from api.market.ranking import RankingAPI
             ranking_api = RankingAPI(self.client)
             rank_list = ranking_api.get_trading_value_rank(market=market, limit=limit)
+            print(f"📍 [DataFetcher.get_trading_value_rank] 결과: {len(rank_list) if rank_list else 0}개")
             logger.info(f"거래대금 순위 {len(rank_list)}개 조회 완료")
             return rank_list
         except Exception as e:
+            print(f"❌ [DataFetcher.get_trading_value_rank] 실패: {e}")
             logger.error(f"거래대금 순위 조회 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     # ==================== 투자자별 매매 동향 ====================
